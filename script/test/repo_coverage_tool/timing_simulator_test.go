@@ -150,6 +150,9 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 	if len(report.Catalog) != 8 || report.Catalog[0].File != "test/powershell/unit/side_0_tests.ps1" || len(report.Catalog[0].SHA256) != 64 || report.Catalog[0].Engine != "powershell" {
 		t.Fatalf("missing identity mapping: %s", b)
 	}
+	if fmt.Sprint(report.Plans[0].Shards[0].Suites) != "[7 0]" || fmt.Sprint(report.Plans[0].Shards[3].Suites) != "[4 3]" {
+		t.Fatalf("unexpected LPT assignment: %s", b)
+	}
 	for j, n := range []int{4, 8} {
 		if len(report.Plans[j].Shards) != n {
 			t.Fatalf("wrong shard count: %s", b)
@@ -166,5 +169,44 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 		if len(seen) != 8 {
 			t.Fatalf("missing suite: %s", b)
 		}
+	}
+	original, e := os.ReadFile(timing)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, kind := range []string{"missing", "duplicate", "unknown_suite", "wrong_attempt", "wrong_hash", "negative", "overflow"} {
+		t.Run(kind, func(t *testing.T) {
+			var rows []timingReceipt
+			if e := json.Unmarshal(original, &rows); e != nil {
+				t.Fatal(e)
+			}
+			switch kind {
+			case "missing":
+				rows = rows[1:]
+			case "duplicate":
+				rows[1] = rows[0]
+			case "unknown_suite":
+				rows[0].Context.GlobalIndex = 99
+			case "wrong_attempt":
+				rows[0].Context.RunAttempt++
+			case "wrong_hash":
+				rows[0].Context.TestSHA256 = strings.Repeat("a", 64)
+			case "negative":
+				rows[0].Phases[0].Milliseconds = -1
+			case "overflow":
+				rows[0].Phases[0].Milliseconds = 9223372036854775807
+				rows[0].Phases[1].Milliseconds = 1
+			}
+			data, e := json.Marshal(rows)
+			if e != nil {
+				t.Fatal(e)
+			}
+			if e = os.WriteFile(timing, data, 0600); e != nil {
+				t.Fatal(e)
+			}
+			if b, e := exec.Command(exe, args...).CombinedOutput(); e == nil {
+				t.Fatalf("accepted %s: %s", kind, b)
+			}
+		})
 	}
 }
