@@ -570,7 +570,7 @@ Hosts／SSH 獨立入口為 `modules\ssh\apply_hosts_sync.cmd`、`sync_hosts.cmd
 
 ### 準備獨立驅動包
 
-一般使用者可在所用版本的 **Release → Assets** 下載可選的 **`windows_driver_nuc8_<version>.zip`**（version 包含 v，請使用與主程式相同的版本）。將它解壓到 **`USB 根目錄\windows_driver_packages\nuc8`**，該資料夾內應直接看得到 `install.cmd`、`core`、`modules`、`drivers`、`package.json`、`manifest.json`、`license` 與十二個 ZIP；不要多包一層 ZIP 檔名資料夾。執行 `windows.cmd` 時依機型提示選擇這個資料夾；一般電腦可略過，不需要下載。主程式仍依上節由 Source code ZIP 與官方 Autologon 準備，兩個包放在同一 USB 的相鄰資料夾。
+各版本不一定附帶驅動包；包括 NUC 使用者都可在 `windows.cmd` 的選包提示按 Enter 略過。若所用版本的 **Release → Assets** 提供適合本機的可選 **`windows_driver_nuc8_<version>.zip`**（version 包含 v），可下載與主程式相同版本的包。將它解壓到 **`USB 根目錄\windows_driver_packages\nuc8`**，該資料夾內應直接看得到 `install.cmd`、`core`、`modules`、`drivers`、`package.json`、`manifest.json`、`license` 與十二個 ZIP；不要多包一層 ZIP 檔名資料夾。若要安裝此包，執行 `windows.cmd` 時依機型提示選擇這個資料夾。主程式仍依上節由 Source code ZIP 與官方 Autologon 準備，兩個包放在同一 USB 的相鄰資料夾。
 
 維護者重新建包與核對方式見 [建立獨立驅動包](doc/maintainer_guide.md#建立獨立驅動包)。
 
@@ -586,7 +586,7 @@ Hosts／SSH 獨立入口為 `modules\ssh\apply_hosts_sync.cmd`、`sync_hosts.cmd
 
 ### 公開來源與授權注意事項
 
-公開版 `modules\ssh/custom_hosts_sync/sites.json` 使用空白 Sites，不帶公司、SSID 或實際網段；個人規則只在各機的使用者設定目錄維護。公開倉庫採乾淨新歷史，不推送曾含私人環境資訊的舊提交。
+公開版 `modules\ssh/custom_hosts_sync/sites.json` 使用空白 Sites，不帶公司、SSID 或實際網段；個人規則只在各機的使用者設定目錄維護。目前公開來源不預設帶入個人網路規則。
 
 發布前仍須掃描來源與提交歷史，確認沒有密碼、私鑰、個人網路規則或實機報告。Git 作者資訊應使用適合公開的身分。
 
