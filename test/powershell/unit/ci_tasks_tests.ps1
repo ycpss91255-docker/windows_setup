@@ -4,6 +4,8 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $root 'script/test/ci_tasks.ps1')
 function Assert([bool]$Condition,[string]$Message){Write-Host ('@@ASSERT@@'+(@{Name=$Message;Passed=$Condition}|ConvertTo-Json -Compress));if(-not $Condition){throw $Message}}
 function Reject([scriptblock]$Action,[string]$Name){$caught=$false;try{& $Action|Out-Null}catch{$caught=$true};Assert $caught $Name}
+$oldProgramFiles=$env:ProgramFiles
+try{$env:ProgramFiles=Join-Path $env:TEMP ('absent_browser_'+[guid]::NewGuid().ToString('N'));Reject {Invoke-CIReportLayout} '缺少瀏覽器不得略過排版驗證'}finally{$env:ProgramFiles=$oldProgramFiles}
 Invoke-CINative -File cmd.exe -Arguments @('/d','/c','exit 0')
 Assert $true '原生成功返回保留'
 Reject {Invoke-CINative -File cmd.exe -Arguments @('/d','/c','exit 7')} '原生非零返回拒絕'
