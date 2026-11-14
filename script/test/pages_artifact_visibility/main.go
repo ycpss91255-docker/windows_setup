@@ -18,9 +18,9 @@ import (
 )
 
 type options struct {
-	client                                                                  *http.Client
-	restURL, runtimeURL, token, runtimeToken, repo, runID, artifactID, name string
-	interval                                                                time.Duration
+	client                                                                                  *http.Client
+	restURL, runtimeURL, token, runtimeToken, repo, runID, artifactID, name, expectedDigest string
+	interval                                                                                time.Duration
 }
 
 var decimal = regexp.MustCompile(`^[1-9][0-9]*$`)
@@ -143,7 +143,7 @@ func restVisible(ctx context.Context, o options) (bool, error) {
 	}
 	a := matches[0]
 	size := a.Size
-	if strconv.FormatInt(a.ID, 10) != o.artifactID || strconv.FormatInt(a.Workflow.ID, 10) != o.runID || a.Expired == nil || *a.Expired || !digestPattern.MatchString(a.Digest) || size <= 0 || size > 1<<30 {
+	if strconv.FormatInt(a.ID, 10) != o.artifactID || strconv.FormatInt(a.Workflow.ID, 10) != o.runID || a.Expired == nil || *a.Expired || !digestPattern.MatchString(a.Digest) || a.Digest != o.expectedDigest || size <= 0 || size > 1<<30 {
 		return false, errors.New("REST artifact identity mismatch")
 	}
 	return true, nil
@@ -182,7 +182,7 @@ func runtimeVisible(ctx context.Context, o options, run, job string) (bool, erro
 	return true, nil
 }
 func observe(ctx context.Context, o options) error {
-	if o.client == nil || o.token == "" || !repositoryPattern.MatchString(o.repo) || !decimal.MatchString(o.runID) || !decimal.MatchString(o.artifactID) || o.name == "" || o.interval <= 0 {
+	if o.client == nil || o.token == "" || !repositoryPattern.MatchString(o.repo) || !decimal.MatchString(o.runID) || !decimal.MatchString(o.artifactID) || !digestPattern.MatchString(o.expectedDigest) || o.name == "" || o.interval <= 0 {
 		return errors.New("invalid visibility configuration")
 	}
 	run, job, err := runtimeScope(o.runtimeToken)
@@ -231,5 +231,5 @@ func run() error {
 	runtimeURL := u.Scheme + "://" + u.Host
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	return observe(ctx, options{client: &http.Client{Timeout: 10 * time.Second}, restURL: "https://api.github.com", runtimeURL: runtimeURL, token: os.Getenv("GH_TOKEN"), runtimeToken: os.Getenv("ACTIONS_RUNTIME_TOKEN"), repo: repo, runID: runID, artifactID: id, name: "github-pages-" + runID + "-" + attempt, interval: time.Second})
+	return observe(ctx, options{client: &http.Client{Timeout: 10 * time.Second}, restURL: "https://api.github.com", runtimeURL: runtimeURL, token: os.Getenv("GH_TOKEN"), runtimeToken: os.Getenv("ACTIONS_RUNTIME_TOKEN"), repo: repo, runID: runID, artifactID: id, expectedDigest: "sha256:" + os.Getenv("PAGES_ARTIFACT_DIGEST"), name: "github-pages-" + runID + "-" + attempt, interval: time.Second})
 }

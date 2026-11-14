@@ -33,6 +33,7 @@ func TestVisibilityPreflight(t *testing.T) {
 		{"rest wrong id", "wrong", "valid", false, 0},
 		{"rest string id", "string_id", "valid", false, 0},
 		{"rest wrong digest", "digest", "valid", false, 0},
+		{"rest different valid digest", "different_digest", "valid", false, 0},
 		{"rest unauthorized", "unauthorized", "valid", false, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -57,6 +58,9 @@ func TestVisibilityPreflight(t *testing.T) {
 				}
 				if tc.restMode == "digest" {
 					d = "bad"
+				}
+				if tc.restMode == "different_digest" {
+					d = "sha256:" + strings.Repeat("b", 64)
 				}
 				row := fmt.Sprintf(`{"id":%d,"name":%q,"digest":%q,"size_in_bytes":100,"expired":%t,"workflow_run":{"id":123}}`, id, name, d, expired)
 				if tc.restMode == "string_id" {
@@ -100,7 +104,7 @@ func TestVisibilityPreflight(t *testing.T) {
 			defer runtime.Close()
 			ctx, cancel := context.WithTimeout(context.Background(), 80*time.Millisecond)
 			defer cancel()
-			o := options{client: rest.Client(), restURL: rest.URL, runtimeURL: runtime.URL, token: "rest-fixture", runtimeToken: fixtureToken(), repo: "example/repo", runID: "123", artifactID: "456", name: name, interval: time.Millisecond}
+			o := options{client: rest.Client(), restURL: rest.URL, runtimeURL: runtime.URL, token: "rest-fixture", runtimeToken: fixtureToken(), repo: "example/repo", runID: "123", artifactID: "456", expectedDigest: digest, name: name, interval: time.Millisecond}
 			err := observe(ctx, o)
 			calls := int(atomic.LoadInt32(&runtimeCalls))
 			if (err == nil) != tc.wantOK {
@@ -187,7 +191,7 @@ func TestRESTPaginationAndDuplicateAcrossPages(t *testing.T) {
 				fmt.Fprintf(w, `{"artifacts":[%s]}`, row)
 			}))
 			defer server.Close()
-			ok, err := restVisible(context.Background(), options{client: server.Client(), restURL: server.URL, token: "fixture", repo: "example/repo", runID: "123", artifactID: "456", name: name})
+			ok, err := restVisible(context.Background(), options{client: server.Client(), restURL: server.URL, token: "fixture", repo: "example/repo", runID: "123", artifactID: "456", expectedDigest: digest, name: name})
 			if calls != 2 || ok == duplicate || (err != nil) != duplicate {
 				t.Fatalf("calls=%d ok=%t err=%v", calls, ok, err)
 			}

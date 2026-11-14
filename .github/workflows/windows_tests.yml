@@ -602,18 +602,24 @@ jobs:
         with:
           name: quality-portal-${{ github.run_id }}-${{ github.run_attempt }}
           path: portal
-      - name: 準備 Pages artifact
+      - name: 封裝 Pages artifact
+        shell: bash
+        run: |
+          tar --dereference --hard-dereference --directory portal -cvf "$RUNNER_TEMP/artifact.tar" --exclude=.git --exclude=.github .
+      - name: 上傳 Pages artifact
         id: pages_artifact
-        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          path: portal
+          path: ${{ runner.temp }}/artifact.tar
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: 7
+          if-no-files-found: error
       - name: 核對同次 Pages 工件可見性
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.0.1
         env:
           GH_TOKEN: ${{ github.token }}
-          PAGES_ARTIFACT_ID: ${{ steps.pages_artifact.outputs.artifact_id }}
+          PAGES_ARTIFACT_ID: ${{ steps.pages_artifact.outputs.artifact-id }}
+          PAGES_ARTIFACT_DIGEST: ${{ steps.pages_artifact.outputs.artifact-digest }}
           GOTOOLCHAIN: local
           GOPROXY: 'off'
           GOSUMDB: 'off'
