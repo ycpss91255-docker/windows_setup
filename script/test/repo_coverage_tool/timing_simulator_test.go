@@ -31,6 +31,13 @@ func simulatorFixture(t *testing.T) (string, string, string, string, string) {
 		}
 		return strings.TrimSpace(string(b))
 	}
+	maintenance := filepath.Join(root, "script", "maintenance.ps1")
+	if err := os.MkdirAll(filepath.Dir(maintenance), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(maintenance, []byte("Write-Output maintenance\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	runGit("add", ".")
 	runGit("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "more suites")
 	sha := runGit("rev-parse", "HEAD")
@@ -104,7 +111,7 @@ func simulatorFixture(t *testing.T) (string, string, string, string, string) {
 		if e = canonicalizeShardCLIProof(root, dir); e != nil {
 			t.Fatal(e)
 		}
-		args := append(shardCLIArgs(root, manifest, sha), "--shard-count", "4", "--shard-index", fmt.Sprint(i), "--evidence-dir", dir)
+		args := append(shardCLIArgs(root, manifest, sha), "--runtime", "--shard-count", "4", "--shard-index", fmt.Sprint(i), "--evidence-dir", dir)
 		if e = powershellShardPack(args, os.Stdout); e != nil {
 			t.Fatal(e)
 		}
@@ -142,10 +149,19 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 		t.Fatalf("build: %v %s", e, b)
 	}
 	args := append([]string{"powershell-timing-simulate"}, shardCLIArgs(root, manifest, sha)...)
-	args = append(args, "--shard-count", "4", "--input-dir", parts, "--timing-file", timing)
+	args = append(args, "--runtime", "--shard-count", "4", "--input-dir", parts, "--timing-file", timing)
 	b, e := exec.Command(exe, args...).CombinedOutput()
 	if e != nil {
 		t.Fatalf("valid timing simulation failed: %v %s", e, b)
+	}
+	withoutRuntime := make([]string, 0, len(args))
+	for _, arg := range args {
+		if arg != "--runtime" {
+			withoutRuntime = append(withoutRuntime, arg)
+		}
+	}
+	if out, err := exec.Command(exe, withoutRuntime...).CombinedOutput(); err == nil {
+		t.Fatalf("accepted runtime manifest as full-source measurement: %s", out)
 	}
 	var report struct {
 		Tool struct {

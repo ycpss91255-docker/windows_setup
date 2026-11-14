@@ -68,6 +68,7 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 	var timing string
 	f := flag.NewFlagSet("powershell-timing-simulate", flag.ContinueOnError)
 	f.SetOutput(out)
+	f.BoolVar(&o.runtime, "runtime", false, "restrict measurement inventory to runtime coverage")
 	f.StringVar(&o.source, "source-root", "", "measurement checkout")
 	f.StringVar(&o.manifest, "manifest", "", "measurement manifest")
 	f.StringVar(&o.commit, "expected-sha", "", "measurement source commit")
@@ -84,6 +85,9 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 	}
 	// Reuse the production argument validation without creating its nominal output.
 	check := []string{"--source-root", o.source, "--manifest", o.manifest, "--expected-sha", o.commit, "--expected-run-url", o.runURL, "--run-attempt", fmt.Sprint(o.attempt), "--shard-count", fmt.Sprint(o.count), "--input-dir", o.input, "--output-dir", "unused"}
+	if o.runtime {
+		check = append(check, "--runtime")
+	}
 	if _, err := parseShardOptions("powershell-shard-merge", check, io.Discard); err != nil {
 		return err
 	}
