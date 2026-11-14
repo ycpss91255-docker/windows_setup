@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -8,9 +9,47 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	rc "windows_setup/script/test/repo_coverage"
 )
+
+type simulatorToolIdentity struct {
+	Name          string `json:"name"`
+	SchemaVersion int    `json:"schema_version"`
+	BinarySHA256  string `json:"binary_sha256"`
+	Revision      string `json:"revision"`
+	Modified      string `json:"modified"`
+}
+
+func simulatorIdentity() (simulatorToolIdentity, error) {
+	id := simulatorToolIdentity{Name: "repo_coverage_tool", SchemaVersion: 1, Revision: "unavailable", Modified: "unavailable"}
+	path, err := os.Executable()
+	if err != nil {
+		return id, err
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return id, err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err = io.Copy(h, f); err != nil {
+		return id, err
+	}
+	id.BinarySHA256 = fmt.Sprintf("%x", h.Sum(nil))
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			switch setting.Key {
+			case "vcs.revision":
+				id.Revision = setting.Value
+			case "vcs.modified":
+				id.Modified = setting.Value
+			}
+		}
+	}
+	return id, nil
+}
 
 type simulationShard struct {
 	Suites       []int `json:"suites"`
@@ -167,12 +206,17 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 		}
 		plans = append(plans, p)
 	}
+	tool, err := simulatorIdentity()
+	if err != nil {
+		return err
+	}
 	return json.NewEncoder(out).Encode(struct {
+		Tool              simulatorToolIdentity    `json:"tool"`
 		MeasurementCommit string                   `json:"measurement_commit"`
 		RunURL            string                   `json:"run_url"`
 		RunAttempt        int                      `json:"run_attempt"`
 		CriticalPath      string                   `json:"critical_path"`
 		Catalog           []rc.PowerShellShardTest `json:"catalog"`
 		Plans             []simulationPlan         `json:"plans"`
-	}{o.commit, o.runURL, o.attempt, "unavailable", catalog.Tests, plans})
+	}{tool, o.commit, o.runURL, o.attempt, "unavailable", catalog.Tests, plans})
 }
