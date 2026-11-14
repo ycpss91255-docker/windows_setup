@@ -96,31 +96,66 @@ foreach($case in @(@{Selected=0;Updates=@();Expected=$true},@{Selected=1;Updates
  $r=[pscustomobject]@{Selected=$case.Selected;Updates=$case.Updates}
  Assert ((Test-WindowsUpdateResult $r) -eq $case.Expected) ('update completeness selected='+$case.Selected+' count='+@($case.Updates).Count+' expected='+$case.Expected)
 }
-# Mock task construction, not scheduling: prove run IDs and ownership reach desktop workers.
-function New-ScheduledTaskAction {param($Execute,$Argument);[pscustomobject]@{Arguments=$Argument}}
-function New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel);[pscustomobject]@{UserId=$UserId}}
-function Invoke-SetupGuiRole {param($PackageRoot,$Role,[switch]$Worker,[switch]$VerifyOnly,$VerificationRunId);$script:capturedGuiCall=[pscustomobject]@{Root=$PackageRoot;Role=$Role;Worker=[bool]$Worker;VerifyOnly=[bool]$VerifyOnly;RunId=$VerificationRunId}}
-foreach($role in @('Display','Theme')){
- $relative='modules/'+$role.ToLowerInvariant()+'/apply_'+$role.ToLowerInvariant()+'_settings.ps1'
+# The GUI library is definitions-only; replace the controller before calling the narrow dispatch boundary.
+. (Join-Path $root 'core/gui_stage_library.ps1')
+function Invoke-SetupGuiRole {param($PackageRoot,$Role,[switch]$Worker,[switch]$VerifyOnly,$VerificationRunId,$IconMode);$script:guiCallCount++;$script:capturedGuiCall=[pscustomobject]@{Root=$PackageRoot;Role=$Role;Worker=[bool]$Worker;VerifyOnly=[bool]$VerifyOnly;RunId=$VerificationRunId;IconMode=$IconMode;Parameters=@($PSBoundParameters.Keys)};if($VerificationRunId -eq 'invalid-id'){throw 'fixture controller rejected run ID'};[pscustomobject]@{Fixture='result'}}
+function Start-Process {throw 'fixture forbids process launch'}
+function Get-CimInstance {throw 'fixture forbids CIM'}
+function Invoke-CimMethod {throw 'fixture forbids CIM'}
+function Get-ItemProperty {throw 'fixture forbids registry reads'}
+function Get-ScheduledTask {throw 'fixture forbids scheduling'}
+function New-ScheduledTaskAction {throw 'fixture forbids scheduling'}
+function New-ScheduledTaskPrincipal {throw 'fixture forbids scheduling'}
+function Unregister-ScheduledTask {throw 'fixture forbids scheduling'}
+function reg.exe {throw 'fixture forbids registry process'}
+function schtasks.exe {throw 'fixture forbids scheduling process'}
+function Register-ScheduledTask {throw 'fixture forbids scheduling'}
+function Start-ScheduledTask {throw 'fixture forbids scheduling'}
+function Set-ItemProperty {throw 'fixture forbids registry writes'}
+function New-ItemProperty {throw 'fixture forbids registry writes'}
+function Remove-ItemProperty {throw 'fixture forbids registry writes'}
+function Add-Type {throw 'fixture forbids native loading'}
+$tokens=$null;$parseErrors=$null
+$libraryAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'core/gui_stage_library.ps1'),[ref]$tokens,[ref]$parseErrors)
+$dispatchAst=$libraryAst.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-SetupGuiPublicDispatch'},$true)
+$dispatchCommands=@($dispatchAst.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst]},$true))
+$dispatchMethods=@($dispatchAst.FindAll({param($n) $n -is [Management.Automation.Language.InvokeMemberExpressionAst]},$true))
+Assert ($parseErrors.Count -eq 0 -and $dispatchCommands.Count -eq 2 -and @($dispatchCommands|Where-Object {$_.GetCommandName() -ne 'Invoke-SetupGuiRole'}).Count -eq 0 -and $dispatchMethods.Count -eq 0) 'dispatch boundary contains only fixed controller calls and no member invocation'
+foreach($role in @('Display','Theme','Icons')){
+ $relative=if($role -eq 'Icons'){'modules/desktop/desktop_icon_layout.ps1'}else{'modules/'+$role.ToLowerInvariant()+'/apply_'+$role.ToLowerInvariant()+'_settings.ps1'}
  $tokens=$null;$parseErrors=$null;$entryAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root $relative),[ref]$tokens,[ref]$parseErrors)
- $call=$entryAst.Find({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-SetupGuiRole'},$true)
- $VerificationRunId=[guid]::NewGuid().ToString();$VerifyOnly=$true;$Worker=$true
- $moduleLiteral="'"+(Split-Path (Join-Path $root $relative) -Parent).Replace("'","''")+"'"
- & ([scriptblock]::Create($call.Extent.Text.Replace('$PSScriptRoot',$moduleLiteral)))|Out-Null
- Assert ($script:capturedGuiCall.RunId -ceq $VerificationRunId) ('private GUI role receives exact verification run ID: '+$relative)
- Assert ($script:capturedGuiCall.VerifyOnly -and $script:capturedGuiCall.Worker) ('private GUI role preserves Worker and VerifyOnly modes: '+$relative)
- $identityParameters=@($call.CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -in @('UserSID','Computer','SessionId','ScriptPath')})
- Assert ($script:capturedGuiCall.Root -ieq $root -and $script:capturedGuiCall.Role -ceq $role -and $identityParameters.Count -eq 0) ('private GUI role preserves portable package root and delegates current identity to fixed protected controller: '+$relative)
+ $calls=@($entryAst.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-SetupGuiPublicDispatch'},$true))
+ Assert ($parseErrors.Count -eq 0 -and $calls.Count -eq 1) ('public GUI entry wires one named dispatch: '+$relative)
+ $parameters=@($calls[0].CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst]}|ForEach-Object ParameterName)
+ $expected=@('PackageRoot','Role','Worker','VerifyOnly','VerificationRunId');if($role -eq 'Icons'){$expected+=@('IconMode')}
+ Assert ((@($parameters|Sort-Object) -join '|') -ceq (@($expected|Sort-Object) -join '|')) ('public GUI entry retains finite dispatch parameters: '+$relative)
+ Assert ($calls[0].Extent.Text -match ('(?i)-Role\s+'+$role+'\b') -and $calls[0].Extent.Text -match '(?i)\$PSScriptRoot' -and $calls[0].Extent.Text -match '(?i)\$VerificationRunId') ('public GUI entry retains role root and verification ID: '+$relative)
+ Assert ($calls[0].Extent.Text -match '(?i)-Worker:\s*\$Worker' -and $calls[0].Extent.Text -match '(?i)-VerifyOnly:') ('public GUI entry forwards worker and verification mode: '+$relative)
+ if($role -eq 'Icons'){Assert ($calls[0].Extent.Text -match '(?i)-IconMode\s+\$Mode' -and $calls[0].Extent.Text -match '(?i)\$Mode\s+-eq\s+''Verify''') 'Icons entry derives verify and forwards mode'}
+ else{Assert ($calls[0].Extent.Text -match '(?i)-VerifyOnly:\s*\$VerifyOnly') ('public GUI entry forwards its VerifyOnly switch: '+$relative)}
+ foreach($mode in @(@{Worker=$true;Verify=$true},@{Worker=$true;Verify=$false},@{Worker=$false;Verify=$true},@{Worker=$false;Verify=$false})){
+  $id=[guid]::NewGuid().ToString();$script:capturedGuiCall=$null;$script:guiCallCount=0
+  $args=@{PackageRoot=$root;Role=$role;Worker=$mode.Worker;VerifyOnly=$mode.Verify;VerificationRunId=$id}
+  if($role -eq 'Icons'){$args.IconMode=if($mode.Verify){'Verify'}else{'Load'}}
+  $forwarded=Invoke-SetupGuiPublicDispatch @args
+  Assert ($script:guiCallCount -eq 1 -and $forwarded.Fixture -ceq 'result') ('controller result is returned unchanged: '+$relative)
+  Assert ($script:capturedGuiCall.Root -ieq $root -and $script:capturedGuiCall.Role -ceq $role -and $script:capturedGuiCall.RunId -ceq $id) ('private GUI role receives portable root and exact ID: '+$relative+' worker='+$mode.Worker+' verify='+$mode.Verify)
+  Assert ($script:capturedGuiCall.VerifyOnly -eq $mode.Verify -and $script:capturedGuiCall.Worker -eq $mode.Worker) ('private GUI role preserves Worker and VerifyOnly modes: '+$relative+' worker='+$mode.Worker+' verify='+$mode.Verify)
+  if($role -eq 'Icons'){Assert ($script:capturedGuiCall.IconMode -ceq $args.IconMode) ('Icons preserves finite mode: '+$args.IconMode)}
+  else{Assert ($script:capturedGuiCall.Parameters -notcontains 'IconMode') ('non-Icons does not receive IconMode: '+$relative)}
+  Assert (@($script:capturedGuiCall.Parameters|Where-Object {$_ -in @('UserSID','Computer','SessionId','ScriptPath')}).Count -eq 0) ('controller retains ownership of identity: '+$relative)
+ }
 }
-$relative='modules/desktop/desktop_icon_layout.ps1';$tokens=$null;$errors=$null
-$layoutAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root $relative),[ref]$tokens,[ref]$errors)
-$call=$layoutAst.Find({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-SetupGuiRole'},$true)
-function Invoke-SetupGuiRole {param($PackageRoot,$Role,[switch]$Worker,[switch]$VerifyOnly,$VerificationRunId,$IconMode);$script:capturedGuiCall=[pscustomobject]@{Root=$PackageRoot;Role=$Role;Worker=[bool]$Worker;VerifyOnly=[bool]$VerifyOnly;RunId=$VerificationRunId;IconMode=$IconMode}}
-$VerificationRunId=[guid]::NewGuid().ToString();$Mode='Verify';$Worker=$true
-$moduleLiteral="'"+(Split-Path (Join-Path $root $relative) -Parent).Replace("'","''")+"'"
-& ([scriptblock]::Create($call.Extent.Text.Replace('$PSScriptRoot',$moduleLiteral)))|Out-Null
-Assert ($script:capturedGuiCall.RunId -ceq $VerificationRunId -and $script:capturedGuiCall.VerifyOnly -and $script:capturedGuiCall.IconMode -ceq 'Verify') 'Icons public entry carries exact fresh ID and finite verification mode'
-Assert ($script:capturedGuiCall.Worker -and $script:capturedGuiCall.Root -ieq $root -and $script:capturedGuiCall.Role -ceq 'Icons') 'Icons Worker delegates current invoking SID to same private scoped controller'
+$script:capturedGuiCall=$null
+Invoke-SetupGuiPublicDispatch -PackageRoot $root -Role Icons -IconMode Save|Out-Null
+Assert ($script:capturedGuiCall.IconMode -ceq 'Save' -and -not $script:capturedGuiCall.VerifyOnly) 'Icons Save mode reaches the controller unchanged'
+$script:capturedGuiCall=$null;$rejected=$false
+try{Invoke-SetupGuiPublicDispatch -PackageRoot $root -Role Display -VerificationRunId 'invalid-id'}catch{$rejected=$_.Exception.Message -eq 'fixture controller rejected run ID'}
+Assert ($rejected -and $script:capturedGuiCall.RunId -ceq 'invalid-id') 'controller rejects invalid run ID and its failure propagates'
+$script:capturedGuiCall=$null;$rejected=$false
+try{Invoke-SetupGuiPublicDispatch -PackageRoot $root -Role 'Other' -VerificationRunId ([guid]::NewGuid().ToString())}catch{$rejected=$true}
+Assert ($rejected -and $null -eq $script:capturedGuiCall) 'unapproved role cannot reach the controller'
+foreach($name in @('Start-Process','Register-ScheduledTask','Start-ScheduledTask','Set-ItemProperty','New-ItemProperty','Remove-ItemProperty','Add-Type','Get-CimInstance','Invoke-CimMethod','Get-ItemProperty','Get-ScheduledTask','New-ScheduledTaskAction','New-ScheduledTaskPrincipal','Unregister-ScheduledTask','reg.exe','schtasks.exe')){Remove-Item -LiteralPath ('Function:\'+$name)}
 # Execute the actual Verify-Only finalization and AfterRestart acceptance tail.
 $verifyTokens=$null;$verifyErrors=$null
 $verifyAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'core/verification_library.ps1'),[ref]$verifyTokens,[ref]$verifyErrors)
