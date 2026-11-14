@@ -5,6 +5,16 @@ function Invoke-CINative {
  try{$ErrorActionPreference='Continue';$global:LASTEXITCODE=0;& $File @Arguments;$code=$LASTEXITCODE}finally{$ErrorActionPreference=$previous}
  if($code -ne 0){$failure=[Exception]::new(('CI command failed: '+$File+' / '+$code));$failure.Data['ExitCode']=$code;throw $failure}
 }
+function Invoke-CIReportLayout {
+ $browser=Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'
+ if(-not(Test-Path -LiteralPath $browser -PathType Leaf)){throw '預裝 Chrome 不存在，無法驗證報表排版。'}
+ $previous=$env:WINDOWS_SETUP_LAYOUT_BROWSER
+ try{
+  $env:WINDOWS_SETUP_LAYOUT_BROWSER=$browser
+  Write-Host ('報表排版瀏覽器：'+$browser+'；版本：'+(Get-Item -LiteralPath $browser).VersionInfo.FileVersion)
+  Invoke-CINative -File go.exe -Arguments @('test','-mod=vendor','-count=1','-tags=browserlayout','./script/test/report_bundle_tool','-run','^TestMobileOverviewBrowserLayout$')
+ }finally{$env:WINDOWS_SETUP_LAYOUT_BROWSER=$previous}
+}
 function Export-CIPowerShellRawEvidence {
  param([Parameter(Mandatory=$true)][string]$SourceRoot,[Parameter(Mandatory=$true)][string]$RunnerTemp)
  $tool=Join-Path $RunnerTemp 'repo-coverage/repo_coverage_tool.exe'
