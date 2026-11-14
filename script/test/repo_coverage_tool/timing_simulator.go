@@ -52,13 +52,15 @@ func simulatorIdentity() (simulatorToolIdentity, error) {
 }
 
 type simulationShard struct {
-	Suites       []int `json:"suites"`
-	Milliseconds int64 `json:"milliseconds"`
+	Suites            []int `json:"suites"`
+	Milliseconds      int64 `json:"work_milliseconds"`
+	BatchMilliseconds int64 `json:"batch_milliseconds"`
 }
 type simulationPlan struct {
-	Shards              []simulationShard `json:"shards"`
-	MaximumMilliseconds int64             `json:"maximum_milliseconds"`
-	TotalMilliseconds   int64             `json:"total_milliseconds"`
+	Shards                   []simulationShard `json:"shards"`
+	MaximumMilliseconds      int64             `json:"maximum_work_milliseconds"`
+	TotalMilliseconds        int64             `json:"total_work_milliseconds"`
+	MaximumBatchMilliseconds int64             `json:"maximum_batch_milliseconds"`
 }
 
 func powershellTimingSimulate(args []string, out io.Writer) error {
@@ -147,6 +149,7 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 		duration int64
 	}
 	tasks := make([]task, 0, len(receipts))
+	durations := make([]int64, len(catalog.Tests))
 	var total int64
 	for _, r := range receipts {
 		var d int64
@@ -160,6 +163,7 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 			return fmt.Errorf("total overflow")
 		}
 		total += d
+		durations[r.Context.GlobalIndex] = d
 		tasks = append(tasks, task{r.Context.GlobalIndex, d})
 	}
 	sort.Slice(tasks, func(i, j int) bool {
@@ -168,6 +172,34 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 		}
 		return tasks[i].index < tasks[j].index
 	})
+	finish := func(p *simulationPlan) {
+		for i := range p.Shards {
+			s := &p.Shards[i]
+			for j := 0; j < len(s.Suites); j += 2 {
+				batch := durations[s.Suites[j]]
+				if j+1 < len(s.Suites) && durations[s.Suites[j+1]] > batch {
+					batch = durations[s.Suites[j+1]]
+				}
+				s.BatchMilliseconds += batch
+			}
+			if s.BatchMilliseconds > p.MaximumBatchMilliseconds {
+				p.MaximumBatchMilliseconds = s.BatchMilliseconds
+			}
+		}
+	}
+	baseline := simulationPlan{Shards: make([]simulationShard, 4), TotalMilliseconds: total}
+	for i := range baseline.Shards {
+		baseline.Shards[i].Suites = []int{}
+	}
+	for i, duration := range durations {
+		s := &baseline.Shards[i%4]
+		s.Suites = append(s.Suites, i)
+		s.Milliseconds += duration
+		if s.Milliseconds > baseline.MaximumMilliseconds {
+			baseline.MaximumMilliseconds = s.Milliseconds
+		}
+	}
+	finish(&baseline)
 	plans := []simulationPlan{}
 	for _, count := range []int{4, 8} {
 		p := simulationPlan{Shards: make([]simulationShard, count), TotalMilliseconds: total}
@@ -187,6 +219,7 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 				p.MaximumMilliseconds = p.Shards[index].Milliseconds
 			}
 		}
+		finish(&p)
 		plans = append(plans, p)
 	}
 	tool, err := simulatorIdentity()
@@ -199,7 +232,9 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 		RunURL            string                   `json:"run_url"`
 		RunAttempt        int                      `json:"run_attempt"`
 		CriticalPath      string                   `json:"critical_path"`
+		Model             string                   `json:"model"`
 		Catalog           []rc.PowerShellShardTest `json:"catalog"`
+		Baseline          simulationPlan           `json:"baseline"`
 		Plans             []simulationPlan         `json:"plans"`
-	}{tool, o.commit, o.runURL, o.attempt, "unavailable", catalog.Tests, plans})
+	}{tool, o.commit, o.runURL, o.attempt, "unavailable", "phase-only; sequential batches of up to two with a barrier; excludes process and job overhead and queue", catalog.Tests, baseline, plans})
 }
