@@ -132,7 +132,12 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		exe += ".exe"
 	}
-	build := exec.Command("go", "build", "-mod=vendor", "-o", exe, ".")
+	repo, err := filepath.Abs("../../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	build := exec.Command("go", "build", "-mod=vendor", "-cover", "-coverpkg=./script/test/...", "-o", exe, "./script/test/repo_coverage_tool")
+	build.Dir = repo
 	if b, e := build.CombinedOutput(); e != nil {
 		t.Fatalf("build: %v %s", e, b)
 	}
