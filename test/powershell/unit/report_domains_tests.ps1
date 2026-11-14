@@ -17,4 +17,9 @@ if($html.IndexOf('硬體與驅動包') -gt $html.IndexOf('網路與 SSH') -or $h
 $expected=@('硬體與驅動包','網路與 SSH','帳號與權限','版本與來源準備','Windows 設定與清理','測試與交付工具','其他檢查');$prior=-1
 foreach($domain in $expected){$position=$html.IndexOf($domain);if($position -le $prior){throw ('領域顯示順序不符 '+$domain)};$prior=$position}
 if($html -notmatch '原生\s*2\s*組' -or $html -notmatch '容器\s*1\s*組（失敗\s*1、未執行\s*0）'){throw '環境計數必須分開'}
+$long='C:\fixture\AppData\'+('long_unbroken_segment_'*30)+'<&end>'
+foreach($envName in @('native','container')){$reports[$envName].Checks[0].Assertions=@([pscustomobject]@{Name=$long;Passed=$true});$reports[$envName].Checks[0].Executed=$true}
+$html=New-PairedOverviewHtml -Native $reports.native -Container $reports.container -Title '測試'
+$encoded=[Net.WebUtility]::HtmlEncode($long)
+if(([regex]::Matches($html,[regex]::Escape($encoded))).Count -ne 2){throw '兩個環境的長斷言必須完整保留'}
 Write-Host '@@ASSERT@@{"Name":"領域分類、完整性、順序及獨立環境分母","Passed":true}'
