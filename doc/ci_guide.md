@@ -47,6 +47,8 @@ CI 使用與 base 相同的 GitHub Actions 原生徽章；runtime 覆蓋率使�
 
 在 GitHub Actions 的 Summary 可查看測試與聚合後的 PowerShell/C# runtime 覆蓋率；各 PowerShell 分片另列量測階段耗時。範圍為 `core/`、`modules/` 中的 PowerShell，以及 `modules/*/native/*.cs` 的 C#；以可執行行加總，不取語言百分比平均。CMD 啟動器的功能與契約測試、Go 維護工具測試仍須通過，但兩者不計入覆蓋率，Go 不設覆蓋率門檻。新增範圍外 runtime 可執行種類時必須明確更新範圍，缺來源或量測時拒絕發布。歷史報告保留當時口徑，不轉標為新指標。
 
+此計時的 instrumentation 來源為同次 runtime PowerShell（`core/` 與 `modules/`，排除第三方）；suite 清單仍涵蓋全部安全 unit 與 integration 測試。維護者可在該次 Actions 附件下載 `powershell-timing-complete-<run_id>-<attempt>`，查閱已與全部分片實際 worker 身分及完整 suite 清單核對的階段毫秒數。`worker_setup` 從 worker 腳本開始計時，不包含程序建立前等待；`pester_instrumentation_and_test` 包含 Pester instrumentation 與測試，兩者未分開量測；`serialization` 包含測試後驗證與 worker 證據序列化。計時不是覆蓋率或測試通過證據，不應用於替代同次測試；排隊時間與分片、聚合 job 的執行時間仍須以 Actions 時間資料另行區分。單次數值與模擬均不保證效能改善。
+
 每次測試從實際斷言事件及程序退出碼產生 JSON、Markdown、自含 HTML、JUnit XML 與徽章。程序崩潰、缺少斷言事件或任何失敗均不能標成通過。新增 `test/powershell/unit` 或 `integration` 測試會自動列入執行清單。公開報表只包含靜態檢查、單元與隔離整合結果。
 
 PR 的去識別測試附件保留七天；main 通過全部必要門檻後更新 Pages，失敗時公開徽章仍保留上次成功部署的證據。新版 Release 的報表 ZIP 長期保存 `repo_coverage.json`、`coverage_inventory.json`、`coverage.xml` 與兩種環境的測試摘要，核對來源、計量、雜湊及計數。歷史版本依原始證據整理頁面並連回不可變原始附件；缺紀錄就如實說明，不以目前測試回填。
