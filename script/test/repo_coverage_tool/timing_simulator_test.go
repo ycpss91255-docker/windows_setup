@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -133,6 +134,12 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 		t.Fatalf("valid timing simulation failed: %v %s", e, b)
 	}
 	var report struct {
+		Tool struct {
+			Name          string `json:"name"`
+			SchemaVersion int    `json:"schema_version"`
+			BinarySHA256  string `json:"binary_sha256"`
+			Revision      string `json:"revision"`
+		} `json:"tool"`
 		CriticalPath string                                  `json:"critical_path"`
 		Catalog      []struct{ File, SHA256, Engine string } `json:"catalog"`
 		Plans        []struct {
@@ -146,6 +153,13 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 	}
 	if report.CriticalPath != "unavailable" || len(report.Plans) != 2 {
 		t.Fatalf("invalid report: %s", b)
+	}
+	binary, e := os.ReadFile(exe)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if report.Tool.Name != "repo_coverage_tool" || report.Tool.SchemaVersion != 1 || report.Tool.BinarySHA256 != fmt.Sprintf("%x", sha256.Sum256(binary)) || report.Tool.Revision == sha || report.Tool.Revision == "" {
+		t.Fatalf("tool identity missing or confused with measurement: %s", b)
 	}
 	if len(report.Catalog) != 8 || report.Catalog[0].File != "test/powershell/unit/side_0_tests.ps1" || len(report.Catalog[0].SHA256) != 64 || report.Catalog[0].Engine != "powershell" {
 		t.Fatalf("missing identity mapping: %s", b)
