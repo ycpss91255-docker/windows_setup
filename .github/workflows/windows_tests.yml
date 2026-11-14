@@ -183,6 +183,10 @@ jobs:
         run: |
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('test','-mod=vendor','-count=1','./...')
+      - name: 驗證手機與桌面報表明細排版
+        run: |
+          . .\script\test\ci_tasks.ps1
+          Invoke-CIReportLayout
       - name: 封裝尚未完成 runtime 覆蓋率的原生證據
         run: |
           . .\script\test\ci_tasks.ps1
