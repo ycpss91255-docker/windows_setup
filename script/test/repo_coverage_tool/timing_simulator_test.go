@@ -119,6 +119,15 @@ func simulatorFixture(t *testing.T) (string, string, string, string, string) {
 
 func TestTimingSimulatorActualCLI(t *testing.T) {
 	root, manifest, sha, parts, timing := simulatorFixture(t)
+	cover := os.Getenv("WINDOWS_SETUP_CLI_COVERAGE_DIR")
+	if cover == "" {
+		cover = t.TempDir()
+	}
+	before, e := filepath.Glob(filepath.Join(cover, "covcounters.*"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	t.Setenv("GOCOVERDIR", cover)
 	exe := filepath.Join(t.TempDir(), "tool")
 	if runtime.GOOS == "windows" {
 		exe += ".exe"
@@ -232,5 +241,9 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 				t.Fatalf("accepted %s: %s", kind, b)
 			}
 		})
+	}
+	after, e := filepath.Glob(filepath.Join(cover, "covcounters.*"))
+	if e != nil || len(after) <= len(before) {
+		t.Fatal("CLI commands emitted no Go runtime coverage counters")
 	}
 }
