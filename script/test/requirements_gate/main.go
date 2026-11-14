@@ -40,7 +40,8 @@ func run() error {
 	if (*testsOnly && (*runtimeScope || *historicalGo)) || (*historicalGo && *runtimeScope) {
 		return fmt.Errorf("驗收模式不可混用")
 	}
-	if _, e := a.ValidateSource(*root); e != nil {
+	doc, e := a.ValidateSource(*root)
+	if e != nil {
 		return e
 	}
 	read := func(n string) ([]byte, error) { return os.ReadFile(filepath.Join(*dir, n)) }
@@ -57,6 +58,9 @@ func run() error {
 			return err
 		}
 		return a.ValidateGoCoverageReport(read, files, *sha, *run, false)
+	}
+	if err := a.ValidateOverviewBadge(doc, "https://ycpss91255.github.io/windows_setup/"); err != nil {
+		return err
 	}
 	if err := requireRuntimeCoverage(report); err != nil {
 		return err
