@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"html"
 	"os"
 	"path/filepath"
 	"strings"
@@ -58,5 +59,21 @@ func TestReportDomainsSharedFixture(t *testing.T) {
 	}
 	if !strings.Contains(text, "原生 2 組") || !strings.Contains(text, "容器 1 組（失敗 1、未執行 0）") {
 		t.Error("environment counts missing or combined")
+	}
+}
+
+func TestOverviewKeepsLongAssertionInBothEnvironments(t *testing.T) {
+	name := `C:\fixture\AppData\` + strings.Repeat("long_unbroken_segment_", 30) + `<&end>`
+	report := map[string]any{"Success": true, "Totals": map[string]any{}, "Checks": []any{map[string]any{"Name": "Unit.driver", "Layer": "Unit", "Status": "Passed", "Executed": true, "Assertions": []any{map[string]any{"Name": name, "Passed": true}}}}}
+	raw, err := json.Marshal(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, _ := overviewRootDocuments("v1.2.3", map[string][]byte{"summary.json": raw}, map[string][]byte{"summary.json": raw})
+	if got := strings.Count(string(page), html.EscapeString(name)); got != 2 {
+		t.Fatalf("long assertion must remain intact for both environments, got %d", got)
+	}
+	if strings.Count(string(page), "<details>") != 1 {
+		t.Fatal("domain grouping changed")
 	}
 }
