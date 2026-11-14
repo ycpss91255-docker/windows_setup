@@ -168,10 +168,11 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 		plans = append(plans, p)
 	}
 	return json.NewEncoder(out).Encode(struct {
-		MeasurementCommit string           `json:"measurement_commit"`
-		RunURL            string           `json:"run_url"`
-		RunAttempt        int              `json:"run_attempt"`
-		CriticalPath      string           `json:"critical_path"`
-		Plans             []simulationPlan `json:"plans"`
-	}{o.commit, o.runURL, o.attempt, "unavailable", plans})
+		MeasurementCommit string                   `json:"measurement_commit"`
+		RunURL            string                   `json:"run_url"`
+		RunAttempt        int                      `json:"run_attempt"`
+		CriticalPath      string                   `json:"critical_path"`
+		Catalog           []rc.PowerShellShardTest `json:"catalog"`
+		Plans             []simulationPlan         `json:"plans"`
+	}{o.commit, o.runURL, o.attempt, "unavailable", catalog.Tests, plans})
 }
