@@ -142,9 +142,16 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 		} `json:"tool"`
 		CriticalPath string                                  `json:"critical_path"`
 		Catalog      []struct{ File, SHA256, Engine string } `json:"catalog"`
-		Plans        []struct {
+		Baseline     struct {
 			Shards []struct {
-				Suites []int `json:"suites"`
+				Suites            []int `json:"suites"`
+				BatchMilliseconds int64 `json:"batch_milliseconds"`
+			} `json:"shards"`
+		} `json:"baseline"`
+		Plans []struct {
+			Shards []struct {
+				Suites            []int `json:"suites"`
+				BatchMilliseconds int64 `json:"batch_milliseconds"`
 			} `json:"shards"`
 		} `json:"plans"`
 	}
@@ -166,6 +173,9 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 	}
 	if fmt.Sprint(report.Plans[0].Shards[0].Suites) != "[7 0]" || fmt.Sprint(report.Plans[0].Shards[3].Suites) != "[4 3]" {
 		t.Fatalf("unexpected LPT assignment: %s", b)
+	}
+	if len(report.Baseline.Shards) != 4 || fmt.Sprint(report.Baseline.Shards[0].Suites) != "[0 4]" || report.Baseline.Shards[0].BatchMilliseconds != 5 || report.Plans[0].Shards[0].BatchMilliseconds != 8 {
+		t.Fatalf("missing current modulo and pair-barrier model: %s", b)
 	}
 	for j, n := range []int{4, 8} {
 		if len(report.Plans[j].Shards) != n {
