@@ -133,7 +133,8 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 		t.Fatalf("valid timing simulation failed: %v %s", e, b)
 	}
 	var report struct {
-		CriticalPath string `json:"critical_path"`
+		CriticalPath string                                  `json:"critical_path"`
+		Catalog      []struct{ File, SHA256, Engine string } `json:"catalog"`
 		Plans        []struct {
 			Shards []struct {
 				Suites []int `json:"suites"`
@@ -145,6 +146,9 @@ func TestTimingSimulatorActualCLI(t *testing.T) {
 	}
 	if report.CriticalPath != "unavailable" || len(report.Plans) != 2 {
 		t.Fatalf("invalid report: %s", b)
+	}
+	if len(report.Catalog) != 8 || report.Catalog[0].File != "test/powershell/unit/side_0_tests.ps1" || len(report.Catalog[0].SHA256) != 64 || report.Catalog[0].Engine != "powershell" {
+		t.Fatalf("missing identity mapping: %s", b)
 	}
 	for j, n := range []int{4, 8} {
 		if len(report.Plans[j].Shards) != n {
