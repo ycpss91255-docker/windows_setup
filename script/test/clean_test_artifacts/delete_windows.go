@@ -279,9 +279,11 @@ func safeProcess(root, name, expectedID, expectedToken string, now time.Time, fi
 		if err != nil {
 			return err
 		}
-		if json.Unmarshal(receiptData, &m) != nil || m.Kind != "windows_setup_disposable_v1" || m.Name != name || m.ID != id || (expectedToken != "" && m.CreateToken != expectedToken) {
+		var finishedMetadata metadata
+		if json.Unmarshal(receiptData, &finishedMetadata) != nil || finishedMetadata.Kind != "windows_setup_disposable_v1" || finishedMetadata.Name != name || finishedMetadata.ID != id || (expectedToken != "" && finishedMetadata.CreateToken != expectedToken) {
 			return errors.New("invalid finished manifest")
 		}
+		m = finishedMetadata
 	}
 	markerRemoved := false
 	defer func() {

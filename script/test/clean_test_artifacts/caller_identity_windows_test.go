@@ -348,6 +348,77 @@ func TestCallerIdentityPreviewReadOnlyAndManifest(t *testing.T) {
 	}
 }
 
+func TestCallerIdentityRejectsMissingOrNullFinishedToken(t *testing.T) {
+	for _, variant := range []string{"missing", "null"} {
+		for _, operation := range []string{"preview", "delete"} {
+			t.Run(variant+"/"+operation, func(t *testing.T) {
+				root := filepath.Join(t.TempDir(), "root")
+				now := time.Date(2026, 1, 3, 0, 0, 0, 0, time.UTC)
+				var out bytes.Buffer
+				if err := run([]string{"init", root}, &out, now); err != nil {
+					t.Fatal(err)
+				}
+				if err := run([]string{"create", root, "item", "--print-identity"}, &out, now); err != nil {
+					t.Fatal(err)
+				}
+				identity := strings.TrimSpace(out.String())
+				data := filepath.Join(root, "item", "canary")
+				if err := os.WriteFile(data, []byte("owned fixture"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := run([]string{"finish", root, "item", "2026-01-02T00:00:00Z", "--expected-identity", identity}, &out, now); err != nil {
+					t.Fatal(err)
+				}
+				finished := filepath.Join(root, "item", finishMarker)
+				raw, err := os.ReadFile(finished)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var fields map[string]json.RawMessage
+				if err := json.Unmarshal(raw, &fields); err != nil {
+					t.Fatal(err)
+				}
+				if variant == "missing" {
+					delete(fields, "create_token")
+				} else {
+					fields["create_token"] = json.RawMessage("null")
+				}
+				raw, err = json.Marshal(fields)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(finished, raw, 0600); err != nil {
+					t.Fatal(err)
+				}
+				args := []string{"clean", root, "item", "--expected-identity", identity}
+				if operation == "delete" {
+					args = append(args, "--delete")
+				}
+				out.Reset()
+				if err := run(args, &out, now); err == nil {
+					t.Errorf("accepted %s finished token for %s", variant, operation)
+				}
+				if strings.Contains(out.String(), "已核對身分") {
+					t.Error("reported verified identity after rejection")
+				}
+				if got, err := os.ReadFile(data); err != nil || string(got) != "owned fixture" {
+					t.Errorf("canary changed: %q %v", got, err)
+				}
+				if got, err := os.ReadFile(finished); err != nil || !bytes.Equal(got, raw) {
+					t.Errorf("finished marker changed: %v", err)
+				}
+				if _, err := os.Stat(filepath.Join(root, "item", itemMarker)); err != nil {
+					t.Errorf("item marker lost: %v", err)
+				}
+				receipts, err := filepath.Glob(filepath.Join(root, ".windows_setup_cleanup_recovery_*"))
+				if err != nil || len(receipts) != 0 {
+					t.Errorf("unexpected receipt: %v %v", receipts, err)
+				}
+			})
+		}
+	}
+}
+
 func TestCallerIdentityTokenCheckedAfterLock(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "root")
 	now := time.Now()
