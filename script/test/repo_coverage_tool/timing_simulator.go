@@ -118,28 +118,11 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 	}
 	contexts := []rc.PowerShellWorkerContext{}
 	for i, dir := range dirs {
-		b, e := readShardFile(dir, "shard.json")
+		_, shardContexts, e := verifiedShardContexts(inputs[i], dir)
 		if e != nil {
 			return e
 		}
-		var m rc.PowerShellShardManifest
-		if e = decodeShardManifest(b, &m); e != nil {
-			return e
-		}
-		for _, w := range m.Workers {
-			worker, e := readShardFile(dir, w.Evidence)
-			if e != nil {
-				return e
-			}
-			if e = assertStableTimingInput(inputs[i].Manifest, b, worker, w.SHA256); e != nil {
-				return e
-			}
-			var native struct{ Context *rc.PowerShellWorkerContext }
-			if e = json.Unmarshal(worker, &native); e != nil || native.Context == nil {
-				return fmt.Errorf("missing worker context")
-			}
-			contexts = append(contexts, *native.Context)
-		}
+		contexts = append(contexts, shardContexts...)
 	}
 	if _, _, _, err = trustedShardCatalog(o); err != nil {
 		return err
