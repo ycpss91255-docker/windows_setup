@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	rc "windows_setup/script/test/repo_coverage"
 )
 
 func TestSampleRunsBothFreshTestSetsAndStopsOnFailure(t *testing.T) {
@@ -145,5 +147,45 @@ func main(){f,e:=os.OpenFile(os.Getenv("FAKE_LOG"),os.O_CREATE|os.O_APPEND|os.O_
 		if (e == nil) == fail {
 			t.Fatalf("unexpected sample output: %v", e)
 		}
+	}
+}
+
+func TestSampleRuntimeCoverageVerifyUsesActualRuntimeEvidence(t *testing.T) {
+	root := t.TempDir()
+	core := filepath.Join(root, "core")
+	if e := os.Mkdir(core, 0700); e != nil {
+		t.Fatal(e)
+	}
+	if e := os.WriteFile(filepath.Join(core, "sample.ps1"), []byte("Write-Output 'fixture'\n"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	inv, e := rc.ScanRuntimeInventory(root)
+	if e != nil || len(inv.Sources) != 1 {
+		t.Fatalf("inventory: %v", e)
+	}
+	inv.Sources[0].ExpectedLines = []int{1, 2, 3, 4, 5}
+	sha := strings.Repeat("a", 40)
+	runURL := "https://github.com/example/repo/actions/runs/1"
+	evidence, e := rc.CreateRuntimeEvidence(inv, []rc.Report{{SchemaVersion: rc.SchemaVersion, Metric: rc.Metric, Files: map[string]map[int]bool{inv.Sources[0].Path: {1: true, 2: true, 3: true, 4: true, 5: false}}}}, rc.Identity{Commit: sha, RunUrl: runURL, MeasuredAt: "2026-01-01T00:00:00Z", SourceState: "Clean"})
+	if e != nil {
+		t.Fatal(e)
+	}
+	report := t.TempDir()
+	for name, b := range map[string][]byte{"repo_coverage.json": evidence.Summary, "coverage_inventory.json": evidence.Inventory, "coverage.xml": evidence.XML} {
+		if e = os.WriteFile(filepath.Join(report, name), b, 0600); e != nil {
+			t.Fatal(e)
+		}
+	}
+	plan := samplePlan("native", report, "fixture", root, sha, runURL)
+	args := plan[3].Args
+	repo, e := filepath.Abs("../../..")
+	if e != nil {
+		t.Fatal(e)
+	}
+	cmd := exec.Command(filepath.Join(runtime.GOROOT(), "bin", "go"), args...)
+	cmd.Dir = repo
+	b, e := cmd.CombinedOutput()
+	if e != nil {
+		t.Fatalf("actual runtime evidence rejected: %v %s", e, b)
 	}
 }
