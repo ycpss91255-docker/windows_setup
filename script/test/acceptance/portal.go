@@ -8,6 +8,30 @@ import (
 	"time"
 )
 
+// ValidateOverviewBadge requires the current README badge to open the exact site root.
+// Historical portal validation remains separate and accepts its original format.
+func ValidateOverviewBadge(readme, base string) error {
+	base = strings.TrimRight(base, "/") + "/"
+	images := regexp.MustCompile(`!\[[^\]]*\]\(([^)]+)\)`).FindAllStringSubmatch(readme, -1)
+	count := 0
+	for _, image := range images {
+		if strings.Split(image[1], "?")[0] == base+"main/coverage.svg" {
+			count++
+		}
+	}
+	links := regexp.MustCompile(`\[!\[[^\]]*\]\(([^)]+)\)\]\(([^)]+)\)`).FindAllStringSubmatch(readme, -1)
+	matched := 0
+	for _, link := range links {
+		if link[1] == base+"main/coverage.svg" && link[2] == base {
+			matched++
+		}
+	}
+	if count != 1 || matched != 1 {
+		return fmt.Errorf("R05 coverage 徽章必須連至同站總覽首頁")
+	}
+	return nil
+}
+
 func ValidatePortal(read Reader, readme, sha, run, base string) (Report, error) {
 	r, e := ValidateReport(func(n string) ([]byte, error) { return read("main/" + n) }, sha, run, true)
 	if e != nil {
