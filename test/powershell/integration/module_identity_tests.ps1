@@ -13,10 +13,14 @@ Assert (Test-Path -LiteralPath (Join-Path $boundaryFixture 'captured.txt')) ('ru
 $capturePath=Join-Path $boundaryFixture 'captured.txt'
 $originalCapture=[IO.File]::ReadAllText($capturePath)
 $equivalent=Join-Path $boundaryFixture './run_module.ps1'
-[IO.File]::WriteAllText($capturePath,$originalCapture.Replace($boundaryEntry,$equivalent))
+$different=Join-Path $boundaryFixture 'other.ps1'
+$controlSuffix=" -Module 'Apply-HostsSync' -ExpectedUserSID 'fixture-sid' -VerifyOnly -Mode 'SSH'"
+$equivalentControl="& '"+$equivalent.Replace("'","''")+"'"+$controlSuffix
+$differentControl="& '"+$different.Replace("'","''")+"'"+$controlSuffix
+[IO.File]::WriteAllText($capturePath,$equivalentControl)
 $equivalentAccepted=$true;try{Read-RunModuleCapturedCommand $fixture|Out-Null}catch{$equivalentAccepted=$false}
 Assert $equivalentAccepted 'equivalent fixture target path is accepted'
-[IO.File]::WriteAllText($capturePath,$originalCapture.Replace($boundaryEntry,(Join-Path $boundaryFixture 'other.ps1')))
+[IO.File]::WriteAllText($capturePath,$differentControl)
 $differentRejected=$false;try{Read-RunModuleCapturedCommand $fixture|Out-Null}catch{$differentRejected=$true}
 Assert $differentRejected 'different fixture target path is rejected'
 [IO.File]::WriteAllText($capturePath,$originalCapture)
