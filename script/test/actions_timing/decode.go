@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -15,6 +16,42 @@ type Expected struct {
 	RunID                int64
 	Attempt              int
 	HeadSHA, CheckoutSHA string
+}
+
+// rejectUnpairedSurrogates preserves string content before encoding/json can
+// replace isolated UTF-16 surrogates. JSON syntax remains the decoder's job.
+func rejectUnpairedSurrogates(data []byte) error {
+	inString := false
+	for i := 0; i < len(data); i++ {
+		switch {
+		case data[i] == '"':
+			inString = !inString
+		case inString && data[i] == '\\':
+			i++
+			if i >= len(data) || data[i] != 'u' || i+4 >= len(data) {
+				continue
+			}
+			unit, err := strconv.ParseUint(string(data[i+1:i+5]), 16, 16)
+			if err != nil {
+				continue
+			}
+			i += 4
+			if unit >= 0xdc00 && unit <= 0xdfff {
+				return fmt.Errorf("unpaired JSON surrogate")
+			}
+			if unit >= 0xd800 && unit <= 0xdbff {
+				if i+6 >= len(data) || data[i+1] != '\\' || data[i+2] != 'u' {
+					return fmt.Errorf("unpaired JSON surrogate")
+				}
+				low, err := strconv.ParseUint(string(data[i+3:i+7]), 16, 16)
+				if err != nil || low < 0xdc00 || low > 0xdfff {
+					return fmt.Errorf("unpaired JSON surrogate")
+				}
+				i += 6
+			}
+		}
+	}
+	return nil
 }
 
 // foldField uses the complete Unicode simple-fold cycle, matching the
@@ -82,6 +119,9 @@ func Decode(data []byte, expected Expected) (Output, error) {
 	}
 	if !utf8.Valid(data) {
 		return Output{}, fmt.Errorf("observation input is not valid UTF-8")
+	}
+	if err := rejectUnpairedSurrogates(data); err != nil {
+		return Output{}, err
 	}
 	d := json.NewDecoder(bytes.NewReader(data))
 	var value func(int) error
