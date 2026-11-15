@@ -127,7 +127,7 @@ function Read-DesktopCommand([string]$Text) {
  if($errors.Count -or $statements.Count -ne 1 -or $statements[0] -isnot [Management.Automation.Language.PipelineAst] -or $statements[0].PipelineElements.Count -ne 1){throw 'unexpected desktop command syntax'}
  $cmd=$statements[0].PipelineElements[0]
  if($cmd -isnot [Management.Automation.Language.CommandAst] -or $cmd.InvocationOperator -ne 'Ampersand' -or $cmd.Redirections.Count){throw 'unexpected desktop command'}
- $parts=@($cmd.CommandElements);if($parts[0] -isnot [Management.Automation.Language.StringConstantExpressionAst] -or $parts[0].Value -cne $desktopEntry){throw 'unexpected desktop target'}
+ $parts=@($cmd.CommandElements);if($parts[0] -isnot [Management.Automation.Language.StringConstantExpressionAst] -or -not (Test-BoundaryTarget $parts[0].Value $desktopEntry)){throw 'unexpected desktop target'}
  $values=@{};for($i=1;$i -lt $parts.Count;$i++){
   if($parts[$i] -isnot [Management.Automation.Language.CommandParameterAst] -or $null -ne $parts[$i].Argument){throw 'unexpected desktop argument'}
   $key=$parts[$i].ParameterName;if($key -notin @('ExpectedUserSID','Mode','Worker','VerificationRunId') -or $values.ContainsKey($key)){throw 'unexpected desktop parameter'}
@@ -144,6 +144,13 @@ function Invoke-DesktopFixture([string]$Mode,[string]$Sid,[string]$Culture,[bool
  try{& powershell.exe @args *> (Join-Path $desktopFixture 'case.log');$code=$LASTEXITCODE}finally{$ErrorActionPreference=$prior}
  return $code
 }
+$equivalentDesktop=Join-Path $desktopDir './desktop '' 中文.ps1'
+$otherDesktop=Join-Path $desktopDir 'other.ps1'
+$equivalentCommand="& '"+$equivalentDesktop.Replace("'","''")+"' -Mode 'Save'"
+$otherCommand="& '"+$otherDesktop.Replace("'","''")+"' -Mode 'Save'"
+Assert ((Read-DesktopCommand $equivalentCommand).Mode -ceq 'Save') 'desktop parser accepts equivalent fixture target'
+$otherRejected=$false;try{[void](Read-DesktopCommand $otherCommand)}catch{$otherRejected=$_.Exception.Message -ceq 'unexpected desktop target'}
+Assert $otherRejected 'desktop parser rejects different fixture target'
 $runId='11111111-2222-3333-4444-555555555555'
 $case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json;$command=Read-DesktopCommand $case.Command
 Assert ($case.System -and $command.ExpectedUserSID -ceq 'desktop-fixture-sid' -and $command.Mode -ceq 'Save' -and -not $command.ContainsKey('Worker')) 'Save elevation retains fixed System launcher, SID and mode'
@@ -164,7 +171,7 @@ foreach($mode in @('Load','Verify')){
 foreach($mode in @('Save','Load','Verify')){
  $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' 'zh-TW' $true $true $runId
  $case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json
- Assert ($code -eq 0 -and $case.PackageRoot -ceq $desktopPackage -and $case.Role -ceq 'Icons' -and $case.Worker -and $case.IconMode -ceq $mode -and $case.VerificationRunId -ceq $runId -and $case.VerifyOnly -eq ($mode -eq 'Verify')) ('admin dispatch reaches only fixed fake Icons controller: '+$mode)
+ Assert ($code -eq 0 -and (Test-BoundaryTarget $case.PackageRoot $desktopPackage) -and $case.Role -ceq 'Icons' -and $case.Worker -and $case.IconMode -ceq $mode -and $case.VerificationRunId -ceq $runId -and $case.VerifyOnly -eq ($mode -eq 'Verify')) ('admin dispatch reaches only fixed fake Icons controller: '+$mode)
 }
 $code=Invoke-DesktopFixture 'Save' 'desktop-fixture-sid' 'zh-TW' $true $false 'bad'
 Assert ($code -ne 0 -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE)) 'invalid run ID rejects before launcher or GUI'
