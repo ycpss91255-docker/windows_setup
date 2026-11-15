@@ -24,8 +24,14 @@ foreach($path in @($source,$fixture)){
  Assert-RunModuleSafePath $path
 }
 $testAst=Parse 'test/powershell/integration/start_pins_entry_tests.ps1'
-$guardLoop=$testAst.Find({param($node) $node -is [Management.Automation.Language.ForEachStatementAst] -and $node.Variable.VariablePath.UserPath -ceq 'path' -and $node.Condition.Extent.Text -ceq '@($source,$fixture)'},$true)
-$guardCalls=@($guardLoop.Body.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Assert-RunModuleSafePath' -and $node.CommandElements.Count -eq 2 -and $node.CommandElements[1] -is [Management.Automation.Language.VariableExpressionAst] -and $node.CommandElements[1].VariablePath.UserPath -ceq 'path'},$true))
+$guardLoop=$testAst.Find({param($node)
+ if($node -isnot [Management.Automation.Language.ForEachStatementAst] -or $node.Variable.VariablePath.UserPath -ne 'path'){return $false}
+ $arrays=@($node.Condition.FindAll({param($child) $child -is [Management.Automation.Language.ArrayLiteralAst]},$true))
+ if($arrays.Count -ne 1 -or $arrays[0].Elements.Count -ne 2){return $false}
+ $elements=$arrays[0].Elements
+ return ($elements[0] -is [Management.Automation.Language.VariableExpressionAst] -and $elements[0].VariablePath.UserPath -eq 'source' -and $elements[1] -is [Management.Automation.Language.VariableExpressionAst] -and $elements[1].VariablePath.UserPath -eq 'fixture')
+},$true)
+$guardCalls=@($guardLoop.Body.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Assert-RunModuleSafePath' -and $node.CommandElements.Count -eq 2 -and $node.CommandElements[1] -is [Management.Automation.Language.VariableExpressionAst] -and $node.CommandElements[1].VariablePath.UserPath -eq 'path'},$true))
 Assert ($guardCalls.Count -eq 1) 'source file and fixture both use shared ancestor guard'
 $core=Join-Path $fixture 'core';[void][IO.Directory]::CreateDirectory($core)
 $entry=Join-Path $core 'start_windows.ps1';Copy-Item -LiteralPath $source -Destination $entry
