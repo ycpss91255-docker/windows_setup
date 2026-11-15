@@ -196,7 +196,7 @@ func TestDeploymentCases(t *testing.T) {
 		return response, nil
 	})
 	doc := filepath.Join(t.TempDir(), "readme.md")
-	validDoc := "![coverage](" + server.URL + "/main/coverage.svg)\n![CI](https://github.com/example/windows_setup/actions/workflows/windows_tests.yml/badge.svg)\n"
+	validDoc := "[![coverage](" + server.URL + "/main/coverage.svg)](" + server.URL + "/)\n![CI](https://github.com/example/windows_setup/actions/workflows/windows_tests.yml/badge.svg)\n"
 	writeDoc := func(s string) {
 		t.Helper()
 		if err := os.WriteFile(doc, []byte(s), 0600); err != nil {
@@ -231,6 +231,13 @@ func TestDeploymentCases(t *testing.T) {
 		}()
 		if err := invoke(args()...); err == nil || !strings.Contains(err.Error(), "current deployment requires runtime") {
 			t.Fatalf("legacy current accepted or wrong failure: %v", err)
+		}
+	})
+	t.Run("branch_rejects_badge_link_to_native_leaf", func(t *testing.T) {
+		writeDoc(strings.Replace(validDoc, server.URL+"/)", server.URL+"/main/index.html)", 1))
+		defer writeDoc(validDoc)
+		if err := invoke(args()...); err == nil {
+			t.Fatal("coverage badge pointing to native leaf accepted")
 		}
 	})
 	t.Run("branch_verifies_deployed_portal", func(t *testing.T) {

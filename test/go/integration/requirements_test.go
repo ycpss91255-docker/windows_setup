@@ -350,6 +350,17 @@ func TestRequirementsParity(t *testing.T) {
 	})
 }
 
+func TestReadmeCoverageBadgeOpensOverview(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "readme.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "[![Coverage](https://ycpss91255.github.io/windows_setup/main/coverage.svg)](https://ycpss91255.github.io/windows_setup/)"
+	if !strings.Contains(string(raw), want) {
+		t.Fatal("README coverage badge does not open overview root")
+	}
+}
+
 func TestActualReadmeCoverageBadgeLinks(t *testing.T) {
 	raw, e := os.ReadFile(filepath.Join("..", "..", "..", "readme.md"))
 	if e != nil {

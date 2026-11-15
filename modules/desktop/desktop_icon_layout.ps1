@@ -13,4 +13,4 @@ if(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrat
 }
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot '../../core/gui_stage_library.ps1')
-Invoke-SetupGuiRole -PackageRoot ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))) -Role Icons -Worker:$Worker -VerifyOnly:($Mode -eq 'Verify') -IconMode $Mode -VerificationRunId $VerificationRunId
+Invoke-SetupGuiPublicDispatch -PackageRoot ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))) -Role Icons -Worker:$Worker -VerifyOnly:($Mode -eq 'Verify') -IconMode $Mode -VerificationRunId $VerificationRunId

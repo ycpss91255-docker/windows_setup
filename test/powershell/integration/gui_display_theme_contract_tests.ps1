@@ -2,12 +2,20 @@
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 function Assert([bool]$Condition,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Condition}|ConvertTo-Json -Compress));if(-not $Condition){throw $Name}}
+$tokens=$null;$errors=$null
+$library=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'core/gui_stage_library.ps1'),[ref]$tokens,[ref]$errors)
+$dispatch=$library.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-SetupGuiPublicDispatch'},$true)
+$forward=@($dispatch.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-SetupGuiRole'},$true))
+Assert ($errors.Count -eq 0 -and $forward.Count -eq 2) 'named dispatch reaches only the fixed private controller for its two branches'
+foreach($call in $forward){
+ Assert ($call.Extent.Text.Contains('-PackageRoot $PackageRoot') -and $call.Extent.Text.Contains('-Role $Role') -and $call.Extent.Text.Contains('-Worker:$Worker') -and $call.Extent.Text.Contains('-VerifyOnly:$VerifyOnly') -and $call.Extent.Text.Contains('-VerificationRunId $VerificationRunId')) 'named dispatch retains root role switches and run ID when calling fixed controller'
+}
 $mapping=Get-Content -LiteralPath (Join-Path $root 'core/paths.json') -Raw|ConvertFrom-Json
 foreach($role in @('Display','Theme')){
  $lower=$role.ToLowerInvariant();$path=Join-Path $root ('modules/'+$lower+'/apply_'+$lower+'_settings.ps1')
  $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
  Assert ($errors.Count -eq 0 -and $ast.ScriptRequirements.IsElevationRequired -and (($ast.ParamBlock.Parameters.Name.VariablePath.UserPath|Sort-Object) -join ',') -ceq 'VerificationRunId,VerifyOnly,Worker') ($role+' preserves original public PowerShell5 administrator and parameter contract')
- $calls=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-SetupGuiRole'},$true))
+ $calls=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-SetupGuiPublicDispatch'},$true))
  Assert ($calls.Count -eq 1 -and $calls[0].Extent.Text.Contains('-Role '+$role) -and $calls[0].Extent.Text.Contains('-Worker:$Worker') -and $calls[0].Extent.Text.Contains('-VerifyOnly:$VerifyOnly') -and $calls[0].Extent.Text.Contains('-VerificationRunId $VerificationRunId')) ($role+' routes all public modes and requested fresh ID through its fixed private controller')
  Assert ([IO.File]::ReadAllText($path) -notmatch 'Copy-Item|New-ScheduledTask|NUC8-Setup|Set-Content') ($role+' public entry cannot trust or publish old world-writable worker results')
  $name=$lower+'_settings_library.ps1'
