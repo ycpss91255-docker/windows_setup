@@ -175,11 +175,6 @@ Assert ($rejected -and $null -eq $script:capturedGuiCall) 'unapproved role canno
 foreach($name in @('Start-Process','Register-ScheduledTask','Start-ScheduledTask','Set-ItemProperty','New-ItemProperty','Remove-ItemProperty','Add-Type','Get-CimInstance','Invoke-CimMethod','Get-ItemProperty','Get-ScheduledTask','New-ScheduledTaskAction','New-ScheduledTaskPrincipal','Unregister-ScheduledTask','reg.exe','schtasks.exe')){Remove-Item -LiteralPath ('Function:\'+$name)}
 # Execute the actual Verify-Only finalization and AfterRestart acceptance tail.
 $verificationLibrary=Join-Path $root 'core/verification_library.ps1'
-$afterSource=[IO.File]::ReadAllText((Join-Path $root 'core/after_restart_library.ps1'))
-$tokens=$null;$parseErrors=$null;$afterAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'core/after_restart_library.ps1'),[ref]$tokens,[ref]$parseErrors)
-$afterFunction=$afterAst.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-SetupAfterRestart'},$true)
-$afterStarted=$false
-$afterTail=(@(foreach($statement in $afterFunction.Body.EndBlock.Statements){if($statement.Extent.Text.StartsWith('$verificationRunId=')){$afterStarted=$true};if($afterStarted){$statement.Extent.Text}}) -join "`r`n")
 foreach($mode in @('fresh-failure','stale-success')){
  $dir=Join-Path $fixture $mode;New-Item -ItemType Directory $dir|Out-Null
  $verifyPrefix=@'
@@ -214,7 +209,8 @@ $ErrorActionPreference='Stop'
 $errors=@();$hardware=[pscustomobject]@{Name='Fixture'}
 function Resolve-NucPath([string]$Name){Join-Path $PSScriptRoot $Name}
 '@
- $runner=Join-Path $dir 'acceptance.ps1';[IO.File]::WriteAllText($runner,$afterPrefix+"`n"+$afterTail,[Text.UTF8Encoding]::new($true))
+ $library=(Join-Path $root 'core/after_restart_library.ps1').Replace("'","''")
+ $runner=Join-Path $dir 'acceptance.ps1';[IO.File]::WriteAllText($runner,$afterPrefix+"`n. '"+$library+"'`nComplete-SetupAfterRestartAcceptance -Hardware `$hardware -Errors `$errors -Previous `$null -ResultPath `$null -Sid `$null",[Text.UTF8Encoding]::new($true))
  $oldPreference=$ErrorActionPreference;$ErrorActionPreference='Continue'
  try{& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $runner *> (Join-Path $dir 'output.txt');$code=$LASTEXITCODE}finally{$ErrorActionPreference=$oldPreference}
  $accepted=Get-Content (Join-Path $dir 'Acceptance-Result.json') -Raw|ConvertFrom-Json
