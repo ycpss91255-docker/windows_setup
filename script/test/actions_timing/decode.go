@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 type Expected struct {
@@ -78,6 +79,9 @@ func (p *Page) UnmarshalJSON(data []byte) error {
 func Decode(data []byte, expected Expected) (Output, error) {
 	if len(data) > 16*1024*1024 {
 		return Output{}, fmt.Errorf("observation input too large")
+	}
+	if !utf8.Valid(data) {
+		return Output{}, fmt.Errorf("observation input is not valid UTF-8")
 	}
 	d := json.NewDecoder(bytes.NewReader(data))
 	var value func(int) error
