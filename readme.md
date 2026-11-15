@@ -3,7 +3,7 @@
 [![Windows CI](https://github.com/ycpss91255/windows_setup/actions/workflows/windows_tests.yml/badge.svg)](https://github.com/ycpss91255/windows_setup/actions/workflows/windows_tests.yml)
 
 ![Language](https://img.shields.io/badge/Language-Go%20%2F%20PowerShell-blue?style=flat-square)
-[![Coverage](https://ycpss91255.github.io/windows_setup/main/coverage.svg)](https://ycpss91255.github.io/windows_setup/main/index.html)
+[![Coverage](https://ycpss91255.github.io/windows_setup/main/coverage.svg)](https://ycpss91255.github.io/windows_setup/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square)](license)
 
 新範圍成功部署後，上方覆蓋率徽章顯示最近一次成功部署 main 的 PowerShell/C# runtime 可執行行覆蓋率；舊徽章在更新前仍代表當時的口徑。點擊徽章可查閱該次報表與來源。若部署失敗，徽章保留上次成功結果，請以 Windows CI 與 Actions 的最新執行結果為準。PR 不更新公開報表。
