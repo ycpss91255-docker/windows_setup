@@ -19,6 +19,15 @@ func graphGit(repo string, args ...string) (string, error) {
 	return strings.TrimSpace(string(b)), nil
 }
 
+func mergeTitle(repo, id string) (string, error) {
+	c := exec.Command("git", "-C", repo, "show", "-s", "--format=%s", id)
+	b, err := c.Output()
+	if err != nil {
+		return "", fmt.Errorf("git merge title verification failed: %w", err)
+	}
+	return strings.TrimRight(string(b), "\r\n"), nil
+}
+
 func validateMergeTitles(repo string, tips, excluded []string) error {
 	if len(tips) == 0 || len(excluded) == 0 {
 		return fmt.Errorf("missing graph boundary")
@@ -52,7 +61,7 @@ func validateMergeTitles(repo string, tips, excluded []string) error {
 			return fmt.Errorf("unsupported merge parent count")
 		}
 		if len(fields) == 3 {
-			title, e := graphGit(repo, "show", "-s", "--format=%s", fields[0])
+			title, e := mergeTitle(repo, fields[0])
 			if e != nil {
 				return e
 			}

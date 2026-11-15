@@ -40,6 +40,8 @@ func TestMergeTitleGraphBoundary(t *testing.T) {
 	good := commit("合併：正確同步", newer, right)
 	bad := commit("整合：錯誤同步", newer, right)
 	english := commit("合併：English", newer, right)
+	leadingSpace := commit(" 合併：有效中文", newer, right)
+	leadingBOM := commit("\ufeff合併：有效中文", newer, right)
 	for _, tc := range []struct {
 		name, tip string
 		frozen    []string
@@ -49,6 +51,8 @@ func TestMergeTitleGraphBoundary(t *testing.T) {
 		{"new proper merge", good, []string{old}, true},
 		{"new wrong merge", bad, []string{old}, false},
 		{"merge needs Chinese result", english, []string{old}, false},
+		{"leading space is not a valid prefix", leadingSpace, []string{old}, false},
+		{"leading BOM is not a valid prefix", leadingBOM, []string{old}, false},
 		{"missing frozen object", good, []string{strings.Repeat("f", 40)}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
