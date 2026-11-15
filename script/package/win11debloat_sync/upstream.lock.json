@@ -120,28 +120,28 @@
       "mode": "100644",
       "blob": "f3b2a23a63481cbed396718ac59da8ccb471d085",
       "sha256": "266b5be7a673a2a1516428bf26106527f23fc48345d5a858a55d293aafa25e32",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/de-DE/Categories.json",
       "mode": "100644",
       "blob": "6aaec233c4ca7795a9943aa4ab5bb9f9d8415195",
       "sha256": "aea5c40cbdb97795bd45f8e4edffcff04d29e815b0ea7d4d324c926da06d4e7e",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/de-DE/Chrome.json",
       "mode": "100644",
       "blob": "383decc23c90d5133520bc01b349f78ce352dfb8",
       "sha256": "9be8f30823cddef0cf7d770dca7b98565dfbe550788ce4a682decb2b9fd4e91a",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/de-DE/Features.json",
       "mode": "100644",
       "blob": "d9627d9dd3270e332f5ec0714ab45d0536829eb6",
       "sha256": "52c1d232882088554824c133063966e4eb3766a7c64d9eb07eb5404a20524cb7",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/en-US/Apps.json",
@@ -176,280 +176,280 @@
       "mode": "100644",
       "blob": "37ebb06b6c17aa49521df9402b5e0f5abf727b46",
       "sha256": "b6634a17a4b91c32d3a349f8aa96561f6247ecba2e9458369d3fba5d86f85a80",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/es-ES/Categories.json",
       "mode": "100644",
       "blob": "b6d37876765f37f19ccbbc4545d11b8a5025acd7",
       "sha256": "b5e78b9044f9c138a109fcec45531abd9b3ef029775561be33df32ec30582f11",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/es-ES/Chrome.json",
       "mode": "100644",
       "blob": "e3e1ee3d08ac00626d5f12c52faae908e47864e6",
       "sha256": "9443f7ed7b20d91df91915fd999a540a6ddd51c1d225e7cc0702b369002bbedc",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/es-ES/Features.json",
       "mode": "100644",
       "blob": "0710f73e0c888644dee51a77ad4b358cfd157aba",
       "sha256": "80e73103dc0c9d18a339f64ebf7f4d751f4f466238a9f71031a498dd936b9cc8",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/fr-FR/Apps.json",
       "mode": "100644",
       "blob": "78fb43ebf95e9f2fc0931bcd0597406046b41194",
       "sha256": "9e2ac76bbb1aca461e2175789b13ef70efc8f5caeb2d6bd7aeb3350b409ee7cb",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/fr-FR/Categories.json",
       "mode": "100644",
       "blob": "20f401946484e082507d543bab845834446e0ad8",
       "sha256": "7f5d4e06c49bf9c20f5b6126be621705dc703a452c58dc655aae8858ce3e09fb",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/fr-FR/Chrome.json",
       "mode": "100644",
       "blob": "a1f4c5a863fbd5be227bb9df9c0904fbed8d9790",
       "sha256": "518792feac4dbf314e404f3955c828b635db79d66b1dc5a6dd55c906e8cd6659",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/fr-FR/Features.json",
       "mode": "100644",
       "blob": "7a7fe4203926dd42e72c479524e8245b9ddea985",
       "sha256": "499bbbf8b16aac14f0bd3722241a3ad431625a2cd7330df23f2b90dfcbc60325",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/it-IT/Apps.json",
       "mode": "100644",
       "blob": "f1f6287fe3035dfd55d54e27cc150a210b962488",
       "sha256": "7c52c2d243d02f99aa0c89e067e68c8be060c9808d040f77723b8761b119f569",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/it-IT/Categories.json",
       "mode": "100644",
       "blob": "94e19bc9dc1aef99a650ab926e15982203c8bf13",
       "sha256": "ae8edf2ca89a72fb205de37e9da8937eba00fb8132fbaa046e5cff80e9be8f10",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/it-IT/Chrome.json",
       "mode": "100644",
       "blob": "5c1cefb4ba734f233200af44e0528a05a739330d",
       "sha256": "2bc4bd70ebe5206087c72b05a6e381407bcf091ccdcecca8f431080541259c78",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/it-IT/Features.json",
       "mode": "100644",
       "blob": "34e98955b0c1dcef8a36d0ca12f70c84f50f650d",
       "sha256": "d65da8f5ec071e2a231c637b543e186aef675fce9df7e95a12cedb1626613e36",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ja-JP/Apps.json",
       "mode": "100644",
       "blob": "1d26af311556e73713e70301e5d20634bfe12733",
       "sha256": "21b829b98c6a5324dc7f26802b6143755840570f42ffe5aa3d07df60c1e5b8a2",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ja-JP/Categories.json",
       "mode": "100644",
       "blob": "2fe36f6966cf08c450d13637f21ec4aa5b7f9be0",
       "sha256": "cccd003654395f087c0047e2bbb826b4184e114a2b2ae4125ed4c660f6b2eddb",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ja-JP/Chrome.json",
       "mode": "100644",
       "blob": "7246839205d608310b62ea7134e0daf0d85bef7d",
       "sha256": "a430e55fd4c4e7cecc2c94caa0fdda163d9895f1fc96f3937cabad15777ee0a1",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ja-JP/Features.json",
       "mode": "100644",
       "blob": "732226e75ee7c4d54c1b17a475307c9c7d82da0c",
       "sha256": "5ea390a5956d125cf14c11be1a89b959f7cb76307fcfe5bea092c416ebbc3154",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ko-KR/Apps.json",
       "mode": "100644",
       "blob": "672d818a34abb6c2b0499e501076deaa37cb2997",
       "sha256": "97ab70e0e2e86e5d095f75103d96cf425dfcaebef50973ad55087e83cfcddbb7",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ko-KR/Categories.json",
       "mode": "100644",
       "blob": "9a9f129114a8c1e49db1b6e52e7b6a2728a02eea",
       "sha256": "824702e8a913542aca9b51a238dc20f12a458a82c2f320a63fa2d3f9bed71343",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ko-KR/Chrome.json",
       "mode": "100644",
       "blob": "803c141631d4fd9ed30f5e83559223ce2d390ace",
       "sha256": "e1d032bd8acb3d77c5b25aaf3313f66fe859ebfcc7a4b048325329bf05e3aca2",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ko-KR/Features.json",
       "mode": "100644",
       "blob": "20dcb360615829420d142d8e2afcb6f50ec69187",
       "sha256": "a3a8388111eec404da629d77061f17c31ebce85244f6b70bf8820cddd8eafe45",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/nl-NL/Apps.json",
       "mode": "100644",
       "blob": "d4167d3a7c5f6413b8a8eb215c37045eb411676f",
       "sha256": "ac2f5ae6364b5936088cf130864319a22bdd0b6d444948f46f43f34812b03ec7",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/nl-NL/Categories.json",
       "mode": "100644",
       "blob": "47aa2554fb22335e9fe6b6476340dc837250dcde",
       "sha256": "7fc05907321abe0df1fe0b87d2fb5a9e3e5dac6c7d3d4216c5b235bb34f007c2",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/nl-NL/Chrome.json",
       "mode": "100644",
       "blob": "186046c5514b07c8ebb9f14f405c5a2f0a80a4c5",
       "sha256": "e99df398af93b2babd09284bc9f6cb36e02e4b3c69d9d0735bf0ab5fa8bb0e15",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/nl-NL/Features.json",
       "mode": "100644",
       "blob": "6eb4f5dd51559b0255679aa19bf92cb80122f0fe",
       "sha256": "d37b60b4ac90e7d5a9e507c06a3fc1e25e4233fcd74089450b8f79a5edb2d088",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/pt-BR/Apps.json",
       "mode": "100644",
       "blob": "ecaf712a76670c14868d09196be183832236a9e2",
       "sha256": "485e6d454ce5f2cebbd373752ee484fae28799eb577a808242779ad24c7548f3",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/pt-BR/Categories.json",
       "mode": "100644",
       "blob": "a7d5c919d0cc4cb57a7ee52c42252086a78ac8f7",
       "sha256": "eed05da6f26d557b1844e9df6f9d9c142ee0ac28b07a7050c3232ef3d8955d69",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/pt-BR/Chrome.json",
       "mode": "100644",
       "blob": "13a4941aa4dcfde93bae2d9b869ce470a46a450c",
       "sha256": "430cefba0f087ed160c782c173ac20f5e1e018d4f2f653a2b520eccf522b7586",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/pt-BR/Features.json",
       "mode": "100644",
       "blob": "7a40b46dcaa57e560ca5571a425704a0f81cdd18",
       "sha256": "3b5c182783547e665953c96bd510f02d232c6509935f9006bb86f622f120d0cf",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ru-RU/Apps.json",
       "mode": "100644",
       "blob": "7e416d4bd98361024e885240c374e5af45fa9651",
       "sha256": "5cca4c7dec4866f28c537f3cfc316360dd11b7a2957c34abb5a8ed1eefa2bc8c",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ru-RU/Categories.json",
       "mode": "100644",
       "blob": "640299dcbb7647bf8e704e93ab7c74b3f733973e",
       "sha256": "ea7859f85d9e8d1ce9445050f60bbf71f76e7d02ddc9854d512d5224a74e51b3",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ru-RU/Chrome.json",
       "mode": "100644",
       "blob": "44e80e6489e356c0ab897555671e4aa909ffe060",
       "sha256": "4e820f5ae4091e3c61358c527707f353ebc30620e6d6a0c586f570496bcea47d",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/ru-RU/Features.json",
       "mode": "100644",
       "blob": "a52b8cf19b545314cd0f7159864f8393bcfdd4c2",
       "sha256": "911cf30b503aea4f86abd3e7167ae7bcc056e7113e88c1005d316409e86f8f9d",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/tr-TR/Apps.json",
       "mode": "100644",
       "blob": "4911d7556f5bce0e5aa3db50fcd4fc291fddaab8",
       "sha256": "7c261fd2da863c4ddcc90717c4345e03005b5b75055c19377237c25a6100ea11",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/tr-TR/Categories.json",
       "mode": "100644",
       "blob": "1b90379157ecf7d934cd01f54e7e46ee4beeb90b",
       "sha256": "cade5a7bc171d938e773ac57285c117f3179037b3b58e80c7b3432aad10eb7d2",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/tr-TR/Chrome.json",
       "mode": "100644",
       "blob": "01a9a5337b2c176ea4b73ad3d1769a89ee333cbf",
       "sha256": "d2fd3c870fc437e3daa53267ba48779cee87bd088fb653bf89b8a77d63ef1e2d",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/tr-TR/Features.json",
       "mode": "100644",
       "blob": "9ba71ab9dd1b112915f9d71ec49953ceda1f0e3e",
       "sha256": "e0da8349e42fc0ae6128be3c165a0e8e499b357503b7c01a4d7da162a071e1b5",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/zh-CN/Apps.json",
       "mode": "100644",
       "blob": "6b58a801e3ce32db13abd2c07f8c28a6bd5a8021",
       "sha256": "0e8fa4800a7b8626d9c5c6605a258a621257ed32fa382b0bc0c0d6a986166818",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/zh-CN/Categories.json",
       "mode": "100644",
       "blob": "d689e206fd6a9dfd8e47a567ff0f62b78d3afe90",
       "sha256": "b9020633aaff41e7c411d33a50da8c09fa717e1c80819ff2e296b6c729fc8270",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/zh-CN/Chrome.json",
       "mode": "100644",
       "blob": "f60aa6e1834b825cfc6dc438e85ef83300756749",
       "sha256": "d7446f67ae875deaf64969eff99b0a1a365fde13438f20ef3a7f4f38ec1c43e6",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/zh-CN/Features.json",
       "mode": "100644",
       "blob": "dab69bf4c781b26517c8031c391090a7b642fd62",
       "sha256": "f8cbe0af5ba4fc2e7b445fc2555a936daed730e2b8e5d8435d6b40468a929699",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Config/Languages/zh-TW/Apps.json",

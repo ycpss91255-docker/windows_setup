@@ -25,7 +25,7 @@ type pin struct {
 	lockSHA256   string
 }
 
-var upstream = pin{"5d88bfe9ef2be5a8a643166a6400eb78a30c46ec", "28d95cb57ab69df44c09167b4db7aba595188b9d", 483, 400, "35e4edc80010e386d7130c2583019514be734012fe8282cd9a9377c1930acfe0"}
+var upstream = pin{"5d88bfe9ef2be5a8a643166a6400eb78a30c46ec", "28d95cb57ab69df44c09167b4db7aba595188b9d", 483, 356, "5ca65f9cea56217223eb932a07c322313de035db959a3776f6c5aaf63d188d8f"}
 
 type entry struct {
 	Path   string `json:"path"`
@@ -44,8 +44,11 @@ type lockFile struct {
 var hex40 = regexp.MustCompile(`^[a-f0-9]{40}$`)
 var hex64 = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
-// 與釘選版本的上游 release 排除規則一致；保留 .gitignore 及 Get.ps1。
+// 固定 CLI 使用繁中及英文 fallback，其餘語系不進交付樹。
 func retained(name string) bool {
+	if strings.HasPrefix(name, "Config/Languages/") && !strings.HasPrefix(name, "Config/Languages/zh-TW/") && !strings.HasPrefix(name, "Config/Languages/en-US/") {
+		return false
+	}
 	return !strings.HasPrefix(name, ".github/") && !strings.HasPrefix(name, "Tests/") && name != "Scripts/Build-Release.ps1" && name != "Scripts/Run-Tests.ps1"
 }
 func validPath(name string) bool {

@@ -9,7 +9,7 @@
 - 原始碼與必要資產保存在 `modules/debloat/win11debloat`，包括上游的 `Assets/Images/menu.png` 與空白開始選單資產 `Assets/Start/start2.bin`。
 - 保留上游 [MIT LICENSE](../modules/debloat/win11debloat/LICENSE)、作者聲明及 README。`start2.bin` 的用途見同目錄的 `What is this file.txt`；它是上游提供的空白範本，不是從使用者電腦匯出的個人開始選單。
 - 本工具透過 CLI 呼叫上游，採用的清理項目另由 `debloat_apps.txt`、`debloat_profile.json` 控制。
-- 精簡版本保留 400 個上游檔案，包括所有語系、GUI 定義、登錄檔、執行腳本、資產、`Run.bat`、`Scripts/Get.ps1` 和上游 `.gitignore`。僅排除上游 `.github/`、`Tests/` 及 `Scripts/Build-Release.ps1`、`Scripts/Run-Tests.ps1`，共 83 個開發用檔案。上游 `.gitignore` 仍保護備份及使用者設定；不要用同步作業覆蓋既有個人資料。
+- 精簡版本保留 356 個上游檔案；本專案固定 CLI 使用 `zh-TW` 並保留 `en-US` 作 fallback，排除其他 11 個語系的 44 檔。GUI 定義、登錄檔、執行腳本、資產、`Run.bat`、`Scripts/Get.ps1` 和上游 `.gitignore` 暫保留。另排除上游 `.github/`、`Tests/` 及 `Scripts/Build-Release.ps1`、`Scripts/Run-Tests.ps1`，共 83 個開發用檔案。上游 `.gitignore` 仍保護備份及使用者設定；不要用同步作業覆蓋既有個人資料。
 
 維護者可用本機已取得上述固定提交物件的 Git 倉庫重現。工具不下載上游、不執行 Win11Debloat，以下目標必須是尚不存在的路徑；`stage` 目的地須在上游 Git 工作樹及控制目錄之外。呼叫者須使用自行控制且無並行寫入的暫存父目錄；獨占建立檔案不代表已檢查 ACL 或可抵抗並行寫入：
 

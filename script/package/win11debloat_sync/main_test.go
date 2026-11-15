@@ -349,3 +349,34 @@ func TestSyncStageAndVerify(t *testing.T) {
 		t.Fatal("accepted modified exclusion policy")
 	}
 }
+
+func TestFixedProfileRetainsOnlyRequiredLanguageCatalogs(t *testing.T) {
+	l, err := loadLock("upstream.lock.json", upstream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalogs := map[string]bool{}
+	for _, f := range l.Files {
+		if !strings.HasPrefix(f.Path, "Config/Languages/") {
+			continue
+		}
+		parts := strings.Split(f.Path, "/")
+		if len(parts) != 4 {
+			t.Fatalf("unexpected language path: %s", f.Path)
+		}
+		required := parts[2] == "zh-TW" || parts[2] == "en-US"
+		if f.Retain != required {
+			t.Errorf("language retention %s = %v, want %v", f.Path, f.Retain, required)
+		}
+		if required {
+			catalogs[parts[2]+"/"+parts[3]] = true
+		}
+	}
+	for _, lang := range []string{"zh-TW", "en-US"} {
+		for _, name := range []string{"Apps.json", "Categories.json", "Chrome.json", "Features.json"} {
+			if !catalogs[lang+"/"+name] {
+				t.Errorf("missing fixed or fallback catalog %s/%s", lang, name)
+			}
+		}
+	}
+}
