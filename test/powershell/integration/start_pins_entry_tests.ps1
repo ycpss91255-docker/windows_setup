@@ -8,6 +8,7 @@ Assert ($ast.ParamBlock.Parameters.Name.VariablePath.UserPath -contains 'ApplyPo
 $fixture=Join-Path $env:TEMP ('start_entry_'+[guid]::NewGuid().ToString('N'));$null=New-Item -ItemType Directory $fixture
 $entry=Join-Path $fixture 'entry.ps1';[IO.File]::WriteAllText($entry,'param($Module,$ExpectedUserSID,[switch]$ApplyPolicy,[switch]$NonInteractive,[switch]$VerifyOnly);[pscustomobject]@{Apply=$ApplyPolicy.IsPresent;Quiet=$NonInteractive.IsPresent;Verify=$VerifyOnly.IsPresent}')
 function Start-Process {param($FilePath,$Verb,$ArgumentList);$script:captured=$ArgumentList}
+. (Join-Path $repo 'core/entry_os_boundary.ps1')
 $Module='Apply-StartMenuSettings';$ApplyPolicy=$true;$NonInteractive=$true;$VerifyOnly=$false;$Restore=$false;$sid='fixture';$Mode='All';$ConfirmedBoard='';$PSCommandPath=$entry
 $elevation=$ast.Find({param($a) $a -is [Management.Automation.Language.IfStatementAst] -and $a.Clauses[0].Item1.Extent.Text -eq '-not $isAdmin'},$true)
 & ([scriptblock]::Create($elevation.Clauses[0].Item2.Extent.Text.TrimStart('{').TrimEnd('}').Replace('$PSCommandPath','$entry')))
