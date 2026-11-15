@@ -129,6 +129,23 @@ foreach($role in @('Display','Theme','Icons')){
  $parameters=@($calls[0].CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst]}|ForEach-Object ParameterName)
  $expected=@('PackageRoot','Role','Worker','VerifyOnly','VerificationRunId');if($role -eq 'Icons'){$expected+=@('IconMode')}
  Assert ((@($parameters|Sort-Object) -join '|') -ceq (@($expected|Sort-Object) -join '|')) ('public GUI entry retains finite dispatch parameters: '+$relative)
+ $elements=$calls[0].CommandElements
+ $bound=@{}
+ for($index=1;$index -lt $elements.Count;$index++){
+  $item=$elements[$index]
+  if($item -isnot [Management.Automation.Language.CommandParameterAst]){continue}
+  if($item.Argument){$bound[$item.ParameterName]=$item.Argument}else{$index++;$bound[$item.ParameterName]=$elements[$index]}
+ }
+ $rootExpression=$bound.PackageRoot
+ $invoke=if($rootExpression -is [Management.Automation.Language.ParenExpressionAst] -and $rootExpression.Pipeline.PipelineElements.Count -eq 1){$rootExpression.Pipeline.PipelineElements[0].Expression}
+ $joined=if($invoke -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $invoke.Arguments.Count -eq 1 -and $invoke.Arguments[0] -is [Management.Automation.Language.ParenExpressionAst] -and $invoke.Arguments[0].Pipeline.PipelineElements.Count -eq 1){$invoke.Arguments[0].Pipeline.PipelineElements[0]}
+ $rootValid=$invoke -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $invoke.Static -and $invoke.Expression -is [Management.Automation.Language.TypeExpressionAst] -and $invoke.Expression.TypeName.FullName -ieq 'IO.Path' -and $invoke.Member.Value -ieq 'GetFullPath' -and $joined -is [Management.Automation.Language.CommandAst] -and $joined.GetCommandName() -ieq 'Join-Path' -and $joined.CommandElements.Count -eq 3 -and $joined.CommandElements[1] -is [Management.Automation.Language.VariableExpressionAst] -and $joined.CommandElements[1].VariablePath.UserPath -ieq 'PSScriptRoot' -and $joined.CommandElements[2] -is [Management.Automation.Language.StringConstantExpressionAst] -and $joined.CommandElements[2].Value -ceq '../..'
+ Assert $rootValid ('public GUI entry resolves the exact portable package root: '+$relative)
+ Assert ($bound.Role -is [Management.Automation.Language.StringConstantExpressionAst] -and $bound.Role.Value -ceq $role -and $bound.Worker -is [Management.Automation.Language.VariableExpressionAst] -and $bound.Worker.VariablePath.UserPath -ieq 'Worker' -and $bound.VerificationRunId -is [Management.Automation.Language.VariableExpressionAst] -and $bound.VerificationRunId.VariablePath.UserPath -ieq 'VerificationRunId') ('public GUI entry binds role worker and run ID exactly: '+$relative)
+ if($role -eq 'Icons'){
+  $verify=if($bound.VerifyOnly -is [Management.Automation.Language.ParenExpressionAst] -and $bound.VerifyOnly.Pipeline.PipelineElements.Count -eq 1){$bound.VerifyOnly.Pipeline.PipelineElements[0].Expression}
+  Assert ($bound.IconMode -is [Management.Automation.Language.VariableExpressionAst] -and $bound.IconMode.VariablePath.UserPath -ieq 'Mode' -and $verify -is [Management.Automation.Language.BinaryExpressionAst] -and $verify.Operator -eq [Management.Automation.Language.TokenKind]::Ieq -and $verify.Left -is [Management.Automation.Language.VariableExpressionAst] -and $verify.Left.VariablePath.UserPath -ieq 'Mode' -and $verify.Right -is [Management.Automation.Language.StringConstantExpressionAst] -and $verify.Right.Value -ceq 'Verify') 'Icons entry binds mode and derived VerifyOnly exactly'
+ }else{Assert ($bound.VerifyOnly -is [Management.Automation.Language.VariableExpressionAst] -and $bound.VerifyOnly.VariablePath.UserPath -ieq 'VerifyOnly') ('public GUI entry binds VerifyOnly exactly: '+$relative)}
  Assert ($calls[0].Extent.Text -match ('(?i)-Role\s+'+$role+'\b') -and $calls[0].Extent.Text -match '(?i)\$PSScriptRoot' -and $calls[0].Extent.Text -match '(?i)\$VerificationRunId') ('public GUI entry retains role root and verification ID: '+$relative)
  Assert ($calls[0].Extent.Text -match '(?i)-Worker:\s*\$Worker' -and $calls[0].Extent.Text -match '(?i)-VerifyOnly:') ('public GUI entry forwards worker and verification mode: '+$relative)
  if($role -eq 'Icons'){Assert ($calls[0].Extent.Text -match '(?i)-IconMode\s+\$Mode' -and $calls[0].Extent.Text -match '(?i)\$Mode\s+-eq\s+''Verify''') 'Icons entry derives verify and forwards mode'}
