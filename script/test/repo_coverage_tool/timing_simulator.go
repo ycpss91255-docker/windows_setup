@@ -83,6 +83,9 @@ func powershellTimingSimulate(args []string, out io.Writer) error {
 	if f.NArg() != 0 || timing == "" {
 		return fmt.Errorf("timing file required")
 	}
+	if o.count != 4 {
+		return fmt.Errorf("exactly four source shards required")
+	}
 	// Reuse the production argument validation without creating its nominal output.
 	check := []string{"--source-root", o.source, "--manifest", o.manifest, "--expected-sha", o.commit, "--expected-run-url", o.runURL, "--run-attempt", fmt.Sprint(o.attempt), "--shard-count", fmt.Sprint(o.count), "--input-dir", o.input, "--output-dir", "unused"}
 	if o.runtime {
