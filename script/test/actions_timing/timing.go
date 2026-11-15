@@ -182,6 +182,13 @@ func Analyze(in Input) (Output, error) {
 				if e != nil {
 					return Output{}, e
 				}
+				if (j.Status == "completed" || j.Status == "in_progress") && j.Conclusion != "skipped" && (s.Status == "completed" || s.Status == "in_progress") && s.Conclusion != "skipped" {
+					for _, point := range []*time.Time{ss, se} {
+						if point != nil && (start != nil && point.Before(*start) || end != nil && point.After(*end)) {
+							return Output{}, fmt.Errorf("step timestamp outside job bounds")
+						}
+					}
+				}
 				duration, e := interval(ss, se, j.Conclusion != "skipped" && s.Conclusion != "skipped")
 				if e != nil {
 					return Output{}, e
