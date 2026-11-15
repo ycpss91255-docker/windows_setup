@@ -321,6 +321,14 @@ function Test-SetupGuiPendingResult {
  if($Result.Success -isnot [bool] -or $Result.Success){return $false}
  return (($Role -ceq 'Start' -and $Result.Status -cin @('LegacyPendingApply','PendingSignIn')) -or ($Role -ceq 'Taskbar' -and $Result.Status -ceq 'PendingSignIn' -and $Result.RequiresNextSignIn -eq $true -and $Result.Configured -eq $true -and $Result.BindingMatches -eq $true) -or ($Role -ceq 'TaskbarFinalize' -and $Result.Status -ceq 'Obsolete'))
 }
+function Invoke-SetupGuiPublicDispatch {
+ param([Parameter(Mandatory=$true)][string]$PackageRoot,[Parameter(Mandatory=$true)][ValidateSet('Display','Theme','Icons')][string]$Role,[switch]$Worker,[switch]$VerifyOnly,[string]$VerificationRunId,[ValidateSet('Save','Load','Verify')][string]$IconMode='Load')
+ if($Role -ceq 'Icons'){
+  Invoke-SetupGuiRole -PackageRoot $PackageRoot -Role $Role -Worker:$Worker -VerifyOnly:$VerifyOnly -IconMode $IconMode -VerificationRunId $VerificationRunId
+ }else{
+  Invoke-SetupGuiRole -PackageRoot $PackageRoot -Role $Role -Worker:$Worker -VerifyOnly:$VerifyOnly -VerificationRunId $VerificationRunId
+ }
+}
 function Invoke-SetupGuiRole {
  param([Parameter(Mandatory=$true)][string]$PackageRoot,[string]$Role,[switch]$Worker,[switch]$VerifyOnly,[string]$VerificationRunId,[ValidateSet('Save','Load','Verify')][string]$IconMode='Load',[switch]$ApplyPolicy,[switch]$NonInteractive)
  $ErrorActionPreference='Stop'
