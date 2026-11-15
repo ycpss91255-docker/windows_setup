@@ -21,9 +21,12 @@ $fixture=Join-Path $env:TEMP ('start_full_'+[guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($fixture)
 $source=Join-Path $repo 'core/start_windows.ps1'
 foreach($path in @($source,$fixture)){
- $item=Get-Item -LiteralPath $path -Force
- while($item){if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'fixture path contains reparse point'};$item=$item.Parent}
+ Assert-RunModuleSafePath $path
 }
+$testAst=Parse 'test/powershell/integration/start_pins_entry_tests.ps1'
+$guardLoop=$testAst.Find({param($node) $node -is [Management.Automation.Language.ForEachStatementAst] -and $node.Variable.VariablePath.UserPath -ceq 'path' -and $node.Condition.Extent.Text -ceq '@($source,$fixture)'},$true)
+$guardCalls=@($guardLoop.Body.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Assert-RunModuleSafePath' -and $node.CommandElements.Count -eq 2 -and $node.CommandElements[1] -is [Management.Automation.Language.VariableExpressionAst] -and $node.CommandElements[1].VariablePath.UserPath -ceq 'path'},$true))
+Assert ($guardCalls.Count -eq 1) 'source file and fixture both use shared ancestor guard'
 $core=Join-Path $fixture 'core';[void][IO.Directory]::CreateDirectory($core)
 $entry=Join-Path $core 'start_windows.ps1';Copy-Item -LiteralPath $source -Destination $entry
 Assert ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ceq (Get-FileHash -LiteralPath $entry -Algorithm SHA256).Hash) 'Windows entry fixture copies exact source'
