@@ -114,10 +114,6 @@ $env:DESKTOP_FIXTURE_CAPTURE=Join-Path $desktopFixture 'desktop_capture.json';$e
 $priorPreference=$ErrorActionPreference;$ErrorActionPreference='Continue'
 try{& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $desktopWrapper -Entry $desktopEntry -Mode Save -ExpectedSID 'desktop-fixture-sid' *> (Join-Path $desktopFixture 'red_or_green.log');$desktopExit=$LASTEXITCODE}finally{$ErrorActionPreference=$priorPreference}
 Assert ($desktopExit -eq 0 -and (Test-Path -LiteralPath $env:DESKTOP_FIXTURE_CAPTURE)) 'desktop entry uses replaceable identity and system elevation boundary'
-$tokens=$null;$errors=$null
-$entry=Join-Path $boundaryFixture 'desktop_dummy.ps1'
-[IO.File]::WriteAllText($entry,'param($ExpectedUserSID,$Mode)',[Text.UTF8Encoding]::new($true))
-function Start-Process {param($FilePath,$Verb,$ArgumentList);$script:captured=$ArgumentList}
 # Desktop boundary cases
 function Read-DesktopCommand([string]$Text) {
  $tokens=$null;$errors=$null;$tree=[Management.Automation.Language.Parser]::ParseInput($Text,[ref]$tokens,[ref]$errors);$statements=@($tree.EndBlock.Statements)
