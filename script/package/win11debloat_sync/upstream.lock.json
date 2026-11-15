@@ -2220,7 +2220,7 @@
       "mode": "100644",
       "blob": "c0b560018bec7a5d20d49ac6281416cb45436754",
       "sha256": "4988388f02207cf0007071e93a44dcbd35a9119ec55f3a386b172b8bb6ec2baf",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Schemas/AboutWindow.xaml",
@@ -2710,7 +2710,7 @@
       "mode": "100644",
       "blob": "796f835dfc6752fa01e681c28dc4c42f60f5a3a1",
       "sha256": "bc165d4713c392f50b330e311d7c6d897c2f27fadd7517321296bfc1a04f466d",
-      "retain": true
+      "retain": false
     },
     {
       "path": "Scripts/Helpers/Add-Parameter.ps1",

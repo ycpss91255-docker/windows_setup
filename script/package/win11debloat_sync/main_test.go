@@ -36,7 +36,7 @@ func TestReviewedLockPreservesRuntimeAndLicense(t *testing.T) {
 	for _, f := range l.Files {
 		files[f.Path] = f.Retain
 	}
-	for _, name := range []string{"Win11Debloat.ps1", "LICENSE", "README.md", ".gitignore", "Scripts/Get.ps1", "Config/Features.json", "Config/Languages/en-US/Chrome.json", "Config/Languages/zh-TW/Chrome.json", "Assets/Start/start2.bin"} {
+	for _, name := range []string{"Win11Debloat.ps1", "LICENSE", "README.md", ".gitignore", "Config/Features.json", "Config/Languages/en-US/Chrome.json", "Config/Languages/zh-TW/Chrome.json", "Assets/Start/start2.bin"} {
 		if !files[name] {
 			t.Fatalf("required file omitted: %s", name)
 		}
@@ -96,7 +96,7 @@ func syncFixture(t *testing.T) (string, pin) {
 	git("init", "-q")
 	git("add", ".")
 	git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture")
-	return root, pin{git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}"), 8, 4, ""}
+	return root, pin{git("rev-parse", "HEAD"), git("rev-parse", "HEAD^{tree}"), 8, 3, ""}
 }
 
 func TestSourceGitBoundary(t *testing.T) {
@@ -244,8 +244,8 @@ func TestSyncStageAndVerify(t *testing.T) {
 	if _, e := os.Stat(filepath.Join(one, "Tests/example.ps1")); !os.IsNotExist(e) {
 		t.Fatal("development test retained")
 	}
-	if _, e := os.Stat(filepath.Join(one, "Scripts/Get.ps1")); e != nil {
-		t.Fatal("upstream runtime downloader omitted")
+	if _, e := os.Stat(filepath.Join(one, "Scripts/Get.ps1")); !os.IsNotExist(e) {
+		t.Fatal("unused upstream downloader retained")
 	}
 	if _, e := os.Stat(filepath.Join(one, ".gitignore")); e != nil {
 		t.Fatal("privacy ignore rules omitted")
@@ -377,6 +377,27 @@ func TestFixedProfileRetainsOnlyRequiredLanguageCatalogs(t *testing.T) {
 			if !catalogs[lang+"/"+name] {
 				t.Errorf("missing fixed or fallback catalog %s/%s", lang, name)
 			}
+		}
+	}
+}
+
+func TestFixedProfileOmitsUpstreamLaunchers(t *testing.T) {
+	l, err := loadLock("upstream.lock.json", upstream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, f := range l.Files {
+		if f.Path == "Run.bat" || f.Path == "Scripts/Get.ps1" {
+			seen[f.Path] = true
+			if f.Retain {
+				t.Errorf("unused upstream launcher retained: %s", f.Path)
+			}
+		}
+	}
+	for _, name := range []string{"Run.bat", "Scripts/Get.ps1"} {
+		if !seen[name] {
+			t.Errorf("missing upstream inventory for %s", name)
 		}
 	}
 }

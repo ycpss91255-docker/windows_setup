@@ -25,7 +25,7 @@ type pin struct {
 	lockSHA256   string
 }
 
-var upstream = pin{"5d88bfe9ef2be5a8a643166a6400eb78a30c46ec", "28d95cb57ab69df44c09167b4db7aba595188b9d", 483, 356, "5ca65f9cea56217223eb932a07c322313de035db959a3776f6c5aaf63d188d8f"}
+var upstream = pin{"5d88bfe9ef2be5a8a643166a6400eb78a30c46ec", "28d95cb57ab69df44c09167b4db7aba595188b9d", 483, 354, "f6ee0fa5ff1002520c8a009bff637ebef416464f6902449e179481bd1340a465"}
 
 type entry struct {
 	Path   string `json:"path"`
@@ -49,7 +49,7 @@ func retained(name string) bool {
 	if strings.HasPrefix(name, "Config/Languages/") && !strings.HasPrefix(name, "Config/Languages/zh-TW/") && !strings.HasPrefix(name, "Config/Languages/en-US/") {
 		return false
 	}
-	return !strings.HasPrefix(name, ".github/") && !strings.HasPrefix(name, "Tests/") && name != "Scripts/Build-Release.ps1" && name != "Scripts/Run-Tests.ps1"
+	return name != "Run.bat" && name != "Scripts/Get.ps1" && !strings.HasPrefix(name, ".github/") && !strings.HasPrefix(name, "Tests/") && name != "Scripts/Build-Release.ps1" && name != "Scripts/Run-Tests.ps1"
 }
 func validPath(name string) bool {
 	if name == "" || path.Clean(name) != name || strings.HasPrefix(name, "/") || strings.ContainsAny(name, "\\:\r\n\t") {
