@@ -86,31 +86,113 @@ Assert ($direct.VerifyOnly.IsPresent -and -not $direct.ApplyPolicy.IsPresent -an
 & $boundaryEntry -Module Desktop-IconLayout -VerifyOnly;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
 Assert ($direct.Mode -ceq 'Verify') 'desktop verification passes finite mode to fixed dummy'
 Remove-Item Env:RUN_MODULE_FIXTURE_ADMIN
-$tokens=$null;$errors=$null
-$entry=Join-Path $boundaryFixture 'desktop_dummy.ps1'
-[IO.File]::WriteAllText($entry,'param($ExpectedUserSID,$Mode)',[Text.UTF8Encoding]::new($true))
-function Start-Process {param($FilePath,$Verb,$ArgumentList);$script:captured=$ArgumentList}
-# The layout Save shortcut calls its script directly rather than run_module.
-$layout=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'modules/desktop/desktop_icon_layout.ps1'),[ref]$tokens,[ref]$errors)
-$layoutElevation=$layout.Find({param($a) $a -is [Management.Automation.Language.IfStatementAst] -and $a.Clauses[0].Item1.Extent.Text -like '-not $principal.IsInRole*'},$true)
-$layoutBody=(@($layoutElevation.Clauses[0].Item2.Statements|Where-Object {$_ -isnot [Management.Automation.Language.ExitStatementAst]}|ForEach-Object {$_.Extent.Text}) -join "`n").Replace('$PSCommandPath','$entry')
-$Mode='Save';$sid='S-1-5-21-111-222-333-1001';$currentSID=$sid;$Worker=$false;$VerificationRunId=''
-& ([scriptblock]::Create($layoutBody))
-$layoutCommand=$script:captured
-if($layoutCommand.Contains('-EncodedCommand ')){$layoutCommand=[Text.Encoding]::Unicode.GetString([Convert]::FromBase64String(($layoutCommand -split '-EncodedCommand ')[1]))}
-Assert ($layoutCommand.Contains('-ExpectedUserSID') -and $layoutCommand.Contains($sid)) 'direct layout Save elevation also binds the original user'
-$layoutGuard=$layout.Find({param($a) $a -is [Management.Automation.Language.IfStatementAst] -and $a.Clauses[0].Item1.Extent.Text -match '^\$ExpectedUserSID -and'},$true)
-Assert ($null -ne $layoutGuard) 'direct layout Save contains an executable identity guard'
-$ExpectedUserSID='original';$sid='different';$currentSID=$sid;$refused=$false
-try{. ([scriptblock]::Create($layoutGuard.Extent.Text))}catch{$refused=$true}
-Assert $refused 'direct layout Save rejects a changed elevation account before saving'
+$desktopFixture=Join-Path $env:TEMP ('desktop_entry_boundary_'+[guid]::NewGuid().ToString('N'))
+$desktopPackage=Join-Path $desktopFixture 'package';$desktopCore=Join-Path $desktopPackage 'core';$desktopDir=Join-Path $desktopPackage 'modules/desktop'
+[void][IO.Directory]::CreateDirectory($desktopCore);[void][IO.Directory]::CreateDirectory($desktopDir)
+$desktopEntry=Join-Path $desktopDir "desktop ' 中文.ps1"
+Copy-Item -LiteralPath (Join-Path $root 'modules/desktop/desktop_icon_layout.ps1') -Destination $desktopEntry
+[IO.File]::WriteAllText((Join-Path $desktopCore 'entry_os_boundary.ps1'),@'
+function Get-SetupEntryIdentity { [IO.File]::WriteAllText($env:DESKTOP_FIXTURE_SID_MARKER,'called'); 'desktop-fixture-sid' }
+function Test-SetupEntryAdministrator { [IO.File]::WriteAllText($env:DESKTOP_FIXTURE_ADMIN_MARKER,'called'); $env:DESKTOP_FIXTURE_ADMIN -eq 'true' }
+function Start-SetupEntryElevated { param([string]$Command,[switch]$UseSystemPowerShell) @{Command=$Command;System=$UseSystemPowerShell.IsPresent}|ConvertTo-Json -Compress|Set-Content -LiteralPath $env:DESKTOP_FIXTURE_CAPTURE -Encoding UTF8 }
+'@,[Text.UTF8Encoding]::new($true))
+[IO.File]::WriteAllText((Join-Path $desktopCore 'gui_stage_library.ps1'),@'
+function Invoke-SetupGuiPublicDispatch { param($PackageRoot,$Role,[switch]$Worker,[switch]$VerifyOnly,$IconMode,$VerificationRunId) if($env:DESKTOP_FIXTURE_GUI_FAILURE -eq 'true'){throw 'fake GUI failure'};@{PackageRoot=$PackageRoot;Role=$Role;Worker=$Worker.IsPresent;VerifyOnly=$VerifyOnly.IsPresent;IconMode=$IconMode;VerificationRunId=$VerificationRunId}|ConvertTo-Json -Compress|Set-Content -LiteralPath $env:DESKTOP_FIXTURE_CAPTURE -Encoding UTF8 }
+'@,[Text.UTF8Encoding]::new($true))
+$desktopWrapper=Join-Path $desktopFixture 'wrapper.ps1'
+[IO.File]::WriteAllText($desktopWrapper,@'
+param([string]$Entry,[string]$Mode,[string]$ExpectedSID,[switch]$Worker,[string]$RunId)
+$ErrorActionPreference='Stop'
+function global:Start-Process {throw 'blocked real process'}
+function global:Add-Type {throw 'blocked native'}
+function global:Get-ItemProperty {throw 'blocked registry'}
+function global:Set-ItemProperty {throw 'blocked registry'}
+function global:New-ItemProperty {throw 'blocked registry'}
+function global:Remove-ItemProperty {throw 'blocked registry'}
+function global:Get-Service {throw 'blocked service'}
+function global:Set-Service {throw 'blocked service'}
+function global:Start-Service {throw 'blocked service'}
+function global:Register-ScheduledTask {throw 'blocked task'}
+function global:Get-UICulture {[IO.File]::WriteAllText($env:DESKTOP_FIXTURE_CULTURE_MARKER,'called');[pscustomobject]@{Name=$env:DESKTOP_FIXTURE_CULTURE}}
+$arguments=@{Mode=$Mode;ExpectedUserSID=$ExpectedSID};if($Worker){$arguments.Worker=$true};if($RunId){$arguments.VerificationRunId=$RunId}
+& $Entry @arguments
+'@,[Text.UTF8Encoding]::new($true))
+$env:DESKTOP_FIXTURE_CAPTURE=Join-Path $desktopFixture 'desktop_capture.json';$env:DESKTOP_FIXTURE_SID_MARKER=Join-Path $desktopFixture 'sid.marker';$env:DESKTOP_FIXTURE_ADMIN_MARKER=Join-Path $desktopFixture 'admin.marker';$env:DESKTOP_FIXTURE_CULTURE_MARKER=Join-Path $desktopFixture 'culture.marker';$env:DESKTOP_FIXTURE_ADMIN='false';$env:DESKTOP_FIXTURE_CULTURE='zh-TW'
+$priorPreference=$ErrorActionPreference;$ErrorActionPreference='Continue'
+try{& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $desktopWrapper -Entry $desktopEntry -Mode Save -ExpectedSID 'desktop-fixture-sid' *> (Join-Path $desktopFixture 'red_or_green.log');$desktopExit=$LASTEXITCODE}finally{$ErrorActionPreference=$priorPreference}
+Assert ($desktopExit -eq 0 -and (Test-Path -LiteralPath $env:DESKTOP_FIXTURE_CAPTURE)) 'desktop entry uses replaceable identity and system elevation boundary'
+# Desktop boundary cases
+function Read-DesktopCommand([string]$Text) {
+ $tokens=$null;$errors=$null;$tree=[Management.Automation.Language.Parser]::ParseInput($Text,[ref]$tokens,[ref]$errors);$statements=@($tree.EndBlock.Statements)
+ if($errors.Count -or $statements.Count -ne 1 -or $statements[0] -isnot [Management.Automation.Language.PipelineAst] -or $statements[0].PipelineElements.Count -ne 1){throw 'unexpected desktop command syntax'}
+ $cmd=$statements[0].PipelineElements[0]
+ if($cmd -isnot [Management.Automation.Language.CommandAst] -or $cmd.InvocationOperator -ne 'Ampersand' -or $cmd.Redirections.Count){throw 'unexpected desktop command'}
+ $parts=@($cmd.CommandElements);if($parts[0] -isnot [Management.Automation.Language.StringConstantExpressionAst] -or -not (Test-BoundaryTarget $parts[0].Value $desktopEntry)){throw 'unexpected desktop target'}
+ $values=@{};for($i=1;$i -lt $parts.Count;$i++){
+  if($parts[$i] -isnot [Management.Automation.Language.CommandParameterAst] -or $null -ne $parts[$i].Argument){throw 'unexpected desktop argument'}
+  $key=$parts[$i].ParameterName;if($key -notin @('ExpectedUserSID','Mode','Worker','VerificationRunId') -or $values.ContainsKey($key)){throw 'unexpected desktop parameter'}
+  if($i+1 -lt $parts.Count -and $parts[$i+1] -is [Management.Automation.Language.StringConstantExpressionAst]){$i++;$values[$key]=$parts[$i].Value}else{$values[$key]=$true}
+ }
+ return $values
+}
+function Invoke-DesktopFixture([string]$Mode,[string]$Sid,[string]$Culture,[bool]$Admin,[bool]$Worker,[string]$RunId) {
+ foreach($path in @($env:DESKTOP_FIXTURE_CAPTURE,$env:DESKTOP_FIXTURE_SID_MARKER,$env:DESKTOP_FIXTURE_ADMIN_MARKER,$env:DESKTOP_FIXTURE_CULTURE_MARKER)){[IO.File]::Delete($path)}
+ $env:DESKTOP_FIXTURE_ADMIN=$Admin.ToString().ToLowerInvariant();$env:DESKTOP_FIXTURE_CULTURE=$Culture
+ $args=@('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$desktopWrapper,'-Entry',$desktopEntry,'-Mode',$Mode,'-ExpectedSID',$Sid)
+ if($Worker){$args+='-Worker'};if($RunId){$args+=@('-RunId',$RunId)}
+ $prior=$ErrorActionPreference;$ErrorActionPreference='Continue'
+ try{& powershell.exe @args *> (Join-Path $desktopFixture 'case.log');$code=$LASTEXITCODE}finally{$ErrorActionPreference=$prior}
+ return $code
+}
+$equivalentDesktop=Join-Path $desktopDir './desktop '' 中文.ps1'
+$otherDesktop=Join-Path $desktopDir 'other.ps1'
+$equivalentCommand="& '"+$equivalentDesktop.Replace("'","''")+"' -Mode 'Save'"
+$otherCommand="& '"+$otherDesktop.Replace("'","''")+"' -Mode 'Save'"
+Assert ((Read-DesktopCommand $equivalentCommand).Mode -ceq 'Save') 'desktop parser accepts equivalent fixture target'
+$otherRejected=$false;try{[void](Read-DesktopCommand $otherCommand)}catch{$otherRejected=$_.Exception.Message -ceq 'unexpected desktop target'}
+Assert $otherRejected 'desktop parser rejects different fixture target'
+$runId='11111111-2222-3333-4444-555555555555'
+$case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json;$command=Read-DesktopCommand $case.Command
+Assert ($case.System -and $command.ExpectedUserSID -ceq 'desktop-fixture-sid' -and $command.Mode -ceq 'Save' -and -not $command.ContainsKey('Worker')) 'Save elevation retains fixed System launcher, SID and mode'
+$code=Invoke-DesktopFixture 'Load' 'other-sid' 'en-US' $false $false ''
+Assert ($code -ne 0 -and (Test-Path $env:DESKTOP_FIXTURE_SID_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_CULTURE_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_ADMIN_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE)) 'different SID rejects before culture, admin and GUI'
+foreach($mode in @('Load','Verify')){
+ $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' 'en-US' $false $false ''
+ Assert ($code -eq 0 -and (Test-Path $env:DESKTOP_FIXTURE_CULTURE_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_ADMIN_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE) -and ((Get-Content (Join-Path $desktopFixture 'case.log') -Raw) -match 'Skipped')) ('non-Save culture skip precedes admin: '+$mode)
+}
+$code=Invoke-DesktopFixture 'Save' 'desktop-fixture-sid' 'en-US' $false $true $runId
+$case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json;$command=Read-DesktopCommand $case.Command
+Assert ($code -eq 0 -and $case.System -and $command.Mode -ceq 'Save' -and $command.Worker -and $command.VerificationRunId -ceq $runId -and -not (Test-Path $env:DESKTOP_FIXTURE_CULTURE_MARKER)) 'Save bypasses culture and captures worker and run ID safely'
+foreach($mode in @('Load','Verify')){
+ $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' 'zh-TW' $false $true $runId
+ $case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json;$command=Read-DesktopCommand $case.Command
+ Assert ($code -eq 0 -and $case.System -and $command.Mode -ceq $mode -and $command.Worker -and $command.VerificationRunId -ceq $runId) ('desktop elevation retains literal parameters: '+$mode)
+}
+foreach($mode in @('Save','Load','Verify')){
+ $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' 'zh-TW' $true $true $runId
+ $case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json
+ Assert ($code -eq 0 -and (Test-BoundaryTarget $case.PackageRoot $desktopPackage) -and $case.Role -ceq 'Icons' -and $case.Worker -and $case.IconMode -ceq $mode -and $case.VerificationRunId -ceq $runId -and $case.VerifyOnly -eq ($mode -eq 'Verify')) ('admin dispatch reaches only fixed fake Icons controller: '+$mode)
+}
+$code=Invoke-DesktopFixture 'Save' 'desktop-fixture-sid' 'zh-TW' $true $false 'bad'
+Assert ($code -ne 0 -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE)) 'invalid run ID rejects before launcher or GUI'
+$env:DESKTOP_FIXTURE_GUI_FAILURE='true'
+try{$code=Invoke-DesktopFixture 'Save' 'desktop-fixture-sid' 'zh-TW' $true $false '';Assert ($code -ne 0 -and ((Get-Content (Join-Path $desktopFixture 'case.log') -Raw) -match 'fake GUI failure')) 'fake GUI failure propagates'}finally{Remove-Item Env:DESKTOP_FIXTURE_GUI_FAILURE}
+$fakeBoundary=Join-Path $desktopCore 'entry_os_boundary.ps1';$backup=$fakeBoundary+'.owned-backup'
+[IO.File]::Move($fakeBoundary,$backup)
+try{$code=Invoke-DesktopFixture 'Save' 'desktop-fixture-sid' 'zh-TW' $true $false '';Assert ($code -ne 0 -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE)) 'missing boundary fails closed before GUI'}finally{[IO.File]::Move($backup,$fakeBoundary)}
+Remove-Item Env:DESKTOP_FIXTURE_CAPTURE,Env:DESKTOP_FIXTURE_SID_MARKER,Env:DESKTOP_FIXTURE_ADMIN_MARKER,Env:DESKTOP_FIXTURE_CULTURE_MARKER,Env:DESKTOP_FIXTURE_ADMIN,Env:DESKTOP_FIXTURE_CULTURE
 & {
  . (Join-Path $root 'core/entry_os_boundary.ps1')
  $script:launchFile='';$script:launchVerb='';$script:launchArgs=''
  function Start-Process {param($FilePath,$Verb,$ArgumentList);$script:launchFile=$FilePath;$script:launchVerb=$Verb;$script:launchArgs=$ArgumentList}
  $literal="fixture ' 中文"
  Start-SetupEntryElevated -Command $literal
+ $defaultArgs=$script:launchArgs
  $parts=@($script:launchArgs -split ' ');$index=[Array]::IndexOf($parts,'-EncodedCommand')
  $options=@($parts|Where-Object {$_ -ne $parts[$index+1]})
  Assert ($script:launchFile -ceq 'powershell.exe' -and $script:launchVerb -ceq 'RunAs' -and $index -ge 0 -and $options.Count -eq 5 -and $options -contains '-NoProfile' -and $options -contains '-NoExit' -and $options -contains '-ExecutionPolicy' -and $options -contains 'Bypass' -and $options -contains '-EncodedCommand' -and [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($parts[$index+1])) -ceq $literal) 'existing entry launcher preserves same PowerShell options and encoded command data'
+ Start-SetupEntryElevated -Command $literal -UseSystemPowerShell
+ $parts=@($script:launchArgs -split ' ');$index=[Array]::IndexOf($parts,'-EncodedCommand')
+ $expected=Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::System)) 'WindowsPowerShell/v1.0/powershell.exe'
+ Assert ($script:launchFile -ceq $expected -and $script:launchVerb -ceq 'RunAs' -and $script:launchArgs -ceq $defaultArgs -and $index -ge 0 -and [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($parts[$index+1])) -ceq $literal) 'system launcher uses fixed System path and retains default flags and encoded command data'
 }
