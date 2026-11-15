@@ -31,8 +31,9 @@ foreach($case in @(
  $packageRoot=$case.Package
  if($packageRoot){[void][IO.Directory]::CreateDirectory($packageRoot);[IO.File]::WriteAllText((Join-Path $packageRoot 'keep.txt'),'keep')}
  $refused=$false;$result=$null
- try{$result=Invoke-SetupDesktopSettings -ModuleRoot (Join-Path $root 'modules/desktop') -SourcePackageRoot $packageRoot -DesktopRoots $fixtureDesktopRoots -VerifyOnly}catch{if($packageRoot){$refused=$_.Exception.Message -match '工具包不可位於桌面'}else{$refused=$_.Exception -is [System.Management.Automation.ParameterBindingException]};if(-not $case.Reject){Write-Host $_.Exception.Message}}
+ try{$result=Invoke-SetupDesktopSettings -ModuleRoot (Join-Path $root 'modules/desktop') -SourcePackageRoot $packageRoot -DesktopRoots $fixtureDesktopRoots -VerifyOnly}catch{if($packageRoot){$refused=$_.Exception.Message -match '工具包不可位於桌面'}else{$refused=$_.Exception -is [System.Management.Automation.ParameterBindingException]};if(-not $case.Reject -or -not $refused){throw}}
  Assert ($refused -eq $case.Reject) ('actual desktop module pre-mutation guard: '+$case.Name)
+ if(-not $case.Reject){Assert ($null -ne $result -and @($result.DesktopRoots).Count -eq 2 -and @($result.DeletedItems).Count -eq 0 -and -not $result.Success) ('safe desktop returns verification result: '+$case.Name)}
  if($packageRoot){Assert (([IO.File]::ReadAllText((Join-Path $packageRoot 'keep.txt'))) -eq 'keep') ('package contents retained: '+$case.Name)}
 }
 # The main preflight uses the same named guard with actual system desktop roots.
