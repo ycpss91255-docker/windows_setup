@@ -1,9 +1,9 @@
-﻿#Requires -Version 5.1
+#Requires -Version 5.1
 function Assert-RunModuleSafePath([string]$Path) {
  $current=Get-Item -LiteralPath $Path -Force
  while($null -ne $current){
   if($current.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'reparse point in fixture path'}
-  $current=$current.Parent
+  if($current -is [IO.FileInfo]){$current=$current.Directory}else{$current=$current.Parent}
  }
 }
 function Assert-RunModuleFixture($Fixture) {
