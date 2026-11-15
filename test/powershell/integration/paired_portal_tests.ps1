@@ -18,6 +18,11 @@ $out=Join-Path $parent 'portal'
 $oldPortal=$env:WINDOWS_SETUP_PORTAL_FIXTURE_DIR
 Push-Location -LiteralPath $root
 try{$env:WINDOWS_SETUP_PORTAL_FIXTURE_DIR=$out;& go.exe test -count=1 -mod=vendor ./test/go/integration -run '^TestActualPortalFixturePassesAcceptance$';if($LASTEXITCODE -ne 0){throw '實際產出未通過現有 Pages 驗收器。'}}finally{$env:WINDOWS_SETUP_PORTAL_FIXTURE_DIR=$oldPortal;Pop-Location}
+$readme=[IO.File]::ReadAllText((Join-Path $root 'readme.md'))
+$badge=[regex]::Matches($readme,'\[!\[Coverage\]\(([^)]+)\)\]\(([^)]+)\)')
+if($badge.Count -ne 1 -or $badge[0].Groups[1].Value -cne 'https://ycpss91255.github.io/windows_setup/main/coverage.svg' -or $badge[0].Groups[2].Value -cne 'https://ycpss91255.github.io/windows_setup/'){throw 'coverage 徽章未指向同站總覽'}
+$landing=[Uri]$badge[0].Groups[2].Value
+if($landing.AbsolutePath -cne '/windows_setup/' -or -not(Test-Path -LiteralPath (Join-Path $out 'index.html'))){throw '徽章點擊未解析到產出的首頁'}
 $html=[IO.File]::ReadAllText((Join-Path $out 'index.html'))
 foreach($text in @('Windows 原生','Windows 容器','native/index.html','windows_container/index.html','容器未量測')){if(-not $html.Contains($text)){throw ('missing '+$text)}}
 foreach($relative in @('native/summary.json','native/junit.xml','windows_container/summary.json','windows_container/junit.xml')){if(-not(Test-Path -LiteralPath (Join-Path $out $relative))){throw ('missing '+$relative)}}
