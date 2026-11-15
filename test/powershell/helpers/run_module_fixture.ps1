@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 function Assert-RunModuleSafePath([string]$Path) {
  $current=Get-Item -LiteralPath $Path -Force
  while($null -ne $current){
