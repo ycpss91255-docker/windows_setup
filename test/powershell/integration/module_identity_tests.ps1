@@ -90,7 +90,7 @@ function Test-SetupEntryAdministrator { [IO.File]::WriteAllText($env:DESKTOP_FIX
 function Start-SetupEntryElevated { param([string]$Command,[switch]$UseSystemPowerShell) @{Command=$Command;System=$UseSystemPowerShell.IsPresent}|ConvertTo-Json -Compress|Set-Content -LiteralPath $env:DESKTOP_FIXTURE_CAPTURE -Encoding UTF8 }
 '@,[Text.UTF8Encoding]::new($true))
 [IO.File]::WriteAllText((Join-Path $desktopCore 'gui_stage_library.ps1'),@'
-function Invoke-SetupGuiRole { param($PackageRoot,$Role,[switch]$Worker,[switch]$VerifyOnly,$IconMode,$VerificationRunId) if($env:DESKTOP_FIXTURE_GUI_FAILURE -eq 'true'){throw 'fake GUI failure'};@{PackageRoot=$PackageRoot;Role=$Role;Worker=$Worker.IsPresent;VerifyOnly=$VerifyOnly.IsPresent;IconMode=$IconMode;VerificationRunId=$VerificationRunId}|ConvertTo-Json -Compress|Set-Content -LiteralPath $env:DESKTOP_FIXTURE_CAPTURE -Encoding UTF8 }
+function Invoke-SetupGuiPublicDispatch { param($PackageRoot,$Role,[switch]$Worker,[switch]$VerifyOnly,$IconMode,$VerificationRunId) if($env:DESKTOP_FIXTURE_GUI_FAILURE -eq 'true'){throw 'fake GUI failure'};@{PackageRoot=$PackageRoot;Role=$Role;Worker=$Worker.IsPresent;VerifyOnly=$VerifyOnly.IsPresent;IconMode=$IconMode;VerificationRunId=$VerificationRunId}|ConvertTo-Json -Compress|Set-Content -LiteralPath $env:DESKTOP_FIXTURE_CAPTURE -Encoding UTF8 }
 '@,[Text.UTF8Encoding]::new($true))
 $desktopWrapper=Join-Path $desktopFixture 'wrapper.ps1'
 [IO.File]::WriteAllText($desktopWrapper,@'
