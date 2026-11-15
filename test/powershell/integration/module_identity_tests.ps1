@@ -15,6 +15,12 @@ Copy-Item -LiteralPath (Join-Path $root 'core/run_module.ps1') -Destination $bou
 $env:RUN_MODULE_FIXTURE_ADMIN='false'
 $boundaryError='';try{& $boundaryEntry -Module Apply-HostsSync -ExpectedUserSID 'fixture-sid' -VerifyOnly -Mode SSH}catch{$boundaryError=$_.Exception.Message}
 Assert (Test-Path -LiteralPath (Join-Path $boundaryFixture 'captured.txt')) ('run_module uses replaceable identity and elevation boundary: '+$boundaryError)
+function Test-BoundaryTarget([string]$Candidate,[string]$Expected) {
+ if(-not [IO.Path]::IsPathRooted($Candidate) -or -not [IO.Path]::IsPathRooted($Expected)){return $false}
+ try { return [string]::Equals([IO.Path]::GetFullPath($Candidate),[IO.Path]::GetFullPath($Expected),[StringComparison]::OrdinalIgnoreCase) } catch { return $false }
+}
+Assert (Test-BoundaryTarget (Join-Path $boundaryFixture './run_module.ps1') $boundaryEntry) 'equivalent fixture target path is accepted'
+Assert (-not (Test-BoundaryTarget (Join-Path $boundaryFixture 'other.ps1') $boundaryEntry)) 'different fixture target path is rejected'
 function Read-BoundaryCommand {
  $text=[IO.File]::ReadAllText((Join-Path $boundaryFixture 'captured.txt'));$t=$null;$e=$null
  $tree=[Management.Automation.Language.Parser]::ParseInput($text,[ref]$t,[ref]$e);$statements=@($tree.EndBlock.Statements)
@@ -22,7 +28,7 @@ function Read-BoundaryCommand {
  $cmd=$statements[0].PipelineElements[0]
  if($cmd -isnot [Management.Automation.Language.CommandAst] -or $cmd.InvocationOperator -ne 'Ampersand' -or $cmd.Redirections.Count){throw 'unexpected captured command'}
  $parts=@($cmd.CommandElements)
- if($parts[0] -isnot [Management.Automation.Language.StringConstantExpressionAst] -or $parts[0].Value -cne $boundaryEntry){throw 'unexpected captured target'}
+ if($parts[0] -isnot [Management.Automation.Language.StringConstantExpressionAst] -or -not (Test-BoundaryTarget $parts[0].Value $boundaryEntry)){throw 'unexpected captured target'}
  $values=@{};for($i=1;$i -lt $parts.Count;$i++){
   if($parts[$i] -isnot [Management.Automation.Language.CommandParameterAst] -or $null -ne $parts[$i].Argument){throw 'unexpected captured argument'}
   $key=$parts[$i].ParameterName;if($key -notin @('Module','ExpectedUserSID','VerifyOnly','ApplyPolicy','Restore','Mode','SyncOnly','DriverPackagePath','NonInteractive','ConfirmedBoard','ConfirmationComputer') -or $values.ContainsKey($key)){throw 'unexpected or duplicate parameter'}
@@ -38,9 +44,10 @@ foreach($provided in @($false,$true)){
  Assert ($capture.ContainsKey('DriverPackagePath') -eq $provided -and (-not $provided -or $capture.DriverPackagePath -ceq '')) ('captured elevation preserves omitted versus empty driver path: '+$provided)
 }
 $quoted=Join-Path $boundaryFixture "drivers ' 中文"
+$expectedQuoted=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($quoted)
 & $boundaryEntry -Module Install-Drivers -ExpectedUserSID 'fixture-sid' -DriverPackagePath $quoted -ConfirmedBoard 'board''quoted' -ConfirmationComputer 'machine''quoted' -NonInteractive
 $capture=Read-BoundaryCommand
-Assert ($capture.DriverPackagePath -ceq $quoted -and $capture.ConfirmedBoard -ceq "board'quoted" -and $capture.ConfirmationComputer -ceq "machine'quoted" -and $capture.NonInteractive) 'captured elevation preserves quoted paths and hardware confirmation'
+Assert ($capture.DriverPackagePath -ceq $expectedQuoted -and $capture.ConfirmedBoard -ceq "board'quoted" -and $capture.ConfirmationComputer -ceq "machine'quoted" -and $capture.NonInteractive) 'captured elevation preserves quoted paths and hardware confirmation'
 $capturePath=Join-Path $boundaryFixture 'captured.txt';$dummyPath=Join-Path $boundaryFixture 'dummy.json'
 $pathsMarker=Join-Path $boundaryFixture 'paths_loaded.txt'
 [IO.File]::Delete($capturePath);[IO.File]::Delete($dummyPath);[IO.File]::Delete($pathsMarker);$rejected=$false;try{& $boundaryEntry -Module Apply-UACSettings -ExpectedUserSID 'other'}catch{$rejected=$true}
@@ -67,7 +74,7 @@ foreach($provided in @($false,$true)){
  Assert (($null -ne $direct.PSObject.Properties['DriverPackagePath']) -eq $provided) ('direct dispatch preserves omitted versus empty driver path: '+$provided)
 }
 & $boundaryEntry -Module Install-Drivers -DriverPackagePath $quoted -ConfirmedBoard "board'quoted" -ConfirmationComputer "machine'quoted" -NonInteractive -VerifyOnly;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
-Assert ($direct.DriverPackagePath -ceq $quoted -and $direct.ConfirmedBoard -ceq "board'quoted" -and $direct.ConfirmationComputer -ceq "machine'quoted" -and $direct.NonInteractive.IsPresent -and $direct.VerifyOnly.IsPresent) 'direct dispatch preserves quoted path and hardware confirmation'
+Assert ($direct.DriverPackagePath -ceq $expectedQuoted -and $direct.ConfirmedBoard -ceq "board'quoted" -and $direct.ConfirmationComputer -ceq "machine'quoted" -and $direct.NonInteractive.IsPresent -and $direct.VerifyOnly.IsPresent) 'direct dispatch preserves quoted path and hardware confirmation'
 & $boundaryEntry -Module Apply-UACSettings -Restore;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
 Assert $direct.Restore.IsPresent 'direct UAC restore reaches fixed dummy'
 & $boundaryEntry -Module Apply-HostsSync -Mode Hosts -SyncOnly;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
