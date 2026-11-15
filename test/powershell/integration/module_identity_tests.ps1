@@ -10,6 +10,20 @@ $fixture=New-RunModuleFixture -SourceRoot $root
 $boundaryFixture=$fixture.Root;$boundaryEntry=$fixture.Entry;$admin=$false
 $boundaryError='';try{Invoke-RunModuleFixture $fixture @{Module='Apply-HostsSync';ExpectedUserSID='fixture-sid';VerifyOnly=$true;Mode='SSH'}}catch{$boundaryError=$_.Exception.Message}
 Assert (Test-Path -LiteralPath (Join-Path $boundaryFixture 'captured.txt')) ('run_module uses replaceable identity and elevation boundary: '+$boundaryError)
+$capturePath=Join-Path $boundaryFixture 'captured.txt'
+$originalCapture=[IO.File]::ReadAllText($capturePath)
+$equivalent=Join-Path $boundaryFixture './run_module.ps1'
+$different=Join-Path $boundaryFixture 'other.ps1'
+$controlSuffix=" -Module 'Apply-HostsSync' -ExpectedUserSID 'fixture-sid' -VerifyOnly -Mode 'SSH'"
+$equivalentControl="& '"+$equivalent.Replace("'","''")+"'"+$controlSuffix
+$differentControl="& '"+$different.Replace("'","''")+"'"+$controlSuffix
+[IO.File]::WriteAllText($capturePath,$equivalentControl)
+$equivalentAccepted=$true;try{Read-RunModuleCapturedCommand $fixture|Out-Null}catch{$equivalentAccepted=$false}
+Assert $equivalentAccepted 'equivalent fixture target path is accepted'
+[IO.File]::WriteAllText($capturePath,$differentControl)
+$differentRejected=$false;try{Read-RunModuleCapturedCommand $fixture|Out-Null}catch{$differentRejected=$true}
+Assert $differentRejected 'different fixture target path is rejected'
+[IO.File]::WriteAllText($capturePath,$originalCapture)
 $capture=Read-RunModuleCapturedCommand $fixture
 Assert ($capture.Module -ceq 'Apply-HostsSync' -and $capture.ExpectedUserSID -ceq 'fixture-sid' -and $capture.VerifyOnly -and $capture.Mode -ceq 'SSH') 'captured elevation retains original identity and requested flags'
 foreach($provided in @($false,$true)){
@@ -18,9 +32,10 @@ foreach($provided in @($false,$true)){
  Assert ($capture.ContainsKey('DriverPackagePath') -eq $provided -and (-not $provided -or $capture.DriverPackagePath -ceq '')) ('captured elevation preserves omitted versus empty driver path: '+$provided)
 }
 $quoted=Join-Path $boundaryFixture "drivers ' 中文"
+$expectedQuoted=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($quoted)
 Invoke-RunModuleFixture $fixture @{Module='Install-Drivers';ExpectedUserSID='fixture-sid';DriverPackagePath=$quoted;ConfirmedBoard="board'quoted";ConfirmationComputer="machine'quoted";NonInteractive=$true} -Admin $admin
 $capture=Read-RunModuleCapturedCommand $fixture
-Assert ($capture.DriverPackagePath -ceq $quoted -and $capture.ConfirmedBoard -ceq "board'quoted" -and $capture.ConfirmationComputer -ceq "machine'quoted" -and $capture.NonInteractive) 'captured elevation preserves quoted paths and hardware confirmation'
+Assert ($capture.DriverPackagePath -ceq $expectedQuoted -and $capture.ConfirmedBoard -ceq "board'quoted" -and $capture.ConfirmationComputer -ceq "machine'quoted" -and $capture.NonInteractive) 'captured elevation preserves quoted paths and hardware confirmation'
 $capturePath=Join-Path $boundaryFixture 'captured.txt';$dummyPath=Join-Path $boundaryFixture 'dummy.json'
 $pathsMarker=Join-Path $boundaryFixture 'paths_loaded.txt'
 [IO.File]::Delete($capturePath);[IO.File]::Delete($dummyPath);[IO.File]::Delete($pathsMarker);$rejected=$false;try{Invoke-RunModuleFixture $fixture @{Module='Apply-UACSettings';ExpectedUserSID='other'} -Admin $admin}catch{$rejected=$true}
@@ -47,7 +62,7 @@ foreach($provided in @($false,$true)){
  Assert (($null -ne $direct.PSObject.Properties['DriverPackagePath']) -eq $provided) ('direct dispatch preserves omitted versus empty driver path: '+$provided)
 }
 Invoke-RunModuleFixture $fixture @{Module='Install-Drivers';DriverPackagePath=$quoted;ConfirmedBoard="board'quoted";ConfirmationComputer="machine'quoted";NonInteractive=$true;VerifyOnly=$true} -Admin $admin;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
-Assert ($direct.DriverPackagePath -ceq $quoted -and $direct.ConfirmedBoard -ceq "board'quoted" -and $direct.ConfirmationComputer -ceq "machine'quoted" -and $direct.NonInteractive.IsPresent -and $direct.VerifyOnly.IsPresent) 'direct dispatch preserves quoted path and hardware confirmation'
+Assert ($direct.DriverPackagePath -ceq $expectedQuoted -and $direct.ConfirmedBoard -ceq "board'quoted" -and $direct.ConfirmationComputer -ceq "machine'quoted" -and $direct.NonInteractive.IsPresent -and $direct.VerifyOnly.IsPresent) 'direct dispatch preserves quoted path and hardware confirmation'
 Invoke-RunModuleFixture $fixture @{Module='Apply-UACSettings';Restore=$true} -Admin $admin;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
 Assert $direct.Restore.IsPresent 'direct UAC restore reaches fixed dummy'
 Invoke-RunModuleFixture $fixture @{Module='Apply-HostsSync';Mode='Hosts';SyncOnly=$true} -Admin $admin;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
@@ -100,7 +115,7 @@ function Read-DesktopCommand([string]$Text) {
  if($errors.Count -or $statements.Count -ne 1 -or $statements[0] -isnot [Management.Automation.Language.PipelineAst] -or $statements[0].PipelineElements.Count -ne 1){throw 'unexpected desktop command syntax'}
  $cmd=$statements[0].PipelineElements[0]
  if($cmd -isnot [Management.Automation.Language.CommandAst] -or $cmd.InvocationOperator -ne 'Ampersand' -or $cmd.Redirections.Count){throw 'unexpected desktop command'}
- $parts=@($cmd.CommandElements);if($parts[0] -isnot [Management.Automation.Language.StringConstantExpressionAst] -or $parts[0].Value -cne $desktopEntry){throw 'unexpected desktop target'}
+ $parts=@($cmd.CommandElements);if($parts[0] -isnot [Management.Automation.Language.StringConstantExpressionAst] -or -not (Test-BoundaryTarget $parts[0].Value $desktopEntry)){throw 'unexpected desktop target'}
  $values=@{};for($i=1;$i -lt $parts.Count;$i++){
   if($parts[$i] -isnot [Management.Automation.Language.CommandParameterAst] -or $null -ne $parts[$i].Argument){throw 'unexpected desktop argument'}
   $key=$parts[$i].ParameterName;if($key -notin @('ExpectedUserSID','Mode','Worker','VerificationRunId') -or $values.ContainsKey($key)){throw 'unexpected desktop parameter'}
@@ -117,6 +132,13 @@ function Invoke-DesktopFixture([string]$Mode,[string]$Sid,[string]$Culture,[bool
  try{& powershell.exe @args *> (Join-Path $desktopFixture 'case.log');$code=$LASTEXITCODE}finally{$ErrorActionPreference=$prior}
  return $code
 }
+$equivalentDesktop=Join-Path $desktopDir './desktop '' 中文.ps1'
+$otherDesktop=Join-Path $desktopDir 'other.ps1'
+$equivalentCommand="& '"+$equivalentDesktop.Replace("'","''")+"' -Mode 'Save'"
+$otherCommand="& '"+$otherDesktop.Replace("'","''")+"' -Mode 'Save'"
+Assert ((Read-DesktopCommand $equivalentCommand).Mode -ceq 'Save') 'desktop parser accepts equivalent fixture target'
+$otherRejected=$false;try{[void](Read-DesktopCommand $otherCommand)}catch{$otherRejected=$_.Exception.Message -ceq 'unexpected desktop target'}
+Assert $otherRejected 'desktop parser rejects different fixture target'
 $runId='11111111-2222-3333-4444-555555555555'
 $case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json;$command=Read-DesktopCommand $case.Command
 Assert ($case.System -and $command.ExpectedUserSID -ceq 'desktop-fixture-sid' -and $command.Mode -ceq 'Save' -and -not $command.ContainsKey('Worker')) 'Save elevation retains fixed System launcher, SID and mode'
@@ -137,7 +159,7 @@ foreach($mode in @('Load','Verify')){
 foreach($mode in @('Save','Load','Verify')){
  $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' 'zh-TW' $true $true $runId
  $case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json
- Assert ($code -eq 0 -and $case.PackageRoot -ceq $desktopPackage -and $case.Role -ceq 'Icons' -and $case.Worker -and $case.IconMode -ceq $mode -and $case.VerificationRunId -ceq $runId -and $case.VerifyOnly -eq ($mode -eq 'Verify')) ('admin dispatch reaches only fixed fake Icons controller: '+$mode)
+ Assert ($code -eq 0 -and (Test-BoundaryTarget $case.PackageRoot $desktopPackage) -and $case.Role -ceq 'Icons' -and $case.Worker -and $case.IconMode -ceq $mode -and $case.VerificationRunId -ceq $runId -and $case.VerifyOnly -eq ($mode -eq 'Verify')) ('admin dispatch reaches only fixed fake Icons controller: '+$mode)
 }
 $code=Invoke-DesktopFixture 'Save' 'desktop-fixture-sid' 'zh-TW' $true $false 'bad'
 Assert ($code -ne 0 -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE)) 'invalid run ID rejects before launcher or GUI'

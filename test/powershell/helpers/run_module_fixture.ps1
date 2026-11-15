@@ -1,4 +1,8 @@
 ﻿#Requires -Version 5.1
+function Test-BoundaryTarget([string]$Candidate,[string]$Expected) {
+ if(-not [IO.Path]::IsPathRooted($Candidate) -or -not [IO.Path]::IsPathRooted($Expected)){return $false}
+ try { return [string]::Equals([IO.Path]::GetFullPath($Candidate),[IO.Path]::GetFullPath($Expected),[StringComparison]::OrdinalIgnoreCase) } catch { return $false }
+}
 function Assert-RunModuleSafePath([string]$Path) {
  $current=Get-Item -LiteralPath $Path -Force
  while($null -ne $current){
@@ -98,7 +102,7 @@ function Read-RunModuleCapturedCommand {
  $cmd=$statements[0].PipelineElements[0]
  if($cmd -isnot [Management.Automation.Language.CommandAst] -or $cmd.InvocationOperator -ne 'Ampersand' -or $cmd.Redirections.Count){throw 'unexpected captured command'}
  $parts=@($cmd.CommandElements)
- if($parts[0] -isnot [Management.Automation.Language.StringConstantExpressionAst] -or $parts[0].Value -cne $Fixture.Entry){throw 'unexpected captured target'}
+ if($parts[0] -isnot [Management.Automation.Language.StringConstantExpressionAst] -or -not (Test-BoundaryTarget $parts[0].Value $Fixture.Entry)){throw 'unexpected captured target'}
  $values=@{};for($i=1;$i -lt $parts.Count;$i++){
   if($parts[$i] -isnot [Management.Automation.Language.CommandParameterAst] -or $null -ne $parts[$i].Argument){throw 'unexpected captured argument'}
   $key=$parts[$i].ParameterName;if($key -notin @('Module','ExpectedUserSID','VerifyOnly','ApplyPolicy','Restore','Mode','SyncOnly','DriverPackagePath','NonInteractive','ConfirmedBoard','ConfirmationComputer') -or $values.ContainsKey($key)){throw 'unexpected or duplicate parameter'}
