@@ -140,6 +140,9 @@ func run() error {
 		}
 		requiredVersion = latest.Tag
 	}
+	if err := a.ValidateOverviewBadge(string(b), *base); err != nil {
+		return err
+	}
 	var measured *c.Evidence
 	r, e := a.VerifyWithRetry(read, string(b), *sha, *run, *base, 12, func() {
 		fmt.Println("部署驗收尚未符合本次來源，有限等待 CDN 更新。")
