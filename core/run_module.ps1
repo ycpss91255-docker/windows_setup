@@ -1,6 +1,7 @@
 ﻿param([Parameter(Mandatory=$true)][string]$Module,[switch]$VerifyOnly,[switch]$Restore,[switch]$SyncOnly,[ValidateSet('All','Hosts','SSH')][string]$Mode='All',[string]$DriverPackagePath,[string]$ExpectedUserSID,[string]$ConfirmedBoard,[string]$ConfirmationComputer,[switch]$NonInteractive,[switch]$ApplyPolicy)
 $ErrorActionPreference='Stop'
-$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+. (Join-Path $PSScriptRoot 'entry_os_boundary.ps1')
+$sid=Get-SetupEntryIdentity
 if($ExpectedUserSID -and $ExpectedUserSID -ne $sid){throw '請用原本登入帳號提權，不可改用另一個管理員帳號執行獨立模組。'}
 if($DriverPackagePath){$DriverPackagePath=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($DriverPackagePath)}
 . (Join-Path $PSScriptRoot 'paths.ps1')
@@ -9,7 +10,7 @@ if($ApplyPolicy -and $Module -ne 'Apply-StartMenuSettings'){throw 'ApplyPolicy �
 if($Restore -and ($Module -ne 'Apply-UACSettings' -or $VerifyOnly)){throw 'Restore僅適用UAC且不可與VerifyOnly同時使用。'}
 if($Module -notin $allowed){throw 'Unknown module'}
 if($Module -ne 'Apply-HostsSync' -and ($SyncOnly -or $Mode -ne 'All')){throw 'SyncOnly/Mode only apply to Apply-HostsSync.'}
-$isAdmin=Test-SetupAdministrator
+$isAdmin=Test-SetupEntryAdministrator
 if(-not $isAdmin){
  $command="& '"+$PSCommandPath.Replace("'","''")+"' -Module '"+$Module.Replace("'","''")+"'"
  $command+=" -ExpectedUserSID '"+$sid.Replace("'","''")+"'"
@@ -20,7 +21,7 @@ if(-not $isAdmin){
  if($PSBoundParameters.ContainsKey('DriverPackagePath')){$command+=" -DriverPackagePath '"+$DriverPackagePath.Replace("'","''")+"'"}
  if($NonInteractive){$command+=' -NonInteractive'}
  if($ConfirmedBoard){$command+=" -ConfirmedBoard '"+$ConfirmedBoard.Replace("'","''")+"' -ConfirmationComputer '"+$ConfirmationComputer.Replace("'","''")+"'"}
- Start-Process powershell.exe -Verb RunAs -ArgumentList ('-NoProfile -NoExit -ExecutionPolicy Bypass -EncodedCommand '+[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command)));return
+ Start-SetupEntryElevated -Command $command;return
 }
 $driverArguments=@{ConfirmedBoard=$ConfirmedBoard;ConfirmationComputer=$ConfirmationComputer;NonInteractive=$NonInteractive}
 if($PSBoundParameters.ContainsKey('DriverPackagePath')){$driverArguments.DriverPackagePath=$DriverPackagePath}
