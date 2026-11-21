@@ -1,7 +1,7 @@
 ﻿#Requires -Version 5.1
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
-$fixture=Join-Path $env:TEMP ('neutral_paths_'+[guid]::NewGuid().ToString('N'))
+$fixture=[IO.Path]::GetFullPath((Join-Path (Join-Path $env:TEMP '.') ('neutral_paths_'+[guid]::NewGuid().ToString('N'))))
 $core=Join-Path $fixture 'core';[void][IO.Directory]::CreateDirectory($core)
 Copy-Item -LiteralPath (Join-Path $root 'core/paths.ps1'),(Join-Path $root 'core/paths.json') -Destination $core
 [IO.File]::WriteAllText((Join-Path $core 'hardware.ps1'),'# inert fixture',[Text.UTF8Encoding]::new($true))
