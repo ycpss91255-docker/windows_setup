@@ -153,3 +153,32 @@ func TestMergeTitleGraphBoundary(t *testing.T) {
 		})
 	}
 }
+
+// TestHistoricalScanRejectsOtherMerges needs only a synthetic local graph.
+func TestHistoricalScanRejectsOtherMerges(t *testing.T) {
+	repo := t.TempDir()
+	git := func(args ...string) string {
+		t.Helper()
+		c := exec.Command("git", args...)
+		c.Dir = repo
+		c.Env = append(os.Environ(), "GIT_AUTHOR_NAME=Fixture", "GIT_AUTHOR_EMAIL=fixture@example.invalid", "GIT_COMMITTER_NAME=Fixture", "GIT_COMMITTER_EMAIL=fixture@example.invalid")
+		out, err := c.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %s: %v", args, out, err)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	git("init", "--quiet", repo)
+	tree := git("mktree")
+	base := git("commit-tree", tree, "-m", "base")
+	other := git("commit-tree", tree, "-p", base, "-m", "other")
+	bad := git("commit-tree", tree, "-p", base, "-p", other, "-m", "wrong title")
+	later := git("commit-tree", tree, "-p", bad, "-p", other, "-m", "合併：後續有效")
+	for _, kind := range []string{"tag", "dispatch_main", "pull_request", "push_main"} {
+		for _, tip := range []string{bad, later} {
+			if err := validateMergeTitlesForEvent(repo, []string{tip}, []string{base}, kind); err == nil {
+				t.Fatalf("invalid other merge accepted kind=%s", kind)
+			}
+		}
+	}
+}

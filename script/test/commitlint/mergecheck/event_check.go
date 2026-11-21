@@ -210,7 +210,7 @@ func checkEventInRepository(repo, kind, ref, sha, main string, raw []byte, ancho
 		return err
 	}
 	excluded = append(excluded, roots...)
-	return validateMergeTitles(repo, tips, excluded)
+	return validateMergeTitlesForEvent(repo, tips, excluded, v.Kind)
 }
 
 func main() {

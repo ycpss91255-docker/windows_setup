@@ -28,7 +28,19 @@ func mergeTitle(repo, id string) (string, error) {
 	return strings.TrimRight(string(b), "\r\n"), nil
 }
 
+// This merge was already on main before this check was adopted. It is not a
+// graph root: only its own title is exempt for historical tag/dispatch scans.
+const historicalAdoptionMerge = "fb7a85067449f316055fe4867318d2037e560455"
+
+func titleException(kind, oid string) bool {
+	return (kind == "tag" || kind == "dispatch_main") && oid == historicalAdoptionMerge
+}
+
 func validateMergeTitles(repo string, tips, excluded []string) error {
+	return validateMergeTitlesForEvent(repo, tips, excluded, "")
+}
+
+func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind string) error {
 	if len(tips) == 0 || len(excluded) == 0 {
 		return fmt.Errorf("missing graph boundary")
 	}
@@ -61,6 +73,9 @@ func validateMergeTitles(repo string, tips, excluded []string) error {
 			return fmt.Errorf("unsupported merge parent count")
 		}
 		if len(fields) == 3 {
+			if titleException(kind, fields[0]) {
+				continue
+			}
 			title, e := mergeTitle(repo, fields[0])
 			if e != nil {
 				return e

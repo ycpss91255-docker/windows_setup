@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -46,5 +48,77 @@ func TestEventMetadataFailsClosed(t *testing.T) {
 				t.Fatalf("want %v: %v", tc.ok, e)
 			}
 		})
+	}
+}
+
+// TestCurrentMainDispatchAdoption uses a local-only temporary repository; no tag or network is created.
+func TestCurrentMainDispatchAdoption(t *testing.T) {
+	if os.Getenv("WINDOWS_SETUP_VERIFY_ADOPTION_GRAPH") != "1" {
+		t.Skip("opt-in local full-history verification")
+	}
+	source, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceRoot := strings.TrimSpace(string(source))
+	roots, err := frozenRoots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	const main = "66b5b0fb7a49816f3735465a18f0ca8986219de4"
+	repo := t.TempDir()
+	git := func(args ...string) {
+		t.Helper()
+		c := exec.Command("git", args...)
+		c.Dir = repo
+		if out, e := c.CombinedOutput(); e != nil {
+			t.Fatalf("git %v: %s: %v", args, out, e)
+		}
+	}
+	git("init", "--quiet", repo)
+	args := append([]string{"fetch", "--quiet", "--no-tags", sourceRoot, main}, roots...)
+	git(args...)
+	git("checkout", "--quiet", "--detach", main)
+	raw := []byte(fmt.Sprintf(`{"repository":{"full_name":"%s"}}`, fixedRepository))
+	if err := checkEventInRepository(repo, "workflow_dispatch", "refs/heads/main", main, main, raw, fixedAnchor, roots); err != nil {
+		t.Fatalf("existing main dispatch rejected: %v", err)
+	}
+	push := []byte(fmt.Sprintf(`{"repository":{"full_name":"%s"},"ref":"refs/heads/main","before":"%s","after":"%s"}`, fixedRepository, fixedAnchor, main))
+	if err := checkEventInRepository(repo, "push", "refs/heads/main", main, "", push, fixedAnchor, roots); err == nil {
+		t.Fatal("new push incorrectly exempted historical merge")
+	}
+
+	// A new invalid descendant, and the same invalid merge as an ancestor of a
+	// later valid merge, must both remain visible to historical scans.
+	makeMerge := func(title string, first string) string {
+		t.Helper()
+		c := exec.Command("git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit-tree", main+"^{tree}", "-p", first, "-p", fixedAnchor, "-m", title)
+		c.Dir = repo
+		out, e := c.CombinedOutput()
+		if e != nil {
+			t.Fatalf("commit-tree: %s: %v", out, e)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	bad := makeMerge("wrong new title", main)
+	good := makeMerge("合併：後續有效", bad)
+	for _, tip := range []string{bad, good} {
+		for _, kind := range []string{"tag", "dispatch_main"} {
+			if err := validateMergeTitlesForEvent(repo, []string{tip}, roots, kind); err == nil {
+				t.Fatalf("invalid other merge accepted for %s", kind)
+			}
+		}
+	}
+
+}
+
+func TestHistoricalAdoptionExceptionIsExactAndEventScoped(t *testing.T) {
+	for _, kind := range []string{"tag", "dispatch_main", "pull_request", "push_main", "unknown"} {
+		for _, oid := range []string{historicalAdoptionMerge, strings.Repeat("a", 40)} {
+			want := oid == historicalAdoptionMerge && (kind == "tag" || kind == "dispatch_main")
+			if titleException(kind, oid) != want {
+				t.Fatalf("unexpected exception kind=%s oid=%s", kind, oid)
+			}
+		}
 	}
 }
