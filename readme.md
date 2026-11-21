@@ -2,7 +2,7 @@
 
 [![Windows CI](https://github.com/ycpss91255/windows_setup/actions/workflows/windows_tests.yml/badge.svg)](https://github.com/ycpss91255/windows_setup/actions/workflows/windows_tests.yml)
 
-![Language](https://img.shields.io/badge/Language-Go%20%2F%20PowerShell-blue?style=flat-square)
+![Runtime: PowerShell | C#](https://img.shields.io/badge/Runtime-PowerShell%20%7C%20C%23-blue?style=flat-square)
 [![Coverage](https://ycpss91255.github.io/windows_setup/main/coverage.svg)](https://ycpss91255.github.io/windows_setup/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square)](license)
 
@@ -837,6 +837,8 @@ Pages 部署後匿名讀取首頁、main 報表、JSON／Markdown／JUnit、runt
 每個問題／功能先實際執行紅燈測試並在 PR 記錄命令、預期原因、實際輸出與退出碼；測試與修正同一綠色提交，重構另成綠色提交。每個提交以獨立 detached 快照驗證；純文件不偽造紅燈。最終必要 CI 通過後只以 merge commit 合併；舊歷史不重寫。以 `git log --first-parent` 看主線 PR 總覽，以 `git log` 看完整歷史。完整契約見 [維護規範](agents.md)，維護者偏好另見 [工作方式](doc/maintainer_workflow.md)。
 
 ### 自有測試暫存的預覽與清理
+
+若單次工作需要固定「本次建立的項目」身分，可在 `create <根目錄> <名稱> --print-identity` 成功後保存標準輸出的身分，並將它分別提供給 `finish <根目錄> <名稱> <到期時間> --expected-identity <身分>`、`clean <根目錄> <名稱> --expected-identity <身分>` 及需要刪除時的 `clean <根目錄> <名稱> --expected-identity <身分> --delete`。建立時身分來自新目錄的控制代碼；完成、預覽及刪除均在鎖定後核對該身分，預覽亦核對完成清單，但釋放鎖後仍不能保證之後刪除成功。身分包含建立時隨機識別，與完成收據的 nonce 分開；它不是秘密，無法防範同帳號讀取標記後蓄意仿造。呼叫者須在完成前停止寫入，這不是對任意同帳號寫入者的隔離。若建立成功但標準輸出失敗，命令會報錯並保留已建立的項目與標記供人工檢查；沒有取得身分時不得猜測接管。原有未指定身分的命令語意不變。
 
 維護者可用 Go 執行 `go run ./script/test/clean_test_artifacts` 管理本工具新建的拋棄式測試資料夾。先在 Go `os.TempDir()` 所取得的目前程序暫存目錄之下，以 `init <新根目錄>` 建立不存在的專用根目錄，再用 `create <根目錄> <名稱>` 建立單項。僅在資料確定可拋棄、無續跑或私人證據需求後，以 `finish <根目錄> <名稱> <RFC3339到期時間>` 標記完成。`clean <根目錄> <名稱>` 預設只列出候選項目，尚未驗證完成清單或控制代碼，不能保證實際刪除可成功；明確加上 `--delete` 時才進行完整核對並刪除選定且已到期的單項。以下範例使用一般使用者身分：
 
