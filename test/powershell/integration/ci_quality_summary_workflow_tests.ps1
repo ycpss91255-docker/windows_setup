@@ -9,10 +9,11 @@ Assert ($aggregation -match 'needs: \[isolated-tests, powershell-coverage\]' -an
 $shards=[regex]::Match($workflow,'(?ms)^  powershell-coverage:\s*\r?\n(.*?)(?=^  [a-z][a-z0-9-]*:\s*$)').Groups[1].Value
 Assert ($shards -match '-TimingDirectory \(Join-Path \$env:RUNNER_TEMP ''powershell-timing-public''\)' -and $shards -match 'name: powershell-timing-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}-\$\{\{ matrix.shard \}\}' -and $shards -match 'path: \$\{\{ runner.temp \}\}/powershell-timing-public/') '每片執行與同次同 attempt 的獨立計時 artifact 相連'
 Assert ($aggregation -match 'pattern: powershell-timing-\$\{\{ github.run_id \}\}-\$\{\{ github.run_attempt \}\}-\*' -and $aggregation -match '-PowerShellTimingDirectory \(Join-Path \$env:RUNNER_TEMP ''powershell-timings''\)' -and $aggregation -match 'repo-coverage/timing/timing.json') '聚合下載完整同次計時並保留核對後結果'
-$rollup=[regex]::Match($workflow,'(?ms)^  ci-rollup:\s*\r?\n(.*?)(?=^  release:)').Groups[1].Value
+$rollup=[regex]::Match($workflow,'(?ms)^  ci-rollup:[^\S\r\n]*\r?\n(.*?)(?=^  [A-Za-z_][A-Za-z0-9_-]*:[^\S\r\n]*$)').Groups[1].Value
 Assert ($rollup -match 'if: always\(\)' -and $rollup -match 'needs: \[isolated-tests, requirements-gate, docker-tests, oobe_payload_inspection, powershell-coverage, coverage-aggregation\]') 'rollup 在失敗時仍取得必要工作的狀態'
-$step=[regex]::Match($rollup,'(?ms)^      - name: 確認全部必要測試成功\s*\r?\n.*?^        run: \|\s*\r?\n((?:^          .*\r?\n)+)').Groups[1].Value
+$step=[regex]::Match($rollup,'(?m)^      - name: 確認全部必要測試成功[^\S\r\n]*\r?\n(?s:.*?)^        run: \|[^\S\r\n]*\r?\n((?:^          [^\r\n]*\r?\n)+)').Groups[1].Value
 Assert ([bool]$step) '擷取實際 rollup 步驟'
+Assert ($rollup -notmatch '(?m)^  cache-diagnostic-' -and $step -notmatch '(?m)^  cache-diagnostic-') 'rollup 與擷取的 PowerShell 區塊不得包含後續獨立診斷 job'
 $script=[scriptblock]::Create(($step -replace '(?m)^          ',''))
 $temp=Join-Path $env:TEMP ('ci_summary_rollup_'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($temp)
 try {
