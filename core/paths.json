@@ -59,6 +59,7 @@
   "apply_pagefile_settings.cmd": "modules/memory/apply_pagefile_settings.cmd",
   "apply_power_settings.ps1": "modules/power/apply_power_settings.ps1",
   "apply_power_settings.cmd": "modules/power/apply_power_settings.cmd",
+  "power_library.ps1": "modules/power/power_library.ps1",
   "apply_ssh_settings.ps1": "modules/ssh/apply_ssh_settings.ps1",
   "apply_ssh_settings.cmd": "modules/ssh/apply_ssh_settings.cmd",
   "initialize_ssh_client.ps1": "modules/ssh/initialize_ssh_client.ps1",
