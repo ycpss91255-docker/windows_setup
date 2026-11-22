@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
 function Invoke-SetupCI {
- param([Parameter(Mandatory=$true)][string]$PackageRoot,[Parameter(Mandatory=$true)][string]$ReportDirectory,[ValidateSet('All','Unit','Integration')][string]$Layer='All')
+ param([Parameter(Mandatory=$true)][string]$PackageRoot,[Parameter(Mandatory=$true)][string]$ReportDirectory,[ValidateSet('All','Unit','Integration')][string]$Layer='All',[ValidateRange(1,4)][int]$Parallelism=1)
 $ErrorActionPreference='Stop'
 $testRoot=Join-Path $packageRoot 'test'
 . (Join-Path $PSScriptRoot 'test_report.ps1')
@@ -29,26 +29,67 @@ foreach($kind in @('unit','integration')){
 }
 $cases=@($cases|Where-Object {$Layer -eq 'All' -or $_.Layer -eq $Layer})
 if(-not $cases.Count){throw '沒有符合所選層級的測試，不得回報成功。'}
-foreach($case in $cases){
- $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$case.Path)+$case.Arguments
+# Each case runs in its own Windows PowerShell child process; the same block runs inline (serial) or in a background job.
+$runCase={
+ param([string]$CaseName,[string[]]$CaseArguments,[string]$LogDirectory,[string]$WorkingDirectory,[string]$ShellPath)
+ $ErrorActionPreference='Stop'
+ Set-Location -LiteralPath $WorkingDirectory
+ $log=Join-Path $LogDirectory ($CaseName+'.log')
  $code=1
  $timer=[Diagnostics.Stopwatch]::StartNew()
  $previousPreference=$ErrorActionPreference
  try{
   # Native stderr can contain Git warnings; the child exit code decides failure.
   $ErrorActionPreference='Continue'
-  & (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe') @arguments 2>&1 | Out-File (Join-Path $ReportDirectory ($case.Name+'.log')) -Encoding UTF8
+  & $ShellPath @CaseArguments 2>&1 | Out-File $log -Encoding UTF8
   $code=$LASTEXITCODE
- }catch{$_|Out-String|Out-File (Join-Path $ReportDirectory ($case.Name+'.log')) -Append -Encoding UTF8}finally{$ErrorActionPreference=$previousPreference}
+ }catch{$_|Out-String|Out-File $log -Append -Encoding UTF8}finally{$ErrorActionPreference=$previousPreference}
  $timer.Stop()
+ [pscustomobject]@{Code=[int]$code;Seconds=[double]$timer.Elapsed.TotalSeconds}
+}
+$shellPath=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$workingDirectory=(Get-Location).ProviderPath
+$outcomes=@{}
+$running=New-Object Collections.Generic.List[object]
+function Complete-SetupCICase($Case,$Outcome){
+ $code=$Outcome.Code
  $assertions=@()
- foreach($line in @(Get-Content -LiteralPath (Join-Path $ReportDirectory ($case.Name+'.log')))){
+ foreach($line in @(Get-Content -LiteralPath (Join-Path $ReportDirectory ($Case.Name+'.log')))){
   if($line.StartsWith('@@ASSERT@@')){try{$record=$line.Substring(10)|ConvertFrom-Json;if($record.Passed -isnot [bool] -or $record.Name -isnot [string]){throw 'Invalid assertion record'};$assertions+=$record}catch{$code=1}}
  }
  if(-not $assertions.Count -or @($assertions|Where-Object {-not $_.Passed}).Count){$code=1}
- $results.Add([pscustomobject]@{Name=$case.Name;Layer=$case.Layer;Status=$(if($code -eq 0){'Passed'}else{'Failed'});Executed=$true;Passed=($code -eq 0);ExitCode=$code;DurationSeconds=[math]::Round($timer.Elapsed.TotalSeconds,3);Assertions=$assertions})
- Write-Host ($case.Name+': '+$(if($code -eq 0){'PASS'}else{'FAIL'}))
+ $outcomes[$Case.Name]=[pscustomobject]@{Name=$Case.Name;Layer=$Case.Layer;Status=$(if($code -eq 0){'Passed'}else{'Failed'});Executed=$true;Passed=($code -eq 0);ExitCode=$code;DurationSeconds=[math]::Round($Outcome.Seconds,3);Assertions=$assertions}
+ Write-Host ($Case.Name+': '+$(if($code -eq 0){'PASS'}else{'FAIL'}))
 }
+function Receive-SetupCIJob($Entry){
+ $outcome=$null
+ try{$outcome=@(Receive-Job -Job $Entry.Job -ErrorAction Stop)|Where-Object {$_ -and $_.PSObject.Properties['Code']}|Select-Object -Last 1}catch{$_|Out-String|Out-File (Join-Path $ReportDirectory ($Entry.Case.Name+'.log')) -Append -Encoding UTF8}
+ Remove-Job -Job $Entry.Job -Force
+ if(-not $outcome){$outcome=[pscustomobject]@{Code=1;Seconds=0.0}}
+ Complete-SetupCICase $Entry.Case $outcome
+}
+foreach($case in $cases){
+ $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$case.Path)+$case.Arguments
+ if($Parallelism -le 1){
+  Complete-SetupCICase $case (& $runCase $case.Name $arguments $ReportDirectory $workingDirectory $shellPath)
+  continue
+ }
+ while($running.Count -ge $Parallelism){
+  $finished=Wait-Job -Job @($running|ForEach-Object {$_.Job}) -Any
+  $entry=@($running|Where-Object {$_.Job.Id -eq $finished.Id})[0]
+  [void]$running.Remove($entry)
+  Receive-SetupCIJob $entry
+ }
+ $running.Add([pscustomobject]@{Case=$case;Job=(Start-Job -ScriptBlock $runCase -ArgumentList @($case.Name,$arguments,$ReportDirectory,$workingDirectory,$shellPath))})
+}
+while($running.Count){
+ $finished=Wait-Job -Job @($running|ForEach-Object {$_.Job}) -Any
+ $entry=@($running|Where-Object {$_.Job.Id -eq $finished.Id})[0]
+ [void]$running.Remove($entry)
+ Receive-SetupCIJob $entry
+}
+# Report order follows the roster, never completion order.
+foreach($case in $cases){$results.Add($outcomes[$case.Name])}
 $success=@($results|Where-Object {$_.Executed -and -not $_.Passed}).Count -eq 0
 $runUrl=if($env:GITHUB_REPOSITORY -and $env:GITHUB_RUN_ID){'https://github.com/'+$env:GITHUB_REPOSITORY+'/actions/runs/'+$env:GITHUB_RUN_ID}else{''}
 $publicDirectory=Join-Path $ReportDirectory 'public'
