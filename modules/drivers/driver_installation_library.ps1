@@ -9,6 +9,7 @@ function Invoke-SetupDriverVerification {
  $auditedAt=[string]$raw.AuditedAt;$auditDate=[datetime]::MinValue
  if(-not [datetime]::TryParseExact($auditedAt,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::None,[ref]$auditDate)){throw '官方驅動清單缺少有效的 AuditedAt 查核日期。'}
  $entries=@(Get-SetupDriverManifestEntries -Manifest $raw)
+ if($raw.SchemaVersion -eq 2 -and $raw.ProfileId){Add-SetupDriverNamingOnlyMarks -Entries $entries -ProfileId ([string]$raw.ProfileId)}
  foreach($entry in $entries){if((Get-FileHash -LiteralPath (Join-Path $DriverRoot $entry.File) -Algorithm SHA256 -ErrorAction Stop).Hash -ne $entry.SHA256){throw ('驅動封存檔 SHA256 不符：'+$entry.File)}}
  $allTargets=@($entries|ForEach-Object Drivers)
  Write-Host ('唯讀重新盤點 '+$allTargets.Count+' 個已核官方目標；查核日期 '+$auditedAt) -ForegroundColor Cyan
@@ -89,6 +90,7 @@ function Invoke-SetupDriverInstallation {
  param([Parameter(Mandatory=$true)][string]$DriverRoot,[Parameter(Mandatory=$true)][string]$LogDirectory)
  $raw=Get-Content -LiteralPath (Join-Path $DriverRoot 'manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
  $entries=@(Get-SetupDriverManifestEntries -Manifest $raw)
+ if($raw.SchemaVersion -eq 2 -and $raw.ProfileId){Add-SetupDriverNamingOnlyMarks -Entries $entries -ProfileId ([string]$raw.ProfileId)}
  foreach($entry in $entries){if((Get-FileHash -LiteralPath (Join-Path $DriverRoot $entry.File) -Algorithm SHA256 -ErrorAction Stop).Hash -ne $entry.SHA256){throw ('驅動封存檔 SHA256 不符：'+$entry.File)}}
  [void][IO.Directory]::CreateDirectory($LogDirectory)
  $stamp=Get-Date -Format yyyyMMdd-HHmmss
