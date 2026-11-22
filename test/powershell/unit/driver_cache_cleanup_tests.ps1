@@ -11,6 +11,7 @@ function Assert-SetupUpdateProtectedPath {param($Path,[switch]$Directory) if($sc
 function Assert-SetupUpdatePlainPath {param($Path)}
 function Assert-SetupUpdateAncestors {param($CommonDataRoot)}
 function Assert-SetupUpdateAcl {param($Acl,[switch]$Directory)}
+function Assert-SetupDriverExtractionChildAcl {param($Acl,[switch]$Directory)}
 function NewStage { $p=Join-Path $parent ([guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($p);[IO.File]::WriteAllText((Join-Path $p 'payload.sys'),'owned');Register-SetupDriverExtractionLease -Path $p;return $p }
 $one=NewStage;$two=NewStage
 Assert ((Remove-SetupDriverExtractionRoot -Path $one) -and -not(Test-Path $one) -and (Test-Path $two)) '只刪本輪指定lease，不碰兄弟stage'
