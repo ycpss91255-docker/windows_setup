@@ -14,3 +14,7 @@ $r=Get-SetupNetworkObservation -ReadProfiles {return @((P 'LocalNetwork' 'Other'
 $lines=@(Get-SetupNetworkPreflightMessage -Observation $r);Assert (($lines -join ' ') -match '網際網路未確認') '部分未知時不冒稱網際網路可用'
 Set-StrictMode -Version Latest
 try{$r=Get-SetupNetworkObservation -ReadProfiles {return @([pscustomobject]@{IPv4Connectivity='LocalNetwork'})};Assert ($r.Status -ceq 'Local') '嚴格模式缺欄位仍維持唯讀提示'}finally{Set-StrictMode -Off}
+foreach($status in @('Offline','Local','Unknown','Internet')){
+ $text=@(Get-SetupNetworkPreflightMessage -Observation ([pscustomobject]@{Status=$status})) -join ' '
+ Assert ($text -match 'DNS' -and $text -match '代理' -and $text -match '0x8024402C' -and $text -match '不保證') ('各狀態提供安全來源疑難指引 '+$status)
+}
