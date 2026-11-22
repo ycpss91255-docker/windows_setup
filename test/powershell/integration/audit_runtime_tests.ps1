@@ -44,9 +44,9 @@ function Read-SetupUpdateContext {param($StageRoot) [pscustomobject]@{UserSID='f
 $stage=Join-Path $fixture 'windows_setup_update';[void][IO.Directory]::CreateDirectory($stage)
 [IO.File]::WriteAllText((Join-Path $stage 'context.json'),'{}')
 $script:sshMode='absent';$script:hostLines=@()
-function Get-CimInstance {param($ClassName,$Filter,$ErrorAction);if($ClassName -eq 'Win32_Service'){if($script:sshMode -eq 'unknown'){throw 'fixture service query error'};if($script:sshMode -eq 'running'){return [pscustomobject]@{State='Running';StartMode='Auto'}};return};return [pscustomobject]@{Name='fixture';Caption='fixture';BuildNumber='22631'}}
+function Get-CimInstance {param($ClassName,$Filter,$ErrorAction);if($ClassName -eq 'Win32_Service'){if($script:sshMode -eq 'unknown'){throw 'fixture service query error'};if($script:sshMode -eq 'emptyerror'){throw [Exception]::new([string]::Empty)};if($script:sshMode -eq 'running'){return [pscustomobject]@{State='Running';StartMode='Auto'}};return};return [pscustomobject]@{Name='fixture';Caption='fixture';BuildNumber='22631'}}
 function Write-Host {param($Object,$ForegroundColor);$script:hostLines+=([string]$Object)}
-foreach($mode in @('absent','running','unknown')){
+foreach($mode in @('absent','running','unknown','emptyerror')){
  $script:sshMode=$mode;$script:hostLines=@();$reportPath=Join-Path $fixture ('audit_'+$mode+'.json')
  $audit=Invoke-SetupAudit -ReportPath $reportPath -UserSID fixture_sid -CommonDataRoot $fixture
  $saved=Get-Content -LiteralPath $reportPath -Raw -Encoding UTF8|ConvertFrom-Json
@@ -57,5 +57,6 @@ foreach($mode in @('absent','running','unknown')){
  if($mode -eq 'running' -and ($saved.SSH.State -cne 'Running' -or $saved.SSH.StartMode -cne 'Auto')){throw 'installed SSH data must remain in audit'}
  if($mode -eq 'running' -and -not ($script:hostLines -match 'SSH：Running；啟動方式：Auto')){throw 'running SSH remains visible'}
  if($mode -eq 'unknown' -and (-not ($script:hostLines -match 'SSH：狀態未知') -or $saved.SSHError -ne 'fixture service query error')){throw 'failed SSH query must remain unknown and preserve error'}
+ if($mode -eq 'emptyerror' -and (-not ($script:hostLines -match 'SSH：狀態未知') -or $null -ne $saved.SSH -or $saved.SSHError -cne '')){throw 'empty SSH query error must remain unknown'}
  if((@($script:hostLines|Where-Object {$_ -like 'Windows Update：*'}) -join "`n").Contains($fixture)){throw 'console leaked private result error path'}
 }
