@@ -70,3 +70,12 @@ $e=[InvalidOperationException]::new('原生mDNS撤銷未完成。');$e.Data['Mdn
 Assert ((Get-SetupMdnsSafeFailure $e) -ceq 'unknown') 'structured cleanup refuses non-whitelisted content'
 $e.Data['MdnsCleanupCategories']=[string[]]@('cleanup-timeout','callback-status=4294967296')
 Assert ((Get-SetupMdnsSafeFailure $e) -ceq 'unknown') 'structured cleanup rejects out of range status'
+
+# Normal handoff ends the worker loop; only the final lease cleanup fails.
+$script:normalReads=0;$script:workerFacts=$facts;$script:captured=$null
+function Read-SetupMdnsCurrent {$script:normalReads++;[pscustomobject]@{RunId=$(if($script:normalReads -le 2){$script:workerRun}else{[guid]::NewGuid().ToString('D')})}}
+function New-SetupMdnsNativeRegistration {param($CodeRoot,$Row) return New-FixtureTimeoutLease}
+function Start-Sleep {param($Seconds)}
+$failed=$false;$workerMessage=''
+try{Invoke-SetupMdnsPublisherWorker -RunId $script:workerRun -CodeRoot $script:workerRoot}catch{$failed=$true;$workerMessage=$_.Exception.Message}
+Assert ($failed -and $script:captured.Status -ceq 'Failed' -and -not $script:captured.Ready -and $script:captured.Error -ceq 'final-cleanup=cleanup-timeout' -and $workerMessage -ceq 'mDNS worker failed: final-cleanup=cleanup-timeout') 'normal worker stop reports final cleanup timeout as failure'
