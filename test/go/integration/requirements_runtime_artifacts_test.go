@@ -35,7 +35,7 @@ func TestRequirementsRuntimeRejectsMissingOrChangedSourceEvidence(t *testing.T) 
 		t.Fatal(err)
 	}
 	source := filepath.Join(fixture, "source")
-	inputs := map[string]string{"readme.md": "init.cmd windows.cmd Shift+F10 -AfterRestart -VerifyOnly\n![CI](https://github.com/example/repo/actions/workflows/windows_tests.yml/badge.svg)\n", "init.cmd": "@echo off\n", "windows.cmd": "@echo off\n", ".github/workflows/windows_tests.yml": "name: fixture\n"}
+	inputs := map[string]string{"readme.md": "init.cmd windows.cmd Shift+F10 -AfterRestart -VerifyOnly\n[![Coverage](https://ycpss91255.github.io/windows_setup/main/coverage.svg)](https://ycpss91255.github.io/windows_setup/)\n![CI](https://github.com/example/repo/actions/workflows/windows_tests.yml/badge.svg)\n", "init.cmd": "@echo off\n", "windows.cmd": "@echo off\n", ".github/workflows/windows_tests.yml": "name: fixture\n"}
 	for n, s := range inputs {
 		p := filepath.Join(source, filepath.FromSlash(n))
 		if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
@@ -114,6 +114,18 @@ func TestRequirementsRuntimeRejectsMissingOrChangedSourceEvidence(t *testing.T) 
 	}
 	if out, e := invoke(); e != nil {
 		t.Fatalf("valid synthetic runtime rejected: %v %s", e, out)
+	}
+	readmePath := filepath.Join(source, "readme.md")
+	validReadme := inputs["readme.md"]
+	wrongReadme := strings.Replace(validReadme, "](https://ycpss91255.github.io/windows_setup/)", "](https://ycpss91255.github.io/windows_setup/main/index.html)", 1)
+	if err = os.WriteFile(readmePath, []byte(wrongReadme), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if out, e := invoke(); e == nil || !strings.Contains(string(out), "R05") {
+		t.Fatalf("wrong coverage route accepted: %v %s", e, out)
+	}
+	if err = os.WriteFile(readmePath, []byte(validReadme), 0600); err != nil {
+		t.Fatal(err)
 	}
 	if err = os.Remove(filepath.Join(artifact, "coverage.xml")); err != nil {
 		t.Fatal(err)

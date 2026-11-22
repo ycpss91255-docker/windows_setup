@@ -6,6 +6,17 @@ function Invoke-SetupDriverFreshVerification {
  if($results.Count -ne 1 -or $results[0].Success -isnot [bool] -or $results[0].VerificationRunId -cne $VerificationRunId -or $results[0].Computer -cne [Environment]::MachineName -or $results[0].UserSID -cne [Security.Principal.WindowsIdentity]::GetCurrent().User.Value){throw '驅動結果不是本輪、同機、同帳號的可信結果。'}
  return $results[0]
 }
+function Complete-SetupVerificationResult {
+ param($Checks,$Hardware,$VerificationRunId)
+$result=[ordered]@{VerificationRunId=$VerificationRunId;UserSID=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Computer=$env:COMPUTERNAME;VerifiedAt=(Get-Date).ToString('o');HardwareProfile=$hardware;SkippedCount=@($checks|Where-Object Status -eq Skipped).Count;Passed=(Test-SetupChecksPassed -Checks @($checks.ToArray()));Checks=@($checks.ToArray());Notes=@('本工具只驗證，不安裝更新或重新套用偏好。','自動登入是否真的成功，以及工作列實際圖示，仍需在下次登入後觀察。','Windows 啟用由使用者另外處理。')}
+$result|ConvertTo-Json -Depth 6|Set-Content (Resolve-NucPath 'Verification-Result.json') -Encoding UTF8
+Write-Host ('驗證紀錄：'+(Resolve-NucPath 'Verification-Result.json'))
+if(-not $result.Passed){throw '驗證未全部通過；已寫入 Verification-Result.json。'}
+}
+function Add-SetupStartVerificationCheck {
+ param([string]$PackageRoot)
+ try{ $startCheck=Invoke-SetupGuiFreshVerification -PackageRoot $PackageRoot -Role Start;$startPassed=($startCheck.Success -eq $true -and $startCheck.Status -eq 'Confirmed' -and $null -ne $startCheck.PinCount -and $startCheck.PinCount -eq 0);Add-Check '開始選單釘選清空' $startPassed ('Status='+$startCheck.Status+'; PinCount='+$startCheck.PinCount) }catch{Add-Check '開始選單釘選清空' $false $_.Exception.Message}
+}
 function Invoke-SetupVerification {
  param([Parameter(Mandatory=$true)]$Hardware,[string]$DriverPackagePath,
   [Parameter(Mandatory=$true)][ValidatePattern('^[a-fA-F0-9-]{36}$')][string]$VerificationRunId)
@@ -116,7 +127,7 @@ $amdDecision=Get-SetupModuleDecision -Module 'apply_amd_privacy_settings.ps1' -H
 if($amdDecision.Applicable){
 try{ & (Resolve-NucPath 'apply_amd_privacy_settings.ps1') -VerifyOnly|Out-Null;Add-Check 'AMD Software 位置權限' $true '已拒絕' }catch{Add-Check 'AMD Software 位置權限' $false $_.Exception.Message}
 }else{$checks.Add((New-SetupSkippedCheck -Name 'AMD Software 位置權限' -Reason $amdDecision.Reason));Write-Host ('[略過] '+$amdDecision.Reason)}
-try{ $startCheck=Invoke-SetupGuiFreshVerification -PackageRoot $script:NucPackageRoot -Role Start;$startPassed=($startCheck.Success -eq $true -and $startCheck.Status -eq 'Confirmed' -and $null -ne $startCheck.PinCount -and $startCheck.PinCount -eq 0);Add-Check '開始選單釘選清空' $startPassed ('Status='+$startCheck.Status+'; PinCount='+$startCheck.PinCount) }catch{Add-Check '開始選單釘選清空' $false $_.Exception.Message}
+Add-SetupStartVerificationCheck -PackageRoot $script:NucPackageRoot
 try{ & (Resolve-NucPath 'apply_input_method_settings.ps1') -VerifyOnly|Out-Null;Add-Check '英文美式鍵盤存在且為預設' $true 'en-US、0409:00000409 與預設輸入法均已確認' }catch{Add-Check '英文美式鍵盤存在且為預設' $false $_.Exception.Message}
 try{ & (Resolve-NucPath 'apply_terminal_hotkey.ps1') -VerifyOnly|Out-Null;Add-Check 'Terminal 全域快捷鍵' $true 'Ctrl+Alt+T 已註冊，監聽程序執行中' }catch{Add-Check 'Terminal 全域快捷鍵' $false $_.Exception.Message}
 $explorer=Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\explorer\Advanced'
@@ -126,8 +137,5 @@ try{ & (Resolve-NucPath 'remove_one_drive.ps1') -VerifyOnly|Out-Null;Add-Check '
 try{ & (Resolve-NucPath 'apply_explorer_settings.ps1') -VerifyOnly|Out-Null;Add-Check '檔案總管隱藏檔即時狀態' $true 'Shell 狀態與登錄值均為顯示' }catch{Add-Check '檔案總管隱藏檔即時狀態' $false $_.Exception.Message}
 $provisioned=@(Get-AppxProvisionedPackage -Online|Where-Object DisplayName -in $apps|Select-Object -ExpandProperty DisplayName)
 Add-Check '新帳號預載 App 清理' ($provisioned.Count -eq 0) ($provisioned -join ', ')
-$result=[ordered]@{VerificationRunId=$VerificationRunId;UserSID=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Computer=$env:COMPUTERNAME;VerifiedAt=(Get-Date).ToString('o');HardwareProfile=$hardware;SkippedCount=@($checks|Where-Object Status -eq Skipped).Count;Passed=(Test-SetupChecksPassed -Checks @($checks.ToArray()));Checks=@($checks.ToArray());Notes=@('本工具只驗證，不安裝更新或重新套用偏好。','自動登入是否真的成功，以及工作列實際圖示，仍需在下次登入後觀察。','Windows 啟用由使用者另外處理。')}
-$result|ConvertTo-Json -Depth 6|Set-Content (Resolve-NucPath 'Verification-Result.json') -Encoding UTF8
-Write-Host ('驗證紀錄：'+(Resolve-NucPath 'Verification-Result.json'))
-if(-not $result.Passed){throw '驗證未全部通過；已寫入 Verification-Result.json。'}
+Complete-SetupVerificationResult -Checks $checks -Hardware $hardware -VerificationRunId $VerificationRunId
 }

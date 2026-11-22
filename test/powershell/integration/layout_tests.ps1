@@ -64,7 +64,7 @@ $owned=@(Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'core') -Filter '*.p
 foreach($file in $owned){
  $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)
  Assert ($errors.Count -eq 0) ('PS5.1 parses: '+$file.Name)
- foreach($command in $ast.FindAll({param($a)$a -is [Management.Automation.Language.CommandAst] -and $a.GetCommandName() -eq 'Resolve-NucPath'},$true)){
+ foreach($command in $ast.FindAll({param($a)$a -is [Management.Automation.Language.CommandAst] -and $a.GetCommandName() -in @('Resolve-NucPath','Resolve-SetupPath')},$true)){
   if($command.CommandElements.Count -eq 2 -and $command.CommandElements[1] -is [Management.Automation.Language.StringConstantExpressionAst]){
    $name=$command.CommandElements[1].Value
    if($name -match '\.(ps1|exe)$' -and -not ($SourceOnly -and $name -eq 'Autologon64.exe')){Assert (Test-Path -LiteralPath (Resolve-NucPath $name)) ('Core cross-module source exists: '+$name)}
@@ -83,7 +83,7 @@ foreach($file in $cmds){
 $workers=@('apply_display_settings.ps1','apply_theme_settings.ps1','apply_desktop_settings.ps1','apply_start_menu_settings.ps1','apply_taskbar_settings.ps1','apply_explorer_settings.ps1','desktop_icon_layout.ps1','install_windows_updates.ps1','terminal_hotkey_listener.ps1')
 foreach($name in $workers){
  $text=[IO.File]::ReadAllText((Resolve-NucPath $name))
- Assert ($text -notmatch 'Resolve-NucPath|Get-NucDriverRoot|core\\Paths|NucPackageRoot') ('copied worker has no package path helper dependency: '+$name)
+ Assert ($text -notmatch 'Resolve-NucPath|Resolve-SetupPath|Get-NucDriverRoot|core\\Paths|NucPackageRoot') ('copied worker has no package path helper dependency: '+$name)
 }
 # Exercise only the dispatcher against harmless stub entries in a temporary fixture.
 $fixture=Join-Path ([IO.Path]::GetTempPath()) ('NUC-Routing-'+[guid]::NewGuid().ToString('N')+'/core')
@@ -98,13 +98,13 @@ $manifest=@(foreach($name in @('Chipset.zip','SerialIO.zip','UCM.zip','GFX-Radeo
 $manifest|ConvertTo-Json|Set-Content (Join-Path $driverFixture 'manifest.json') -Encoding UTF8
 @{SchemaVersion=1;HardwareProfile='NUC8';Architecture='x64';SupportedBoards=@('NUC8i7HVB','NUC8i7HNB')}|ConvertTo-Json|Set-Content (Join-Path $driverFixture 'package.json') -Encoding UTF8
 Assert (Test-Path -LiteralPath (Join-Path $fixture 'hardware.ps1')) 'routing fixture includes actual hardware selection dependency'
-foreach($entry in @('configure_nuc.ps1','verify_after_restart.ps1','verify_only.ps1')){[IO.File]::WriteAllText((Join-Path $fixture $entry),"param(`$DriverPackagePath,`$ConfirmedBoard,`$ConfirmationComputer);Write-Output '$entry'")}
-Assert ((& (Join-Path $fixture 'start_windows.ps1') -NonInteractive) -eq 'configure_nuc.ps1') 'Windows default dispatches setup'
+foreach($entry in @('configure_setup.ps1','verify_after_restart.ps1','verify_only.ps1')){[IO.File]::WriteAllText((Join-Path $fixture $entry),"param(`$DriverPackagePath,`$ConfirmedBoard,`$ConfirmationComputer);Write-Output '$entry'")}
+Assert ((& (Join-Path $fixture 'start_windows.ps1') -NonInteractive) -eq 'configure_setup.ps1') 'Windows default dispatches setup'
 Assert ((& (Join-Path $fixture 'start_windows.ps1') -AfterRestart) -eq 'verify_after_restart.ps1') 'Windows AfterRestart dispatches continuation'
 Assert ((& (Join-Path $fixture 'start_windows.ps1') -VerifyOnly) -eq 'verify_only.ps1') 'Windows VerifyOnly dispatches read-only check'
 $rejected=$false;try{& (Join-Path $fixture 'start_windows.ps1') -AfterRestart -VerifyOnly}catch{$rejected=$true}
 Assert $rejected 'mutually exclusive dispatcher options rejected'
-[IO.File]::WriteAllText((Join-Path $fixture 'configure_nuc.ps1'),'param([string]$DriverPackagePath,$ConfirmedBoard,$ConfirmationComputer) $DriverPackagePath')
+[IO.File]::WriteAllText((Join-Path $fixture 'configure_setup.ps1'),'param([string]$DriverPackagePath,$ConfirmedBoard,$ConfirmationComputer) $DriverPackagePath')
 Push-Location $fixture
 try{$selected=& (Join-Path $fixture 'start_windows.ps1') -NonInteractive -DriverPackagePath '.\driver_pack'}finally{Pop-Location}
 Assert ($selected -eq (Join-Path $fixture 'driver_pack')) '主入口相對驅動路徑依 PowerShell 位置解析'

@@ -32,9 +32,15 @@ $oldPreference=$ErrorActionPreference;$ErrorActionPreference='Continue'
 $failedCode=$LASTEXITCODE;$ErrorActionPreference=$oldPreference
 Assert ($failedCode -ne 0) '公開CLI未核實結果保留非零退出碼'
 Copy-Item -LiteralPath (Join-Path $root 'core/run_module.ps1') -Destination (Join-Path $fixture 'core')
+$boundary=@'
+function Get-SetupEntryIdentity {return 'fixture-sid'}
+function Test-SetupEntryAdministrator {return $true}
+function Start-SetupEntryElevated {throw 'CLI fixture forbids elevation'}
+'@
+[IO.File]::WriteAllText((Join-Path $fixture 'core/entry_os_boundary.ps1'),$boundary,$utf)
 $paths=@'
-function Test-SetupAdministrator {return $true}
-function Resolve-NucPath {return (Join-Path $PSScriptRoot '../modules/drivers/driver_stub.ps1')}
+function Resolve-NucPath {throw 'legacy resolver reached'}
+function Resolve-SetupPath {return (Join-Path $PSScriptRoot '../modules/drivers/driver_stub.ps1')}
 '@
 [IO.File]::WriteAllText((Join-Path $fixture 'core/paths.ps1'),$paths,$utf)
 [IO.File]::WriteAllText((Join-Path $module 'driver_stub.ps1'),'param([switch]$VerifyOnly,[string]$DriverPackagePath,[switch]$NonInteractive,[string]$ConfirmedBoard,[string]$ConfirmationComputer);@{Verify=[bool]$VerifyOnly;Root=$DriverPackagePath;Quiet=[bool]$NonInteractive}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $PSScriptRoot ''module_called.json'') -Encoding UTF8',$utf)
