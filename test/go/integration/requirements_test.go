@@ -355,7 +355,7 @@ func TestReadmeCoverageBadgeOpensOverview(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "[![Coverage](https://ycpss91255.github.io/windows_setup/main/coverage.svg)](https://ycpss91255.github.io/windows_setup/)"
+	want := "[![Coverage](https://ycpss91255-lab.github.io/windows_setup/main/coverage.svg)](https://ycpss91255-lab.github.io/windows_setup/)"
 	if !strings.Contains(string(raw), want) {
 		t.Fatal("README coverage badge does not open overview root")
 	}
@@ -366,7 +366,7 @@ func TestActualReadmeCoverageBadgeLinks(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	doc := strings.ReplaceAll(string(raw), "https://ycpss91255.github.io/windows_setup/", base)
+	doc := strings.ReplaceAll(string(raw), "https://ycpss91255-lab.github.io/windows_setup/", base)
 	original := files(t, os.Getenv("WINDOWS_SETUP_ARTIFACT_DIR"))
 	p := portal(t, synthetic(t, original, true, "Branch"))
 	r := decode(t, original)
