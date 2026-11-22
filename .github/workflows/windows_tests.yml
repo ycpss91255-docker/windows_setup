@@ -248,9 +248,48 @@ jobs:
           path: ${{ runner.temp }}/requirements-fixture/portal/
           retention-days: 7
           if-no-files-found: error
+  managed-coverage:
+    name: managed 原生程式量測
+    needs: [source-preflight]
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: 取得相同量測來源
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: 準備本次 managed 量測編譯器
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: '10.0.300'
+          cache: false
+      - name: 當地量測 managed 原生程式完整計數點
+        run: |
+          & .\script\test\managed_coverage.ps1 -SourceRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'managed-coverage') -Runtime
+      - name: 僅保留聚合所需的 managed 證據七天
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: managed-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/managed-coverage/evidence.json
+            ${{ runner.temp }}/managed-coverage/catalog.json
+            ${{ runner.temp }}/managed-coverage/merged.coverage
+            ${{ runner.temp }}/managed-coverage/merged.xml
+            ${{ runner.temp }}/managed-coverage/bin/windows_setup_managed.dll
+            ${{ runner.temp }}/managed-coverage/bin/windows_setup_managed.pdb
+            ${{ runner.temp }}/managed-coverage/shards/*.coverage
+            ${{ runner.temp }}/managed-coverage/shards/*.xml
+          retention-days: 7
+          if-no-files-found: error
+
   coverage-aggregation:
     name: 同次完整覆蓋率聚合
-    needs: [isolated-tests, powershell-coverage]
+    needs: [isolated-tests, powershell-coverage, managed-coverage]
     runs-on: windows-2022
     timeout-minutes: 30
     defaults:
@@ -266,13 +305,6 @@ jobs:
         with:
           go-version: '1.27.3'
           cache: false
-      - name: 準備本次 managed 量測編譯器
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
-        env:
-          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
-        with:
-          dotnet-version: '10.0.300'
-          cache: false
       - name: 下載同次與同 attempt 的原生中介證據
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -282,9 +314,11 @@ jobs:
         run: |
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('run','./script/test/repo_coverage_tool','native-stage-restore','--runtime','--source-root',$PWD.Path,'--input-dir',(Join-Path $env:RUNNER_TEMP 'native-stage-input'),'--output-dir',(Join-Path $env:RUNNER_TEMP 'native-stage-import'),'--expected-sha',$env:GITHUB_SHA,'--expected-run-url',("https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"),'--run-attempt',$env:GITHUB_RUN_ATTEMPT)
-      - name: 當地量測 managed 原生程式完整計數點
-        run: |
-          & .\script\test\managed_coverage.ps1 -SourceRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'managed-coverage') -Runtime
+      - name: 下載同次與同 attempt 的 managed 原生量測證據
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: managed-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/managed-coverage
       - name: 下載同次與同 attempt 的完整 PowerShell 四片
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
