@@ -39,6 +39,10 @@ type PowerShellShardInput struct {
 	Read     func(string) ([]byte, error)
 }
 
+// MaxPowerShellShards is the largest complete PowerShell coverage matrix this
+// release accepts; planners, workers and the merge step must agree on it.
+const MaxPowerShellShards = 8
+
 // Context is written by the actual collector child, using its own PID and the
 // suite/wrapper bytes it executed. Outer artifact packaging cannot add it later.
 // Legacy non-sharded evidence may omit it; new shard aggregation requires it.
@@ -55,7 +59,7 @@ func validNativePowerShellContext(context *PowerShellWorkerContext, pid int) boo
 	if !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(context.Commit) || !regexp.MustCompile(`^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/actions/runs/[0-9]+$`).MatchString(context.RunUrl) || context.RunAttempt < 1 {
 		return false
 	}
-	if context.ShardCount < 1 || context.ShardCount > 4 || context.ShardIndex < 0 || context.ShardIndex >= context.ShardCount || context.GlobalIndex < 0 || context.GlobalIndex%context.ShardCount != context.ShardIndex {
+	if context.ShardCount < 1 || context.ShardCount > MaxPowerShellShards || context.ShardIndex < 0 || context.ShardIndex >= context.ShardCount || context.GlobalIndex < 0 || context.GlobalIndex%context.ShardCount != context.ShardIndex {
 		return false
 	}
 	return validShardFile(context.TestFile, context.TestSHA256) && validShardFile(context.WrapperFile, context.WrapperSHA256) && context.TestFile != context.WrapperFile
@@ -150,7 +154,7 @@ func exactShardFields(data []byte, shape reflect.Type, required bool) error {
 // engine and command records; only their file names/descriptor indices become
 // canonical global indices. Command hits are unioned before complete lines.
 func MergePowerShellShards(identity PowerShellShardIdentity, catalog PowerShellShardCatalog, inputs []PowerShellShardInput, inventory Inventory) (map[string][]byte, error) {
-	if !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(identity.Commit) || !regexp.MustCompile(`^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/actions/runs/[0-9]+$`).MatchString(identity.RunUrl) || identity.RunAttempt < 1 || identity.ShardCount < 1 || identity.ShardCount > 4 || identity.ShardCount > len(catalog.Tests) || len(inputs) != identity.ShardCount {
+	if !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(identity.Commit) || !regexp.MustCompile(`^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/actions/runs/[0-9]+$`).MatchString(identity.RunUrl) || identity.RunAttempt < 1 || identity.ShardCount < 1 || identity.ShardCount > MaxPowerShellShards || identity.ShardCount > len(catalog.Tests) || len(inputs) != identity.ShardCount {
 		return nil, fmt.Errorf("invalid PowerShell shard collection identity or count")
 	}
 	if err := validateShardCatalog(catalog, inventory); err != nil {

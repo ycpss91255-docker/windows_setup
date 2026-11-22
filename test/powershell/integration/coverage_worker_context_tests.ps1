@@ -25,6 +25,15 @@ Assert ($null -ne $worker.Context) '原始worker必須親自記錄測試與runco
 Assert ($worker.Context.TestFile -ceq $suite -and $worker.Context.TestSHA256 -ceq (Get-FileHash (Join-Path $fixture $suite)).Hash.ToLowerInvariant()) '實際執行suite與當場SHA綁在原始worker內'
 Assert ($worker.Context.WrapperFile -ceq $wrapper -and $worker.Context.WrapperSHA256 -ceq (Get-FileHash (Join-Path $fixture $wrapper)).Hash.ToLowerInvariant()) '實際Pester wrapper來源與當場SHA不能替換'
 Assert ($worker.Context.Commit -ceq $context.Commit -and $worker.Context.RunUrl -ceq $context.RunUrl -and $worker.Context.RunAttempt -eq 2 -and $worker.Context.GlobalIndex -eq 3 -and $worker.Context.ShardIndex -eq 1 -and $worker.Context.ShardCount -eq 2 -and $worker.Context.ProcessId -eq $worker.ProcessId) '原始程序身分與commit/run/attempt/分片globalindex完整保存'
+# 八片矩陣的最後一片：身分 7/8 與全域索引 15 的餘數相符，原生 worker 必須接受。
+$wideManifest=$manifest|ConvertTo-Json -Depth 8|ConvertFrom-Json
+$wideManifest.ShardContext.ShardIndex=7;$wideManifest.ShardContext.ShardCount=8;$wideManifest.ShardContext.GlobalIndices=@(15)
+$wideInput=Join-Path $fixture 'wide_manifest.json';[IO.File]::WriteAllText($wideInput,($wideManifest|ConvertTo-Json -Depth 8),[Text.UTF8Encoding]::new($false))
+$wideOutput=Join-Path $fixture 'wide_proof'
+& (Join-Path $root 'script/test/powershell_coverage.ps1') -ManifestPath $wideInput -OutputDirectory $wideOutput *> (Join-Path $fixture 'wide.private.log')
+Assert ($LASTEXITCODE -eq 0) '八片矩陣的 worker 身分被接受並實際執行成功'
+$wideWorker=Get-Content -LiteralPath (Join-Path $wideOutput 'worker_0.json') -Raw -Encoding UTF8|ConvertFrom-Json
+Assert ($wideWorker.Context.ShardIndex -eq 7 -and $wideWorker.Context.ShardCount -eq 8 -and $wideWorker.Context.GlobalIndex -eq 15) '八片矩陣的原始 worker 保留實際分片身分'
 $suiteText=[IO.File]::ReadAllText((Join-Path $fixture $suite));$wrapperText=[IO.File]::ReadAllText((Join-Path $fixture $wrapper))
 foreach($case in @('missing_indices','string_attempt','bad_commit','bad_url','bad_count','wrong_assignment','extra_field','suite_changed','wrapper_changed')){
  $bad=$manifest|ConvertTo-Json -Depth 8|ConvertFrom-Json
@@ -33,7 +42,7 @@ foreach($case in @('missing_indices','string_attempt','bad_commit','bad_url','ba
   string_attempt{$bad.ShardContext.RunAttempt='2'}
   bad_commit{$bad.ShardContext.Commit='unknown'}
   bad_url{$bad.ShardContext.RunUrl='https://example.invalid/private'}
-  bad_count{$bad.ShardContext.ShardCount=5}
+  bad_count{$bad.ShardContext.ShardCount=9}
   wrong_assignment{$bad.ShardContext.GlobalIndices=@(2)}
   extra_field{$bad.ShardContext|Add-Member Unexpected 'hidden'}
   suite_changed{[IO.File]::AppendAllText((Join-Path $fixture $suite),"[IO.File]::AppendAllText(`$PSCommandPath,'# changed')",$utf8)}

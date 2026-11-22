@@ -68,7 +68,7 @@ func parseShardOptions(name string, args []string, out io.Writer) (shardCLIOptio
 	if err := f.Parse(args); err != nil {
 		return o, err
 	}
-	if (o.timingInput == "") != (o.timingOutput == "") || f.NArg() != 0 || o.source == "" || o.manifest == "" || !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(o.commit) || !regexp.MustCompile(`^https://github\.com/[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*/actions/runs/[1-9][0-9]*$`).MatchString(o.runURL) || o.attempt < 1 || o.count < 1 || o.count > 4 || name != "powershell-shard-merge" && (o.index < 0 || o.index >= o.count) || name == "powershell-shard-pack" && o.evidence == "" || name != "powershell-shard-pack" && o.output == "" || name == "powershell-shard-merge" && o.input == "" {
+	if (o.timingInput == "") != (o.timingOutput == "") || f.NArg() != 0 || o.source == "" || o.manifest == "" || !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(o.commit) || !regexp.MustCompile(`^https://github\.com/[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*/actions/runs/[1-9][0-9]*$`).MatchString(o.runURL) || o.attempt < 1 || o.count < 1 || o.count > rc.MaxPowerShellShards || name != "powershell-shard-merge" && (o.index < 0 || o.index >= o.count) || name == "powershell-shard-pack" && o.evidence == "" || name != "powershell-shard-pack" && o.output == "" || name == "powershell-shard-merge" && o.input == "" {
 		return o, fmt.Errorf("complete source, manifest, matrix and workflow identity are required")
 	}
 	return o, nil

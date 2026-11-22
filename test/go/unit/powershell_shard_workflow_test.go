@@ -14,7 +14,7 @@ func TestPowerShellCoverageUsesCompleteFourShardMatrix(t *testing.T) {
 	}
 	text := string(b)
 	shard := coverageJob(text, "powershell-coverage")
-	for _, required := range []string{"fail-fast: false", "shard: [0, 1, 2, 3]", "powershell_coverage_shard.ps1", "-ShardCount 4", "GITHUB_RUN_ATTEMPT", "powershell-shard-", "retention-days: 7"} {
+	for _, required := range []string{"fail-fast: false", "shard: [0, 1, 2, 3, 4, 5, 6, 7]", "powershell_coverage_shard.ps1", "-ShardCount 8", "GITHUB_RUN_ATTEMPT", "powershell-shard-", "retention-days: 7"} {
 		if !strings.Contains(shard, required) {
 			t.Fatalf("complete parallel collection missing %s", required)
 		}

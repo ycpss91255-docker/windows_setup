@@ -24,7 +24,7 @@ try {
  $merge=@($script:calls|Where-Object {$_.Arguments -contains 'powershell-shard-merge'})
  Assert ($merge.Count -eq 1 -and $merge[0].Arguments -contains $shards -and $merge[0].Arguments -contains '--expected-sha' -and $merge[0].Arguments -contains '--expected-run-url') '同job從完整分片聚合並重新核對原提交與執行身分'
  Assert ($merge[0].Arguments -contains '--timing-input-dir' -and $merge[0].Arguments -contains '--timing-output-dir') '分片聚合同時核對完整同次計時收據'
- Assert ($merge[0].Arguments[[Array]::IndexOf($merge[0].Arguments,'--run-attempt')+1] -eq '2' -and $merge[0].Arguments[[Array]::IndexOf($merge[0].Arguments,'--shard-count')+1] -eq '4') '正式聚合要求同attempt與四片完整集合'
+ Assert ($merge[0].Arguments[[Array]::IndexOf($merge[0].Arguments,'--run-attempt')+1] -eq '2' -and $merge[0].Arguments[[Array]::IndexOf($merge[0].Arguments,'--shard-count')+1] -eq '8') '正式聚合要求同attempt與八片完整集合'
  Assert (@($script:calls|Where-Object {$_.Arguments -contains (Join-Path $root 'script/test/powershell_coverage.ps1')}).Count -eq 0) '分片路線不在host重跑整輪量測或退回部分清單'
  Assert (@($script:calls|Where-Object {$_.Arguments -contains 'collect' -and $_.Arguments -contains '--managed-evidence'}).Count -eq 1) 'managed 證據仍於同 host 驗證後收集'
  $script:calls.Clear();$script:failAt='powershell-shard-merge'

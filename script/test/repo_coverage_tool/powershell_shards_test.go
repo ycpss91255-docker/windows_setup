@@ -17,8 +17,20 @@ import (
 
 func shardCLIFixture(t *testing.T) (string, string, string) {
 	t.Helper()
+	return shardCLIFixtureN(t, 2)
+}
+
+func shardCLIFixtureN(t *testing.T, tests int) (string, string, string) {
+	t.Helper()
 	root := t.TempDir()
-	for name, text := range map[string]string{"core/value.ps1": "function Value { return 1 }\n", "test/powershell/unit/side_0_tests.ps1": "Value\n", "test/powershell/unit/side_1_tests.ps1": "Value\n", "test/powershell/coverage/safe_suite.ps1": "param($SuitePath,$SourceRoot)\n& $SuitePath\n"} {
+	files := map[string]string{"core/value.ps1": "function Value { return 1 }\n", "test/powershell/coverage/safe_suite.ps1": "param($SuitePath,$SourceRoot)\n& $SuitePath\n"}
+	testFiles := []string{}
+	for i := 0; i < tests; i++ {
+		name := fmt.Sprintf("test/powershell/unit/side_%d_tests.ps1", i)
+		files[name] = "Value\n"
+		testFiles = append(testFiles, name)
+	}
+	for name, text := range files {
 		p := filepath.Join(root, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
 			t.Fatal(err)
@@ -44,7 +56,7 @@ func shardCLIFixture(t *testing.T) (string, string, string) {
 	git("-c", "user.name=CoverageFixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture")
 	sha := git("rev-parse", "HEAD")
 	manifest := filepath.Join(t.TempDir(), "manifest.json")
-	b, _ := json.Marshal(map[string]any{"SourceRoot": root, "Sources": []string{"core/value.ps1"}, "Tests": []string{"test/powershell/unit/side_0_tests.ps1", "test/powershell/unit/side_1_tests.ps1"}, "TestEngines": map[string]string{}, "Wrapper": "test/powershell/coverage/safe_suite.ps1"})
+	b, _ := json.Marshal(map[string]any{"SourceRoot": root, "Sources": []string{"core/value.ps1"}, "Tests": testFiles, "TestEngines": map[string]string{}, "Wrapper": "test/powershell/coverage/safe_suite.ps1"})
 	if err := os.WriteFile(manifest, b, 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -53,6 +65,32 @@ func shardCLIFixture(t *testing.T) (string, string, string) {
 
 func shardCLIArgs(root, manifest, sha string) []string {
 	return []string{"--source-root", root, "--manifest", manifest, "--expected-sha", sha, "--expected-run-url", "https://github.com/example/repo/actions/runs/123", "--run-attempt", "1", "--shard-count", "2"}
+}
+
+func TestPowerShellShardPlanAcceptsEveryShardOfEight(t *testing.T) {
+	root, manifest, sha := shardCLIFixtureN(t, 8)
+	for index := 0; index < 8; index++ {
+		output := filepath.Join(t.TempDir(), "plan")
+		args := append(shardCLIArgs(root, manifest, sha), "--shard-count", "8", "--shard-index", fmt.Sprint(index), "--output-dir", output)
+		if err := powershellShardPlan(args, &bytes.Buffer{}); err != nil {
+			t.Fatalf("shard %d of 8 rejected: %v", index, err)
+		}
+		b, err := os.ReadFile(filepath.Join(output, "privatecollection_manifest.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var plan shardCollectionManifest
+		if err = json.Unmarshal(b, &plan); err != nil {
+			t.Fatal(err)
+		}
+		if len(plan.Tests) != 1 || plan.Tests[0] != fmt.Sprintf("test/powershell/unit/side_%d_tests.ps1", index) || plan.ShardContext == nil || plan.ShardContext.ShardCount != 8 || plan.ShardContext.ShardIndex != index {
+			t.Fatalf("shard %d scope changed: %#v", index, plan)
+		}
+	}
+	args := append(shardCLIArgs(root, manifest, sha), "--shard-count", "9", "--shard-index", "0", "--output-dir", filepath.Join(t.TempDir(), "plan"))
+	if powershellShardPlan(args, &bytes.Buffer{}) == nil {
+		t.Fatal("nine shards accepted")
+	}
 }
 
 func TestPowerShellShardPlanPreservesCanonicalScope(t *testing.T) {
@@ -180,7 +218,7 @@ func TestPowerShellShardCLIRejectsInvalidIdentityAndArguments(t *testing.T) {
 	}
 	root, manifest, sha := shardCLIFixture(t)
 	base := shardCLIArgs(root, manifest, sha)
-	for _, change := range [][]string{{"--expected-sha", strings.Repeat("A", 40)}, {"--expected-run-url", "http://example.invalid"}, {"--run-attempt", "0"}, {"--shard-count", "0"}, {"--shard-count", "5"}, {"--shard-index", "-1"}, {"--shard-index", "2"}} {
+	for _, change := range [][]string{{"--expected-sha", strings.Repeat("A", 40)}, {"--expected-run-url", "http://example.invalid"}, {"--run-attempt", "0"}, {"--shard-count", "0"}, {"--shard-count", "9"}, {"--shard-index", "-1"}, {"--shard-index", "2"}} {
 		args := append(append([]string{}, base...), "--shard-index", "0", "--output-dir", filepath.Join(t.TempDir(), "out"))
 		args = append(args, change...)
 		if powershellShardPlan(args, &bytes.Buffer{}) == nil {

@@ -1,10 +1,10 @@
 ﻿#Requires -Version 5.1
 [CmdletBinding()]
-param([string]$SourceRoot,[string]$OutputDirectory,[string]$PrivateDirectory,[string]$TimingDirectory,[int]$ShardIndex,[ValidateRange(1,4)][int]$ShardCount=4,[string]$Commit,[string]$RunUrl,[ValidateRange(1,2147483647)][int]$RunAttempt=1,[string]$CoverageToolPath)
+param([string]$SourceRoot,[string]$OutputDirectory,[string]$PrivateDirectory,[string]$TimingDirectory,[int]$ShardIndex,[ValidateRange(1,8)][int]$ShardCount=8,[string]$Commit,[string]$RunUrl,[ValidateRange(1,2147483647)][int]$RunAttempt=1,[string]$CoverageToolPath)
 . (Join-Path $PSScriptRoot 'ci_tasks.ps1')
 function Invoke-PowerShellCoverageShard {
  [CmdletBinding()]
- param([Parameter(Mandatory=$true)][string]$SourceRoot,[Parameter(Mandatory=$true)][string]$OutputDirectory,[Parameter(Mandatory=$true)][string]$PrivateDirectory,[string]$TimingDirectory,[Parameter(Mandatory=$true)][int]$ShardIndex,[ValidateRange(1,4)][int]$ShardCount=4,[Parameter(Mandatory=$true)][string]$Commit,[Parameter(Mandatory=$true)][string]$RunUrl,[ValidateRange(1,2147483647)][int]$RunAttempt=1,[string]$CoverageToolPath)
+ param([Parameter(Mandatory=$true)][string]$SourceRoot,[Parameter(Mandatory=$true)][string]$OutputDirectory,[Parameter(Mandatory=$true)][string]$PrivateDirectory,[string]$TimingDirectory,[Parameter(Mandatory=$true)][int]$ShardIndex,[ValidateRange(1,8)][int]$ShardCount=8,[Parameter(Mandatory=$true)][string]$Commit,[Parameter(Mandatory=$true)][string]$RunUrl,[ValidateRange(1,2147483647)][int]$RunAttempt=1,[string]$CoverageToolPath)
 $ErrorActionPreference='Stop'
 $source=[IO.Path]::GetFullPath($SourceRoot).TrimEnd('\','/')
 $output=[IO.Path]::GetFullPath($OutputDirectory).TrimEnd('\','/')
