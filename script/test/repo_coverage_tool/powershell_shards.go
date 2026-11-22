@@ -68,7 +68,7 @@ func parseShardOptions(name string, args []string, out io.Writer) (shardCLIOptio
 	if err := f.Parse(args); err != nil {
 		return o, err
 	}
-	if (o.timingInput == "") != (o.timingOutput == "") || f.NArg() != 0 || o.source == "" || o.manifest == "" || !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(o.commit) || !regexp.MustCompile(`^https://github\.com/[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*/actions/runs/[1-9][0-9]*$`).MatchString(o.runURL) || o.attempt < 1 || o.count < 1 || o.count > 4 || name != "powershell-shard-merge" && (o.index < 0 || o.index >= o.count) || name == "powershell-shard-pack" && o.evidence == "" || name != "powershell-shard-pack" && o.output == "" || name == "powershell-shard-merge" && o.input == "" {
+	if (o.timingInput == "") != (o.timingOutput == "") || f.NArg() != 0 || o.source == "" || o.manifest == "" || !regexp.MustCompile(`^[a-f0-9]{40}$`).MatchString(o.commit) || !regexp.MustCompile(`^https://github\.com/[A-Za-z0-9_-][A-Za-z0-9_.-]*/[A-Za-z0-9_-][A-Za-z0-9_.-]*/actions/runs/[1-9][0-9]*$`).MatchString(o.runURL) || o.attempt < 1 || o.count < 1 || o.count > rc.MaxPowerShellShards || name != "powershell-shard-merge" && (o.index < 0 || o.index >= o.count) || name == "powershell-shard-pack" && o.evidence == "" || name != "powershell-shard-pack" && o.output == "" || name == "powershell-shard-merge" && o.input == "" {
 		return o, fmt.Errorf("complete source, manifest, matrix and workflow identity are required")
 	}
 	return o, nil
@@ -298,8 +298,12 @@ func powershellShardPlan(args []string, out io.Writer) error {
 	for _, s := range catalog.Sources {
 		m.Sources = append(m.Sources, s.File)
 	}
+	assignment, err := rc.AssignPowerShellShards(catalog.Tests, o.count)
+	if err != nil {
+		return err
+	}
 	for i, test := range catalog.Tests {
-		if i%o.count == o.index {
+		if assignment[i] == o.index {
 			m.ShardContext.GlobalIndices = append(m.ShardContext.GlobalIndices, i)
 			m.Tests = append(m.Tests, test.File)
 			if test.Engine != "powershell" {
@@ -374,8 +378,12 @@ func powershellShardPack(args []string, out io.Writer) error {
 	manifest := rc.PowerShellShardManifest{SchemaVersion: 1, Commit: o.commit, RunUrl: o.runURL, RunAttempt: o.attempt, ShardIndex: o.index, ShardCount: o.count, Sources: catalog.Sources, Tests: catalog.Tests, Wrapper: catalog.Wrapper}
 	local := 0
 	contexts := []rc.PowerShellWorkerContext{}
+	assignment, err := rc.AssignPowerShellShards(catalog.Tests, o.count)
+	if err != nil {
+		return err
+	}
 	for global, test := range catalog.Tests {
-		if global%o.count != o.index {
+		if assignment[global] != o.index {
 			continue
 		}
 		if local >= len(raw.Workers) {

@@ -116,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     defaults:
       run:
         shell: powershell
@@ -150,7 +150,7 @@ jobs:
         run: |
           . .\script\test\ci_quality_summary.ps1
           Invoke-CIShardTimed -ShardIndex ([int]$env:SHARD_INDEX) -SummaryPath $env:GITHUB_STEP_SUMMARY -Action {
-            .\script\test\powershell_coverage_shard.ps1 -SourceRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shard-public') -PrivateDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shard-private') -TimingDirectory (Join-Path $env:RUNNER_TEMP 'powershell-timing-public') -ShardIndex ([int]$env:SHARD_INDEX) -ShardCount 4 -Commit $env:GITHUB_SHA -RunUrl ("https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID") -RunAttempt ([int]$env:GITHUB_RUN_ATTEMPT)
+            .\script\test\powershell_coverage_shard.ps1 -SourceRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shard-public') -PrivateDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shard-private') -TimingDirectory (Join-Path $env:RUNNER_TEMP 'powershell-timing-public') -ShardIndex ([int]$env:SHARD_INDEX) -ShardCount 8 -Commit $env:GITHUB_SHA -RunUrl ("https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID") -RunAttempt ([int]$env:GITHUB_RUN_ATTEMPT)
           }
       - name: 僅保留已驗證的相對路徑分片證據七天
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

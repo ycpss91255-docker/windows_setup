@@ -180,7 +180,7 @@ func TestPowerShellShardCLIRejectsInvalidIdentityAndArguments(t *testing.T) {
 	}
 	root, manifest, sha := shardCLIFixture(t)
 	base := shardCLIArgs(root, manifest, sha)
-	for _, change := range [][]string{{"--expected-sha", strings.Repeat("A", 40)}, {"--expected-run-url", "http://example.invalid"}, {"--run-attempt", "0"}, {"--shard-count", "0"}, {"--shard-count", "5"}, {"--shard-index", "-1"}, {"--shard-index", "2"}} {
+	for _, change := range [][]string{{"--expected-sha", strings.Repeat("A", 40)}, {"--expected-run-url", "http://example.invalid"}, {"--run-attempt", "0"}, {"--shard-count", "0"}, {"--shard-count", "9"}, {"--shard-index", "-1"}, {"--shard-index", "2"}} {
 		args := append(append([]string{}, base...), "--shard-index", "0", "--output-dir", filepath.Join(t.TempDir(), "out"))
 		args = append(args, change...)
 		if powershellShardPlan(args, &bytes.Buffer{}) == nil {
