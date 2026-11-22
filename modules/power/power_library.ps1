@@ -21,3 +21,21 @@ function Disable-SetupHibernate {
  if(-not (Test-SetupHibernateDisabled $state)){throw ('休眠讀回仍未停用（'+$state.Source+'='+$state.HibernateEnabled+'；休眠檔存在：'+$state.HiberFilePresent+'），可能被組織政策覆寫。')}
  return $state
 }
+function Invoke-SetupHibernateResult {
+ param([Parameter(Mandatory=$true)][string]$ReportPath,[Parameter(Mandatory=$true)][string]$UserSid,
+ [string]$Computer=$env:COMPUTERNAME,[string]$VerificationRunId,[switch]$VerifyOnly)
+ $success=$false;$errorText='';$state=$null;$mode=if($VerifyOnly){'VerifyOnly'}else{'Apply'}
+ try{
+  if($VerifyOnly){
+   $state=Read-SetupHibernateState
+   if(-not (Test-SetupHibernateDisabled $state)){throw ('休眠尚未停用（'+$state.Source+'='+$state.HibernateEnabled+'；休眠檔存在：'+$state.HiberFilePresent+'）。')}
+  }else{$state=Disable-SetupHibernate}
+  $success=$true
+ }catch{$errorText=$_.Exception.Message}
+ $result=[ordered]@{Success=$success;Mode=$mode;UserSID=$UserSid;Computer=$Computer;VerificationRunId=$VerificationRunId;CheckedAt=(Get-Date).ToString('o');HibernateSource=$state.Source;HibernateEnabled=$state.HibernateEnabled;HiberFilePresent=$state.HiberFilePresent;Error=$errorText;Scope='停用休眠與休眠檔；快速啟動依賴休眠而一併失效。'}
+ $destination=[IO.Path]::GetFullPath($ReportPath)
+ [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination))
+ [IO.File]::WriteAllText($destination,($result|ConvertTo-Json),(New-Object Text.UTF8Encoding($true)))
+ if(-not $success){throw $errorText}
+ [pscustomobject]$result
+}

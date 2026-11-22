@@ -40,4 +40,23 @@ Reject {Disable-SetupHibernate} '錯誤登錄型別不視為停用' '休眠讀�
 Reset-PowerFixture;$script:drop=$true;$script:values.HibernateEnabledDefault=0;$script:filePresent=$false
 $state=Disable-SetupHibernate
 Assert ($state.HibernateEnabled -eq 0) '沒有 HibernateEnabled 時採用系統預設值'
+$dir=Join-Path ([IO.Path]::GetTempPath()) ('power_test_'+[guid]::NewGuid().ToString('N'))
+$call=@{ReportPath=(Join-Path $dir 'nested/result.json');UserSid='test-sid';Computer='test-pc'}
+try{
+ Reset-PowerFixture
+ Reject {Invoke-SetupHibernateResult @call -VerifyOnly -VerificationRunId run0} '休眠仍啟用時只讀驗證失敗' '休眠尚未停用'
+ $r=Get-Content -LiteralPath $call.ReportPath -Raw -Encoding UTF8|ConvertFrom-Json
+ Assert ($script:calls.Count -eq 0 -and $r.Success -eq $false -and $r.Mode -eq 'VerifyOnly' -and $r.VerificationRunId -eq 'run0' -and $r.Error.Contains('休眠尚未停用')) '只讀驗證不呼叫 powercfg 且如實記錄失敗'
+ $r=Invoke-SetupHibernateResult @call
+ Assert ($script:calls.Count -eq 1 -and $r.Success -and $r.Mode -eq 'Apply' -and $r.HibernateEnabled -eq 0 -and -not $r.HiberFilePresent) '套用模式停用休眠並回傳讀回結果'
+ $r=Invoke-SetupHibernateResult @call -VerifyOnly -VerificationRunId run1
+ $saved=Get-Content -LiteralPath $call.ReportPath -Raw -Encoding UTF8|ConvertFrom-Json
+ Assert ($script:calls.Count -eq 1 -and $saved.Success -and $saved.VerificationRunId -eq 'run1' -and $saved.UserSID -eq 'test-sid' -and $saved.Computer -eq 'test-pc') '只讀驗證含本輪身分且不寫入設定'
+ $bytes=[IO.File]::ReadAllBytes($call.ReportPath)
+ Assert ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) '結果檔使用 UTF-8 BOM'
+ Reset-PowerFixture;$script:exit=2
+ Reject {Invoke-SetupHibernateResult @call} '套用失敗如實回報' '停用休眠失敗'
+ $saved=Get-Content -LiteralPath $call.ReportPath -Raw -Encoding UTF8|ConvertFrom-Json
+ Assert ($saved.Success -eq $false -and $saved.Mode -eq 'Apply' -and $saved.Error.Contains('退出碼：2')) '套用失敗仍寫入失敗結果'
+}finally{if(Microsoft.PowerShell.Management\Test-Path -LiteralPath $dir -PathType Container){Microsoft.PowerShell.Management\Remove-Item -LiteralPath $dir -Recurse -Force}}
 Write-Host 'ALL PASS: power hibernation helpers without host writes'
