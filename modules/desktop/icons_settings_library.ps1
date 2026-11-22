@@ -42,6 +42,16 @@ function Invoke-SetupIconsSettings {
    Start-Sleep -Milliseconds 500
   }
   $after=[NUC8Icons.Desktop]::Capture()
+  # 貼齊格線時，先移動的圖示可能因目標格仍被尚未移動的圖示佔用而被推到下一格；全部套用後只重送位置不符者，最多兩次，容差不變。
+  $retry=0
+  while($Mode -eq 'Load' -and $retry -lt 2 -and @($after.Icons).Count -eq 4){
+   $misplaced=@(foreach($expected in $reference.Icons){$actual=@($after.Icons|Where-Object Name -eq $expected.Name);if($actual.Count -eq 1 -and ([math]::Abs($actual[0].X-$expected.X) -gt 2 -or [math]::Abs($actual[0].Y-$expected.Y) -gt 2)){[pscustomobject]@{Index=$actual[0].Index;X=[int]$expected.X;Y=[int]$expected.Y}}})
+   if($misplaced.Count -eq 0){break}
+   foreach($item in $misplaced){[NUC8Icons.Desktop]::Position($item.Index,$item.X,$item.Y)}
+   Start-Sleep -Milliseconds 500
+   $after=[NUC8Icons.Desktop]::Capture()
+   $retry++
+  }
   if(@($after.Icons).Count -ne 4){$differences+='結果不是四個系統圖示'}
   foreach($expected in $reference.Icons){$actual=@($after.Icons|Where-Object Name -eq $expected.Name);if($actual.Count -ne 1){$differences+=('找不到唯一圖示：'+$expected.Name)}elseif([math]::Abs($actual[0].X-$expected.X) -gt 2 -or [math]::Abs($actual[0].Y-$expected.Y) -gt 2){$differences+=('位置不符：'+$expected.Name)}}
   $result=[ordered]@{Success=($differences.Count -eq 0);Mode=$Mode;Differences=$differences;Actual=@($after.Icons|Select-Object Name,X,Y);Error=($differences -join '；')}
