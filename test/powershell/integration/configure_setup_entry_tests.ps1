@@ -112,6 +112,7 @@ try{
  Assert ($cmdText -match '(?im)^powershell\.exe\s+.*-File\s+"%~dp0configure_setup\.ps1"\s*$') 'command entry selects canonical configure script'
  $startFixture=Join-Path $fixture 'start';[void][IO.Directory]::CreateDirectory($startFixture)
  Copy-Item -LiteralPath (Join-Path $root 'core/start_windows.ps1') -Destination $startFixture
+ Copy-Item -LiteralPath (Join-Path $root 'core/network_preflight_library.ps1') -Destination $startFixture
  [IO.File]::WriteAllText((Join-Path $startFixture 'hardware.ps1'),@'
 function Test-SetupInteractiveHost {$false}
 function Select-SetupDriverRequest {param($PackageRoot,$DriverPackagePath,$PathSpecified,$ConfirmedBoard,$ConfirmationComputer,$Interactive) @{DriverPackagePath=$DriverPackagePath;ConfirmedBoard=$ConfirmedBoard;ConfirmationComputer=$ConfirmationComputer}}

@@ -91,6 +91,8 @@ New-Item -ItemType Directory -Path $fixture -Force|Out-Null
 Copy-Item -LiteralPath (Join-Path $PackageRoot 'core\start_windows.ps1') -Destination (Join-Path $fixture 'start_windows.ps1')
 Copy-Item -LiteralPath (Join-Path $PackageRoot 'drivers') -Destination (Split-Path $fixture -Parent) -Recurse
 Copy-Item -LiteralPath (Join-Path $PackageRoot 'core/hardware.ps1') -Destination (Join-Path $fixture 'hardware.ps1')
+Copy-Item -LiteralPath (Join-Path $PackageRoot 'core/network_preflight_library.ps1') -Destination (Join-Path $fixture 'network_preflight_library.ps1')
+function Get-NetConnectionProfile {param($ErrorAction);return [pscustomobject]@{IPv4Connectivity='Disconnected';IPv6Connectivity='NoTraffic'}}
 function Get-CimInstance {param($ClassName,$ErrorAction);[pscustomobject]@{Product='NUC8i7HVB'}}
 $driverFixture=Join-Path $fixture 'driver_pack'
 New-Item -ItemType Directory -Path $driverFixture|Out-Null
@@ -108,5 +110,6 @@ Assert $rejected 'mutually exclusive dispatcher options rejected'
 Push-Location $fixture
 try{$selected=& (Join-Path $fixture 'start_windows.ps1') -NonInteractive -DriverPackagePath '.\driver_pack'}finally{Pop-Location}
 Assert ($selected -eq (Join-Path $fixture 'driver_pack')) '主入口相對驅動路徑依 PowerShell 位置解析'
+Remove-Item Function:Get-NetConnectionProfile
 Remove-Item Function:Get-CimInstance
 Write-Host ('ALL PASS: '+$count+' layout/routing assertions. No Windows settings were executed.')
