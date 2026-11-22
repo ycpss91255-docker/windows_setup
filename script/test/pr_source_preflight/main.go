@@ -117,11 +117,20 @@ func run(args []string) error {
 	runSHA := f.String("run-sha", "", "event run SHA")
 	base := f.String("base", "", "event base")
 	head := f.String("head", "", "event head")
+	mode := f.String("mode", "pull-request", "pull-request or merge-group")
+	queue := f.String("queue", "", "merge queue API response (merge-group)")
+	repository := f.String("repository", "", "owner/name (merge-group)")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
 	if f.NArg() != 0 {
 		return errors.New("unexpected arguments")
+	}
+	if *mode == "merge-group" {
+		return checkMergeGroup(*repo, *event, *queue, *repository, *checkout, *runSHA)
+	}
+	if *mode != "pull-request" {
+		return errors.New("unknown mode")
 	}
 	if err := authorityCheck(*event, *authority); err != nil {
 		return err
