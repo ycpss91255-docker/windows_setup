@@ -4,6 +4,7 @@ param([Parameter(Mandatory=$true)][string]$ManifestPath,[Parameter(Mandatory=$tr
 $workerClock=[Diagnostics.Stopwatch]::StartNew()
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'powershell_worker_diagnostics.ps1')
+. (Join-Path $PSScriptRoot 'pester_retry_policy.ps1')
 $version='6.0.0'
 # SHA512 from the official Gallery version metadata, not from a local binary.
 $packageHash='AHIAm7QW11As3sjMayo1rPU4JVIEfBL+ZILAyTyDnMPxMwLFQ3VeAA0prFTx+Y4DgZCUnH2N4+Xb0HDQua2EKA=='
@@ -18,11 +19,12 @@ function Get-PinnedPester {
  }
  if(-not(Test-Path -LiteralPath $zip)){
   $download=Join-Path $cache ([guid]::NewGuid().ToString('N')+'.download')
-  $tls=[Net.ServicePointManager]::SecurityProtocol
-  try{[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;Invoke-WebRequest -Uri 'https://www.powershellgallery.com/api/v2/package/Pester/6.0.0' -OutFile $download -UseBasicParsing}finally{[Net.ServicePointManager]::SecurityProtocol=$tls}
-  $hash=[Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash([IO.File]::ReadAllBytes($download)))
-  if($hash -cne $packageHash){throw 'Pester 官方套件 SHA512 不符。'}
-  [IO.File]::Copy($download,$zip,$true)
+  try {
+   Invoke-PesterBoundedDownload -OutFile $download
+   $hash=[Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash([IO.File]::ReadAllBytes($download)))
+   if($hash -cne $packageHash){throw 'Pester 官方套件 SHA512 不符。'}
+   [IO.File]::Copy($download,$zip,$true)
+  } finally {if(Test-Path -LiteralPath $download){Remove-Item -LiteralPath $download -Force}}
  }
  $hash=[Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash([IO.File]::ReadAllBytes($zip)))
  if($hash -cne $packageHash){throw 'Pester 快取 SHA512 不符，拒絕載入。'}

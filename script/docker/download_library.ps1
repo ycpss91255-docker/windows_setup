@@ -20,26 +20,26 @@ function Get-ContainerDownloadFailureKind {
  return 'Other'
 }
 function Invoke-ContainerOfficialDownload {
- param([Parameter(Mandatory=$true)][uri]$Uri,[Parameter(Mandatory=$true)][string]$OutFile)
+ param([Parameter(Mandatory=$true)][uri]$Uri,[Parameter(Mandatory=$true)][string]$OutFile,[ValidateRange(1,3)][int]$MaxAttempts=3,[ValidateRange(1,120)][int]$RequestTimeoutSeconds=120)
  if(-not $Uri.IsAbsoluteUri -or $Uri.Scheme -cne 'https' -or $Uri.UserInfo){throw 'Official download must use HTTPS without credentials.'}
  $output=[IO.Path]::GetFullPath($OutFile)
  if(Test-Path -LiteralPath $output){throw 'Download output already exists; no unknown cache or overwrite.'}
- for($attempt=1;$attempt -le 3;$attempt++){
+ for($attempt=1;$attempt -le $MaxAttempts;$attempt++){
   $partial=Join-Path ([IO.Path]::GetDirectoryName($output)) ([guid]::NewGuid().ToString('N')+'.partial')
-  Write-Host ('Official download attempt '+$attempt+'/3.')
+  Write-Host ('Official download attempt '+$attempt+'/'+$MaxAttempts+'.')
   $watch=[Diagnostics.Stopwatch]::StartNew()
   try{
    $previousProgress=$ProgressPreference
    try{
     $ProgressPreference='SilentlyContinue'
-    Invoke-WebRequest -UseBasicParsing -Uri $Uri.AbsoluteUri -OutFile $partial -TimeoutSec 120 -ErrorAction Stop
+    Invoke-WebRequest -UseBasicParsing -Uri $Uri.AbsoluteUri -OutFile $partial -TimeoutSec $RequestTimeoutSeconds -ErrorAction Stop
    }finally{$ProgressPreference=$previousProgress}
    if(-not(Test-Path -LiteralPath $partial -PathType Leaf) -or (Get-Item -LiteralPath $partial).Length -le 0){throw 'Official download produced no complete file.'}
    [IO.File]::Move($partial,$output)
    Write-Host ('Official download complete; bytes='+([IO.FileInfo]$output).Length+'; elapsed_ms='+$watch.ElapsedMilliseconds+'.')
    return
   }catch{
-   $retry=($attempt -lt 3 -and (Test-ContainerTransientDownload -Exception $_.Exception))
+   $retry=($attempt -lt $MaxAttempts -and (Test-ContainerTransientDownload -Exception $_.Exception))
    Write-Host ('Official download failure: '+(Get-ContainerDownloadFailureKind -Exception $_.Exception)+'; retry='+$retry.ToString().ToLowerInvariant()+'; elapsed_ms='+$watch.ElapsedMilliseconds+'.')
    if(-not $retry){throw}
   }finally{if(Test-Path -LiteralPath $partial){Remove-Item -LiteralPath $partial -Force}}
