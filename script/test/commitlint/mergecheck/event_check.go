@@ -14,9 +14,14 @@ import (
 var frozenManifest []byte
 
 const frozenDigest = "d91f075b3cf1ba17c2c35b0e1173deecd64ef651abd92432934114217250531a"
-const fixedRepository = "ycpss91255/windows_setup"
+// frozenRepository is the repository name recorded in the audited 2026-11-14
+// grandfather snapshot; it stays as sampled so the frozen digest is unchanged.
+const frozenRepository = "ycpss91255/windows_setup"
+
+// fixedRepository is the current repository name that GitHub events report.
+const fixedRepository = "ycpss91255-lab/windows_setup"
 const fixedAnchor = "242d21a56c6b645ab8f5767aa27c36e8490a48a4"
-const fixedRemote = "https://github.com/ycpss91255/windows_setup.git"
+const fixedRemote = "https://github.com/ycpss91255-lab/windows_setup.git"
 
 type frozenConfig struct {
 	Repository   string `json:"repository"`
@@ -35,7 +40,7 @@ func frozenRoots() ([]string, error) {
 	if err := json.Unmarshal(frozenManifest, &c); err != nil {
 		return nil, err
 	}
-	if c.Repository != fixedRepository || c.Anchor != fixedAnchor || len(c.PullRequests) != 23 {
+	if c.Repository != frozenRepository || c.Anchor != fixedAnchor || len(c.PullRequests) != 23 {
 		return nil, fmt.Errorf("invalid frozen manifest")
 	}
 	roots := []string{c.Anchor}

@@ -5,7 +5,7 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 function Assert([bool]$Condition,[string]$Message){Write-Host ('@@ASSERT@@'+(@{Name=$Message;Passed=$Condition}|ConvertTo-Json -Compress));if(-not $Condition){throw $Message}}
 $fixture=Join-Path $env:TEMP ('simple_portal_'+[guid]::NewGuid().ToString('N'))
 $checks=@(foreach($layer in @('Unit','Integration')){[pscustomobject]@{Name=$layer;Layer=$layer;Status='Passed';Executed=$true;Passed=$true;ExitCode=0;DurationSeconds=1;Assertions=@([pscustomobject]@{Name='real assertion';Passed=$true})}})
-Write-TestReports -Checks $checks -OutputDirectory (Join-Path $fixture 'input') -Commit ('a'*40) -SourceState Clean -RefName main -Environment Test -RunUrl 'https://github.com/ycpss91255/windows_setup/actions/runs/123' |Out-Null
+Write-TestReports -Checks $checks -OutputDirectory (Join-Path $fixture 'input') -Commit ('a'*40) -SourceState Clean -RefName main -Environment Test -RunUrl 'https://github.com/ycpss91255-lab/windows_setup/actions/runs/123' |Out-Null
 $catalog=Join-Path $fixture 'catalog.json';[IO.File]::WriteAllText($catalog,'[]')
 & (Join-Path $root 'script/report/build_portal.ps1') -Preview -CatalogPath $catalog -OutputDirectory (Join-Path $fixture 'public') -MainSnapshotPath (Join-Path $fixture 'input/summary.json')|Out-Null
 $page=[IO.File]::ReadAllText((Join-Path $fixture 'public/index.html'))

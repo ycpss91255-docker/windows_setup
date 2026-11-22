@@ -6,3 +6,4 @@ PR 檢查事件的 base、head、實際 merge checkout 與 tree，僅檢查 PR h
 
 CI 使用完整 checkout，從固定 GitHub HTTPS 來源取得 manifest 每個精確 SHA 所需物件，不跟隨目前 PR 分支；若上游不再提供某物件會停止並需維護者審查。此工具不修改 branch protection、標籤或既有歷史。原有可選 `commit-msg` hook 的單筆訊息檢查保持獨立。
 採用此檢查前已合併至 main 的 `fb7a85067449f316055fe4867318d2037e560455` 標題不符新規則；僅 tag 與 main 手動執行的歷史掃描對該單一提交免除標題檢查。它不是豁免根，祖先與後續提交仍按既定範圍檢查；PR 與 main push 不套用此例外。
+`grandfather.json` 是 2026-11-14 於轉移前個人帳號倉庫取樣的歷史快照，其中 `repository`／`head_repo` 保留取樣當時的 `ycpss91255/windows_setup`，內容與固定摘要不因倉庫轉移或組織改名而改寫；程式以 `frozenRepository` 核對快照，以 `fixedRepository`（目前 `ycpss91255-lab/windows_setup`）核對 GitHub 事件與固定 HTTPS 來源，不同時接受舊倉庫名稱。
