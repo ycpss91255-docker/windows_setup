@@ -1,5 +1,11 @@
 # 預設不轉換；自有文字檔依下列類型宣告換行，未宣告的類型保留原位元組。
 * -text
 
+# 自有程式碼與設定以 LF 儲存及檢出。
+*.ps1 text eol=lf
+
 # cmd.exe 以 LF 換行可能誤判標籤與續行，CMD 啟動器固定 CRLF。
 *.cmd text eol=crlf
+
+# 第三方內容保留上游原位元組。
+/modules/debloat/win11debloat/** -text
