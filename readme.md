@@ -370,6 +370,21 @@ modules\uac\apply_uac_settings.cmd -Restore
 每次都讀回政策確認，組織政策覆寫或錯誤會回報失敗。結果在 `%ProgramData%\NUC8-Setup\UAC-Result.json`；`windows.cmd -VerifyOnly` 也核對本輪結果。還原後，針對一鍵流程的「管理員免提示」驗證可能不通過，這代表目前採用還原的設定。
 
 政策值依據：[Microsoft UAC 設定及組態](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/user-account-control/settings-and-configuration/)。
+## 自動登入停用與還原
+
+`windows.cmd` 第 1 階段以 Microsoft Autologon 設定目前帳號開機自動登入，密碼由 Autologon 以 LSA 機密保存。電腦改變用途、轉交他人或不再需要自動登入時，在工具包根目錄執行：
+
+```cmd
+modules\accounts\apply_autologon_settings.cmd -Restore
+```
+
+`-Restore` 只取消自動登入，不需要輸入密碼，也不執行 Autologon：將 `Winlogon` 的 `AutoAdminLogon` 設為 `0`，若有明文 `DefaultPassword` 則移除，並刪除 LSA 儲存的 `DefaultPassword` 機密。`DefaultUserName` 與 `DefaultDomainName` 保留，登入畫面可能仍預先帶入該帳號。工具不保存也不還原套用前的自動登入狀態；原本已用其他方式設定自動登入的電腦，執行後同樣變成停用，需要時請自行重新設定。
+
+完成後會讀回上述三項；任一項仍存在、被組織政策或其他工具改回，或無法查詢 LSA，都會回報失敗，不宣稱成功。結果寫在 `%ProgramData%\NUC8-Setup\Autologon-Result.json`，不含密碼。登錄值改變後仍需重新開機，才能確認實際已不再自動登入。
+
+之後執行 `windows.cmd -VerifyOnly` 時，只有這份結果是同一電腦、同一帳號的成功還原，且本輪重新讀回仍為停用，「自動登入設定」才會標示為略過；否則仍為未通過。要再次啟用，請重新執行 `modules\accounts\apply_autologon_settings.cmd` 並輸入密碼。
+
+機密依據：[Microsoft 保護自動登入密碼](https://learn.microsoft.com/en-us/windows/win32/secauthn/protecting-the-automatic-logon-password)。
 ## 非必要資料分享與隱私設定
 
 `windows.cmd` 會在原本的 Win11Debloat 清理階段末端套用下列隱私政策，主流程仍是 19 個階段。也可在工具包根目錄單獨執行；CMD 會沿用目前帳號並要求必要的管理員權限：
@@ -463,7 +478,7 @@ Windows 啟用由使用者另外處理；本工具不處理 Ubuntu 分割或安�
 | 資料夾 | 用途 |
 | --- | --- |
 | `modules\init` | 初始帳號建立 |
-| `modules\accounts` | 自動登入 |
+| `modules\accounts` | 自動登入、停用還原 |
 | `modules\uac` | 管理員提權免提示、原值還原 |
 | `modules\memory` | 分頁檔 |
 | `modules\power` | 電源與睡眠 |
@@ -488,7 +503,7 @@ Windows 啟用由使用者另外處理；本工具不處理 Ubuntu 分割或安�
 
 ### 各模組行為
 
-1. Apply-AutologonSettings：以目前帳號設定自動登入；密碼透過 Microsoft Autologon 儲存，不寫在工具包腳本。
+1. Apply-AutologonSettings：以目前帳號設定自動登入；密碼透過 Microsoft Autologon 儲存，不寫在工具包腳本。`-Restore` 停用並清除儲存的密碼，見 [自動登入停用與還原](#自動登入停用與還原)。
 2. Apply-PagefileSettings：停用磁碟分頁檔；重開機後完全生效。
 3. Apply-PowerSettings：插電時停用自動睡眠和休眠；保留螢幕逾時設定。
 4. Apply-SSHSettings：安裝並啟用 OpenSSH Server；自動啟動，防火牆限制 LocalSubnet。

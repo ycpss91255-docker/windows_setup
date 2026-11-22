@@ -3,6 +3,9 @@
 本文件記錄使用者可見的行為、相容性及遷移要求。詳細實作與驗證紀錄見中文 Git 提交；發布版本與來源提交以 GitHub Release 為準。
 
 ## [Unreleased]
+### Added（新增）
+
+- 自動登入模組提供 `-Restore`：取消自動登入並清除 Autologon 儲存的密碼，不需輸入密碼，也不還原套用前的狀態；`windows.cmd -VerifyOnly` 會把確認已停用的自動登入標示為略過。
 
 ## [v0.2.6] — 2026-11-21
 ### Changed（變更）
