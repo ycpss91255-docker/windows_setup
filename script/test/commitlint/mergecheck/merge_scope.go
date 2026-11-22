@@ -105,6 +105,14 @@ func validateMergeTitlesSync(repo string, tips, excluded []string, kind string, 
 				}
 				continue
 			}
+			if kind == "merge_group" && sync.Base != "" {
+				if ref, ok := queueSyncBranch(title); ok {
+					if e := queueSyncMergeValid(repo, listing, fields[0], fields[1], fields[2], ref, sync.Base, inRange); e != nil {
+						return e
+					}
+					continue
+				}
+			}
 			if !strings.HasPrefix(title, "合併：") || !strings.ContainsFunc(strings.TrimPrefix(title, "合併："), func(r rune) bool { return unicode.Is(unicode.Han, r) }) {
 				return fmt.Errorf("new merge commit has invalid title: %s", fields[0])
 			}
