@@ -179,6 +179,18 @@ function Invoke-SetupDriverPnpRescan {
  $output=& (Get-SetupDriverPnpTool) /scan-devices 2>&1
  [pscustomobject]@{ExitCode=$LASTEXITCODE;Output=@($output)}
 }
+function Get-SetupDriverSettledReadback {
+ param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][object[]]$Plans,[bool]$Poll=$true,[int]$TimeoutSeconds=30,[int]$IntervalSeconds=5)
+ $required=@($Plans|Where-Object Status -eq 'UpdateRequired')
+ $read={$devices=@(Get-SetupDriverDeviceInventory -Targets @($Target));@($required|ForEach-Object{Get-SetupDriverReadback -Plan $_ -Devices $devices})}
+ $readbacks=@(& $read);$waited=0
+ if($Poll -and @($readbacks|Where-Object Status -eq 'Unverified').Count){
+  $null=Invoke-SetupDriverPnpRescan
+  while(@($readbacks|Where-Object Status -eq 'Unverified').Count -and $waited -lt $TimeoutSeconds){Start-Sleep -Seconds $IntervalSeconds;$waited+=$IntervalSeconds;$readbacks=@(& $read)}
+ }
+ foreach($readback in $readbacks){if($waited -gt 0 -and $readback.Status -eq 'Unverified'){$readback.Reason=([string]$readback.Reason+'；安裝後已等待 '+$waited+' 秒仍未綁定')}}
+ return $readbacks
+}
 function Invoke-SetupDriverTarget {
  param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][string]$Root,[int]$Build,[string]$Architecture,[string]$LogPath,[switch]$RequiredPresent)
  $null=Assert-SetupDriverTargetIntegrity -Target $Target -Root $Root
@@ -189,9 +201,10 @@ function Invoke-SetupDriverTarget {
   $native=Invoke-SetupDriverInfInstall -InfPath (Join-Path $Root $Target.InfPath) -LogPath $LogPath
   if($native.ExitCode -eq 3010){$reboot=$true}
   elseif($native.ExitCode -notin @(0,259)){$failures+=($Target.InfPath+': '+$native.ExitCode)}
-  $after=@(Get-SetupDriverDeviceInventory -Targets @($Target))
+  $readbacks=@(Get-SetupDriverSettledReadback -Target $Target -Plans $plans -Poll ($native.ExitCode -in @(0,259,3010)))
+  $index=0
   foreach($plan in $plans){
-   if($plan.Status -eq 'UpdateRequired'){$result=Get-SetupDriverReadback -Plan $plan -Devices $after;$results+=$result;if($result.Status -eq 'Unverified'){$failures+=($Target.InfPath+': 安裝後版本尚未核實')}}
+   if($plan.Status -eq 'UpdateRequired'){$result=$readbacks[$index];$index++;$results+=$result;if($result.Status -eq 'Unverified'){$failures+=($Target.InfPath+': 安裝後版本尚未核實')}}
    else{$results+=$plan}
   }
  }else{$results=$plans}
