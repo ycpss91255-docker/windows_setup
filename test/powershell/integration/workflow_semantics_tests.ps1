@@ -3,6 +3,9 @@ $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 function Assert([bool]$Condition,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Condition}|ConvertTo-Json -Compress));if(-not $Condition){throw $Name}}
 $workflow=[IO.File]::ReadAllText((Join-Path $root '.github/workflows/windows_tests.yml'))
+$prTrigger=[regex]::Match($workflow, '(?m)^  pull_request:\s*\r?\n    types:\s*\[([^\]]+)\]\s*$')
+$prTypes=if($prTrigger.Success){@($prTrigger.Groups[1].Value.Split(',')|ForEach-Object {$_.Trim()})}else{@()}
+Assert ($prTrigger.Success -and $prTypes.Count -eq 3 -and ((@($prTypes | Sort-Object) -join ',') -ceq 'opened,reopened,synchronize')) 'PR workflow runs only for open synchronize and reopen'
 $runName=[regex]::Match($workflow, '(?m)^run-name:\s*(.+)$')
 Assert ($runName.Success -and $runName.Groups[1].Value -match '\$\{\{') 'workflow has a dynamic top-level run name'
 $name=$runName.Groups[1].Value
