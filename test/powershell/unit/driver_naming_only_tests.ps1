@@ -2,7 +2,7 @@
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $root 'core/hardware.ps1')
-. (Join-Path $root 'modules/drivers/driver_plan_library.ps1')
+. (Join-Path $root 'modules/drivers/driver_installation_library.ps1')
 function Assert([bool]$Value,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Value}|ConvertTo-Json -Compress));if(-not $Value){throw $Name}}
 # 合成目標：宣告式命名INF與真正綁定的擁有者共用同一硬體ID，但供應商字串及版本線不同。
 $naming=[pscustomobject]@{Id='naming';InfPath='naming.inf';HardwareIds=@('PCI\VEN_8086&DEV_A160','ACPI\INT345D');Provider='INTEL';ProviderAliases=@();DriverVersion='10.1.6.2';MinimumBuild=10240;Architecture='amd64';NamingOnly=$true}
@@ -61,3 +61,42 @@ Assert ($plans.Count -eq 4 -and @($plans|Where-Object Status -ne 'Current').Coun
 $unbound=@($evidence|ForEach-Object {$c=$_.PSObject.Copy();$c.DriverProvider='Microsoft';$c.DriverVersion='30.100.1816.3';$c})
 $plans=@(Get-SetupDriverTargetPlan -Target $lpss[0] -Devices $unbound -Build 26100 -Architecture amd64 -OwnerTargets $all)
 Assert (@($plans|Where-Object Status -ne 'Unverified').Count -eq 0) '真實清單在Serial IO尚未綁定時維持Unverified'
+# 未提供擁有者脈絡的呼叫（舊呼叫端）維持一般目標行為，只會多報Unverified，不會誤報通過。
+$legacy=@(Get-SetupDriverTargetPlan -Target $naming -Devices @($device) -Build 22621 -Architecture amd64)
+Assert ($legacy[0].Status -ne 'Current' -and $legacy[0].Reason -notlike '宣告式命名INF*') '未傳OwnerTargets時不套用宣告式語意'
+# 已釘選的歷史驅動包不含NamingOnly；執行時以repo自己的manifest標記補上，兩份對不上就如實失敗。
+function New-PackManifest {param([string]$Inf='naming.inf',[string]$Sha=('A'*64),[string[]]$Ids=@('PCI\VEN_8086&DEV_A160'),[string]$Provider='INTEL',[string]$Version='10.1.6.2',[string]$Id='naming')
+ @{SchemaVersion=2;ProfileId='fixture_profile';Packages=@(@{Id='chipset';File='chipset.zip';SHA256=('A'*64);PackageVersion='10.1.19376.8374';SourceUrl='https://www.asus.com/driver';Drivers=@(@{Id=$Id;InfPath=$Inf;InfSHA256=$Sha;DriverVersion=$Version;Provider=$Provider;Architecture='amd64';MinimumBuild=10240;HardwareIds=$Ids})})}|ConvertTo-Json -Depth 10|ConvertFrom-Json}
+$fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('naming_repo_'+[guid]::NewGuid().ToString('N'))
+function Set-RepoManifest {param($Manifest) $dir=Join-Path $fixtureRoot 'fixture_profile';[void][IO.Directory]::CreateDirectory($dir);($Manifest|ConvertTo-Json -Depth 10)|Set-Content -LiteralPath (Join-Path $dir 'manifest.json') -Encoding UTF8}
+function Get-Marked {param($Pack,[string]$Profile='fixture_profile') $entries=@(Get-SetupDriverManifestEntries -Manifest $Pack);Add-SetupDriverNamingOnlyMarks -Entries $entries -ProfileId $Profile -DriversRoot $fixtureRoot;@($entries|ForEach-Object Drivers|Where-Object NamingOnly)}
+function Test-Rejected {param($Pack) try{$null=Get-Marked -Pack $Pack;$false}catch{$true}}
+$repo=New-PackManifest;$repo.Packages[0].Drivers[0]|Add-Member NamingOnly $true;Set-RepoManifest $repo
+Assert (@(Get-Marked (New-PackManifest)).Count -eq 1) '歷史包清單沒有NamingOnly時，由repo清單補上標記'
+Assert (Test-Rejected (New-PackManifest -Inf 'other.inf')) 'INF路徑與repo清單不一致時如實失敗'
+Assert (Test-Rejected (New-PackManifest -Sha ('B'*64))) 'INF雜湊與repo清單不一致時如實失敗'
+Assert (Test-Rejected (New-PackManifest -Ids @('PCI\VEN_8086&DEV_A161'))) '硬體ID與repo清單不一致時如實失敗'
+Assert (Test-Rejected (New-PackManifest -Provider 'Intel Corporation')) '供應商與repo清單不一致時如實失敗'
+Assert (Test-Rejected (New-PackManifest -Version '30.100.1914.3')) '版本與repo清單不一致時如實失敗'
+Assert (@(Get-Marked (New-PackManifest -Id 'unrelated' -Inf 'unrelated.inf')).Count -eq 0) '歷史包沒有repo標記的目標時不套用也不失敗'
+$bad=New-PackManifest;$bad.Packages[0].Drivers[0]|Add-Member NamingOnly 'yes';Set-RepoManifest $bad
+Assert (Test-Rejected (New-PackManifest)) 'repo清單的NamingOnly不是布林true時如實失敗'
+$plain=New-PackManifest;Set-RepoManifest $plain
+Assert (@(Get-Marked (New-PackManifest)).Count -eq 0) 'repo清單沒有標記時不補標記'
+$rejected=$false;try{Add-SetupDriverNamingOnlyMarks -Entries @() -ProfileId '..\evil' -DriversRoot $fixtureRoot}catch{$rejected=$true};Assert $rejected '不合法的ProfileId拒絕'
+$none=[IO.Path]::Combine([IO.Path]::GetTempPath(),'naming_none_'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($none)
+Add-SetupDriverNamingOnlyMarks -Entries @(Get-SetupDriverManifestEntries -Manifest (New-PackManifest)) -ProfileId 'fixture_profile' -DriversRoot $none
+Assert $true '沒有repo清單時不補標記也不失敗'
+# 標記只代表命名用，不放寬比較：標記後在沒有擁有者時仍是Unverified，且擁有者條件不變。
+$repo=New-PackManifest;$repo.Packages[0].Drivers[0]|Add-Member NamingOnly $true;Set-RepoManifest $repo
+$markedTarget=(Get-Marked (New-PackManifest))[0]
+$dev=[pscustomobject]@{InstanceId='PCI\X';HardwareIds=@('PCI\VEN_8086&DEV_A160');DriverProvider='Intel Corporation';DriverVersion='30.100.1914.3';Status='OK';DriverSigned=$true}
+Assert (@(Get-SetupDriverTargetPlan -Target $markedTarget -Devices @($dev) -Build 22621 -Architecture amd64 -OwnerTargets @($markedTarget))[0].Status -eq 'Unverified') '補標記不放寬判定：沒有擁有者仍Unverified'
+# 真實歷史清單：移除NamingOnly後，由repo的真實清單補回。
+$pinned=Get-Content -LiteralPath (Join-Path $root 'drivers/nuc8i7hvk_hnk/manifest.json') -Raw -Encoding UTF8|ConvertFrom-Json
+foreach($driver in @($pinned.Packages|ForEach-Object Drivers)){if($driver.PSObject.Properties['NamingOnly']){$driver.PSObject.Properties.Remove('NamingOnly')}}
+$pinnedEntries=@(Get-SetupDriverManifestEntries -Manifest $pinned)
+Assert (@($pinnedEntries|ForEach-Object Drivers|Where-Object NamingOnly).Count -eq 0) '歷史驅動包清單本身沒有NamingOnly'
+Add-SetupDriverNamingOnlyMarks -Entries $pinnedEntries -ProfileId 'nuc8i7hvk_hnk'
+$marked=@($pinnedEntries|ForEach-Object Drivers|Where-Object NamingOnly)
+Assert ($marked.Count -eq 1 -and $marked[0].Id -ceq 'sunrisepoint_hsystemlpss') '真實repo清單只替LPSS命名INF補上NamingOnly'
