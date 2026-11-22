@@ -7,6 +7,10 @@
 
 - 倉庫已移至 `ycpss91255-lab` 組織：README、Release 下載與品質報表連結改用 `https://github.com/ycpss91255-lab/windows_setup` 及 `https://ycpss91255-lab.github.io/windows_setup/`，舊網址不保證持續轉址。
 
+### Fixed（修正）
+
+- NUC8 驅動最終核對不再把只宣告裝置名稱的 `SunrisePoint-HSystemLPSS.inf` 當成會綁定的驅動；同一硬體 ID 改由已驗證綁定的 Serial IO 驅動確認，供應商與版本比較條件不變，未綁定時仍標為未驗證。
+
 ## [v0.2.6] — 2026-11-21
 ### Changed（變更）
 
