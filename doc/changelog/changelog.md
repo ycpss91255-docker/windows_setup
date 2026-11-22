@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed（變更）
+
+- 第 03 模組停用休眠並移除 `hiberfil.sys`，快速啟動一併停用，冷開機可能稍慢；`-VerifyOnly` 與重開後驗收會核對。需要時可自行執行 `powercfg /hibernate on` 重新啟用。
+
 ## [v0.2.6] — 2026-11-21
 ### Changed（變更）
 
