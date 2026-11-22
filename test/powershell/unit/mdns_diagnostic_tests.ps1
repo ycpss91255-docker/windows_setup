@@ -58,3 +58,15 @@ foreach($code in @('4294967295','4294967296','9999999999')){
  $out=Get-SetupMdnsSafeFailure ([InvalidOperationException]::new(('Native registration callback failed: '+$code)))
  Assert ($(if($code -eq '4294967295'){$out -ceq ('callback-status='+$code)}else{$out -ceq 'unknown'})) 'native status must fit uint32'
 }
+
+$state=[pscustomobject]@{Leases=@((New-FixtureTimeoutLease),(New-FixtureTimeoutLease));Fingerprint='old';Plans=@();Ready=$true;Status='Registered';Error=''};$script:captured=$null;$failed=$false
+try{Invoke-SetupMdnsPublisherCycle -State $state -Context @{} -Facts $facts -CodeRoot 'fixture' -StatusPath 'fixture'}catch{$failed=$true}
+Assert ($failed -and $script:captured.Error -match 'cleanup-timeout' -and $script:captured.Error -notmatch 'unknown') 'multiple lease timeouts remain classified'
+$script:registrationCalls=0;$script:workerFacts=$twoFacts;$script:captured=$null;$failed=$false;$workerMessage=''
+try{Invoke-SetupMdnsPublisherWorker -RunId $script:workerRun -CodeRoot $script:workerRoot}catch{$failed=$true;$workerMessage=$_.Exception.Message}
+Assert ($failed -and $workerMessage -match 'callback-status=123' -and $workerMessage -match 'cleanup-timeout' -and $workerMessage -notmatch 'PRIVATE') 'worker finally preserves primary and cleanup diagnostics'
+
+$e=[InvalidOperationException]::new('原生mDNS撤銷未完成。');$e.Data['MdnsCleanupCategories']=[string[]]@('cleanup-timeout','PRIVATE C:\secret')
+Assert ((Get-SetupMdnsSafeFailure $e) -ceq 'unknown') 'structured cleanup refuses non-whitelisted content'
+$e.Data['MdnsCleanupCategories']=[string[]]@('cleanup-timeout','callback-status=4294967296')
+Assert ((Get-SetupMdnsSafeFailure $e) -ceq 'unknown') 'structured cleanup rejects out of range status'
