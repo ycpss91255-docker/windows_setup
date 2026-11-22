@@ -14,19 +14,36 @@ $script:calls=@();$record=$null
 try{Wait-HostedWindowsDocker -Identity $hosted -InvokeNative {param($f,$a,$t);$script:calls+=@($f);throw [Exception]::new('runner-cleanup-process-active PRIVATE_C:\Users\hidden')}}catch{$record=$_}
 Assert ($record.Exception.Message -match 'category=native-error\b' -and $record.Exception.Message -notmatch 'PRIVATE|Users|hidden' -and $script:calls.Count -eq 1) '未知例外即使含類似文字仍維持安全失敗'
 foreach($wanted in @('probe','query','stop','start')){
- $script:target=$wanted;$script:stopped=$false
+ $script:target=$wanted;$script:stopped=$false;$script:probes=0;$script:calls=@();$script:now=100L
  $native={param($File,$Arguments,$TimeoutMilliseconds)
   $stage=if($File -eq 'docker.exe'){'probe'}else{$Arguments[0]}
-  if($stage -eq $script:target){return Invoke-RunnerBoundedProcess -File (Join-Path $PSHOME 'powershell.exe') -Arguments @('-NoProfile','-Command','[Console]::Out.Write("PRIVATE_SENTINEL");[Console]::Error.Write("PRIVATE_SENTINEL");Start-Sleep -Seconds 30') -TimeoutMilliseconds $TimeoutMilliseconds}
-  if($stage -eq 'probe'){return @{ExitCode=1;Output='private probe data'}}
+  $script:calls+=@($stage)
+  if($stage -eq 'probe'){
+   $script:probes++
+   if($script:target -eq 'probe' -and $script:probes -eq 1){throw [TimeoutException]::new('runner-process-deadline-cleaned')}
+   if($script:target -eq 'probe'){throw [TimeoutException]::new('runner-process-deadline')}
+   return @{ExitCode=1;Output='private probe data'}
+  }
+  if($stage -eq $script:target){throw [TimeoutException]::new('runner-process-deadline')}
   if($stage -eq 'query'){return @{ExitCode=0;Output=('STATE : '+$(if($script:stopped){1}else{4})+' STATE')}}
   if($stage -eq 'stop'){$script:stopped=$true}
   return @{ExitCode=0;Output='private service data'}
  }
- $message='';try{Wait-HostedWindowsDocker -Identity $hosted -DeadlineMilliseconds 5000 -OperationMilliseconds 500 -InvokeNative $native}catch{$message=$_.Exception.Message}
- Assert ($message -match ('stage='+$wanted+'\b') -and $message -match 'category=process-deadline\b' -and $message -match 'elapsed_ms=\d+' -and $message -match 'remaining_ms=\d+') ('owned timeout identifies bounded stage '+$wanted)
+ $message='';try{Wait-HostedWindowsDocker -Identity $hosted -DeadlineMilliseconds 5000 -OperationMilliseconds 500 -Clock {$script:now} -InvokeNative $native}catch{$message=$_.Exception.Message}
+ Assert ($message -ceq ('Docker readiness stage='+$wanted+' category=process-deadline elapsed_ms=0 remaining_ms=5000')) ('injected timeout identifies bounded stage '+$wanted)
  Assert ($message -notmatch 'private|powershell|Users|System32|PRIVATE_SENTINEL') 'diagnostic excludes private process details'
+ if($wanted -eq 'probe'){Assert (($script:calls -join ',') -ceq 'probe,query,stop,query,start,probe') 'first cleaned hosted probe permits one recovery and second probe deadline fails'}
 }
+# Exercise the real bounded-process cleanup separately from stage classification.
+. (Join-Path $root 'test/powershell/support/runner_probe_diagnostic.ps1')
+$probeName='owned_probe_'+[guid]::NewGuid().ToString('N');$probeExe=Join-Path $env:TEMP ($probeName+'.exe')
+try {
+ Add-Type -OutputAssembly $probeExe -OutputType ConsoleApplication -TypeDefinition 'using System; public class OwnedDiagnosticProbe { public static void Main(){ Console.Out.Write("PRIVATE_SENTINEL"); Console.Error.Write("PRIVATE_SENTINEL"); System.Threading.Thread.Sleep(60000); } }'
+ $kind='unknown';$record=$null
+ try{Invoke-RunnerBoundedProcess -File $probeExe -Arguments @() -TimeoutMilliseconds 3000 -InitialHostedProbe $true|Out-Null}catch{$record=$_;$kind=Get-RunnerProbeNativeKind $_.Exception}
+ Assert ($null -ne $record -and $kind -ceq 'process-cleaned' -and (Test-RunnerOwnedProbeExited $probeName)) 'real owned timeout reports cleaned only after child exit'
+ Assert ($record.Exception.Message -notmatch 'PRIVATE_SENTINEL|Users|System32') 'real owned timeout does not disclose process output or paths'
+} finally {if(Test-Path -LiteralPath $probeExe){[IO.File]::Delete($probeExe)}}
 $outputDeadline='';try{Wait-HostedWindowsDocker -Identity $hosted -InvokeNative {throw [TimeoutException]::new('runner-output-deadline')}}catch{$outputDeadline=$_.Exception.Message}
 Assert ($outputDeadline -match 'stage=probe\b' -and $outputDeadline -match 'category=output-deadline\b') 'output drain deadline is distinct from process deadline'
 $secret='PRIVATE_C:\Users\hidden\stderr'
