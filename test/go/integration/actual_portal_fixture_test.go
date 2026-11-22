@@ -19,7 +19,7 @@ func TestActualPortalFixturePassesAcceptance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.ValidatePortal(reader(pages), string(readme), identity.Commit, identity.RunUrl, "https://ycpss91255-docker.github.io/windows_setup/"); err != nil {
+	if _, err := a.ValidatePortal(reader(pages), string(readme), identity.Commit, identity.RunUrl, "https://ycpss91255-lab.github.io/windows_setup/"); err != nil {
 		t.Fatal(err)
 	}
 }

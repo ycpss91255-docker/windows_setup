@@ -74,7 +74,7 @@ New-DeterministicDriverArchive -PackageDirectory '已驗證的獨立包資料夾
 推送標籤後，立即從該標籤的來源目錄建立一次性草稿：
 
 ```powershell
-.\script\release\stage_driver_release.ps1 -Version vX.Y.Z -Repository ycpss91255-docker/windows_setup -AssetDirectory '已封存的資產資料夾'
+.\script\release\stage_driver_release.ps1 -Version vX.Y.Z -Repository ycpss91255-lab/windows_setup -AssetDirectory '已封存的資產資料夾'
 ```
 
 此命令只建立尚未公開的暫時草稿，先核對標籤位於 main、遠端提交一致以及本地資產雜湊。標籤 CI 全綠後，CD 才會核對草稿身分、既有驅動與全部品質附件，最後一次發布為不可變 Release。已有其他草稿、上傳不完整或雜湊不符會停止，保留現場供維護者檢查，不覆寫或刪除既有版本。若建立草稿太晚造成 CD 失敗，先核對草稿完整，再選擇該次執行的「重新執行所有工作」，重新產生同 attempt 的分片及品質證據；勿只重跑發布工作、移動標籤或跳過品質門檻。

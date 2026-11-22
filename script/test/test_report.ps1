@@ -76,10 +76,10 @@ function Write-TestReports {
  $body='<h1>Windows 設定工具｜測試結果</h1><h2>'+[Net.WebUtility]::HtmlEncode($conclusion)+'</h2>'
  $scopeText=if($RefType -eq 'Release'){'版本 '+$versionText}else{'分支 '+$refText}
  $body+='<p>'+[Net.WebUtility]::HtmlEncode($scopeText)+' · 提交 <code>'+[Net.WebUtility]::HtmlEncode($report.Commit)+'</code><br>量測時間（UTC）：'+[Net.WebUtility]::HtmlEncode($MeasuredAt)+'</p>'
- $body+='<p>斷言通過 '+$report.Totals.AssertionsPassed+' / '+$report.Totals.AssertionsExecuted+' · 失敗 '+$report.Totals.AssertionsFailed+'</p><p><a href="https://github.com/ycpss91255-docker/windows_setup/blob/main/readme.md">USB 安裝與使用步驟</a>'
+ $body+='<p>斷言通過 '+$report.Totals.AssertionsPassed+' / '+$report.Totals.AssertionsExecuted+' · 失敗 '+$report.Totals.AssertionsFailed+'</p><p><a href="https://github.com/ycpss91255-lab/windows_setup/blob/main/readme.md">USB 安裝與使用步驟</a>'
  if($report.RunUrl){$body+=' · <a href="'+$report.RunUrl+'">GitHub Actions 執行紀錄</a>'};$body+='</p>'
- if($RefType -eq 'Release'){$body+='<p><a href="https://github.com/ycpss91255-docker/windows_setup/releases/tag/'+$versionText+'">Release 下載與版本說明</a></p>'}
- elseif($report.Commit -match '^[a-fA-F0-9]{40}$'){$body+='<p><a href="https://github.com/ycpss91255-docker/windows_setup/archive/'+$report.Commit+'.zip">下載本次提交原始碼</a>（依 README 準備必要資產）</p>'}
+ if($RefType -eq 'Release'){$body+='<p><a href="https://github.com/ycpss91255-lab/windows_setup/releases/tag/'+$versionText+'">Release 下載與版本說明</a></p>'}
+ elseif($report.Commit -match '^[a-fA-F0-9]{40}$'){$body+='<p><a href="https://github.com/ycpss91255-lab/windows_setup/archive/'+$report.Commit+'.zip">下載本次提交原始碼</a>（依 README 準備必要資產）</p>'}
  $body+='<p><a href="summary.json">JSON 證據</a> · <a href="junit.xml">JUnit 結果</a> · <a href="summary.md">文字摘要</a></p><h2>'+[Net.WebUtility]::HtmlEncode($coverageHeading)+'</h2><p>'+[Net.WebUtility]::HtmlEncode((Get-RepoCoverageSummary $RepoCoverage))+'</p>'
  if($null -ne $RepoCoverage){$body+='<details><summary>語言分項</summary><ul>';foreach($line in @(Get-RepoCoverageLanguages $RepoCoverage)){$body+='<li>'+[Net.WebUtility]::HtmlEncode($line)+'</li>'};$body+='</ul><a href="repo_coverage.json">整體量測證據</a> · <a href="coverage_inventory.json">來源清單</a> · <a href="coverage.xml">逐行結果</a></details>'}
  if($null -ne $GoCoverage){

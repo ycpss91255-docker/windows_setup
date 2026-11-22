@@ -13,10 +13,10 @@ import (
 //go:embed grandfather.json
 var frozenManifest []byte
 
-const frozenDigest = "ba88b566ff13dc71cb4baf6b2c53761270ba2bf730e207e5e5cf4a2ad26cd37e"
-const fixedRepository = "ycpss91255-docker/windows_setup"
+const frozenDigest = "b2beb4ae871556ded569d3add2dd54d18314d857e802567bbbbb054470625259"
+const fixedRepository = "ycpss91255-lab/windows_setup"
 const fixedAnchor = "242d21a56c6b645ab8f5767aa27c36e8490a48a4"
-const fixedRemote = "https://github.com/ycpss91255-docker/windows_setup.git"
+const fixedRemote = "https://github.com/ycpss91255-lab/windows_setup.git"
 
 type frozenConfig struct {
 	Repository   string `json:"repository"`

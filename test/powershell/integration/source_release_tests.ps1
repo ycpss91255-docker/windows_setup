@@ -54,7 +54,7 @@ Assert ((Get-Content $result.NotesPath -Raw -Encoding UTF8).Contains('通用 Win
 $original=Get-ReleaseNotes v1.2.3 ([IO.File]::ReadAllText((Join-Path $repo 'doc/changelog/changelog.md')))
 $expected=(Get-ReleaseDownloadGuide v1.2.3) + "`n`n" + $original
 $actual=[IO.File]::ReadAllText($result.NotesPath)
-Assert ($actual.Contains('https://github.com/ycpss91255-docker/windows_setup/archive/refs/tags/v1.2.3.zip') -and $actual.Contains('https://github.com/ycpss91255-docker/windows_setup/blob/v1.2.3/readme.md') -and -not $actual.Contains('/blob/main/readme.md')) '真實 builder 提供該版來源 ZIP 及同標籤 README'
+Assert ($actual.Contains('https://github.com/ycpss91255-lab/windows_setup/archive/refs/tags/v1.2.3.zip') -and $actual.Contains('https://github.com/ycpss91255-lab/windows_setup/blob/v1.2.3/readme.md') -and -not $actual.Contains('/blob/main/readme.md')) '真實 builder 提供該版來源 ZIP 及同標籤 README'
 Assert ($actual.Contains('驅動為可選') -and $actual.Contains('NUC') -and $actual.Contains('略過')) '所有機型包含 NUC 均可略過驅動'
 Assert ($actual.Contains('Windows') -and $actual.Contains('GitHub') -and $actual.Contains('校驗檔') -and $actual.Contains('一般不需下載') -and $actual.Contains('可選')) '下載指引解釋 Windows 來源 ZIP、可選報表及 GitHub 校驗檔'
 Assert ($actual.Contains('Source code') -and $actual.Contains('Autologon') -and $actual.Contains('Assets') -and -not $actual.Contains('[此版本測試報表]')) '使用者說明指出來源與附件而不重複報表連結'
@@ -135,6 +135,6 @@ Assert (Test-CurrentDriverGuidance $readme $current @($otherAsset)) '版本未�
 Assert (Test-CurrentDriverGuidance $readme $current @()) '版本不宣告任何驅動資產時不要求 NUC 指引'
 Assert (Test-CurrentDriverGuidance $readme $current $currentAssets) '已宣告 NUC 驅動的下載指引使用當前版或含 v 的版本模板'
 Assert (-not (Test-DriverDownloadGuidance "### 準備獨立驅動包`n下載 v0.0.1 Release 的 windows_driver_nuc8_v0.0.1.zip`n### 下一節`n" $current $nucAsset.Name)) '驅動下載區指向其他固定版本必須拒絕'
-Assert (-not (Test-DriverDownloadGuidance "### 準備獨立驅動包`nwindows_driver_nuc8_<version>.zip，version 包含 v；https://github.com/ycpss91255-docker/windows_setup/releases/tag/v0.0.1`n### 下一節`n" $current $nucAsset.Name)) '驅動下載區指向其他固定版本 URL 必須拒絕'
+Assert (-not (Test-DriverDownloadGuidance "### 準備獨立驅動包`nwindows_driver_nuc8_<version>.zip，version 包含 v；https://github.com/ycpss91255-lab/windows_setup/releases/tag/v0.0.1`n### 下一節`n" $current $nucAsset.Name)) '驅動下載區指向其他固定版本 URL 必須拒絕'
 Assert (Test-DriverDownloadGuidance "### 準備獨立驅動包`nwindows_driver_nuc8_<version>.zip，version 包含 v`n### 下一節`n" $current $nucAsset.Name) '含 v 的版本模板為有效下載指引'
 Write-Host ('ALL PASS: '+$script:count+' release assertions; only temporary fixture repository changed.')
