@@ -26,7 +26,7 @@
 - PR 事件的來源前置核對只要求事件 SHA 自洽（PR 身分、head 未被替換、checkout tree 等於事件合併結果），不要求 base 等於當下 main；`merge_group` 事件維持嚴格核對，合併前驗證的是佇列合成後的實際組合。
 - 建立 PR 時在描述記錄相關範圍與初始測試證據；建立後所有補充資訊（包括新增 TDD 紅／綠燈證據、重測、CI 與獨立審查）使用 `gh pr comment` 新增留言，不修改原描述補充資訊。
 - 只使用 merge commit；禁止 squash、rebase merge、fixup 及任何改寫已推送歷史的做法。合併提交標題使用「合併：」加中文結果。既有提交與 SHA 保留。
-- `git log --first-parent` 顯示主線合併總覽，`git log` 顯示完整提交歷史。合併佇列的合併方式固定為 merge commit（ruleset `main merge queue`：`MERGE`、`ci-rollup` 必要、禁止 force push 與刪除、無繞過者），不得改為 squash 或 rebase，也不得移除必要檢查。
+- `git log --first-parent` 顯示主線合併總覽，`git log` 顯示完整提交歷史。合併佇列產生的合併提交使用 GitHub 預設標題（`Merge pull request #<編號> from <owner>/<分支>`），無法自訂；PR 標題維持繁體中文「領域：結果」並作為合併提交正文，mergecheck 會核對標題格式、正文與第二個父提交必須是該 PR 的 head。人工合併仍使用「合併：」加中文結果。合併佇列的合併方式固定為 merge commit（ruleset `main merge queue`：`MERGE`、`ci-rollup` 必要、禁止 force push 與刪除、無繞過者），不得改為 squash 或 rebase，也不得移除必要檢查。
 - 提交訊息輔助檢查依 `readme.md` 明確選用，不自動安裝或覆蓋既有 hook；工具只提供有限提示，實際 TDD、單一任務與機密排除仍須人工審查。
 
 ## 編碼與架構
