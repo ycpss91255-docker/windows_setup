@@ -13,6 +13,12 @@
 *.yaml text eol=lf
 *.dockerfile text eol=lf
 .dockerignore text eol=lf
+*.txt text eol=lf
+*.html text eol=lf
+.gitattributes text eol=lf
+.gitignore text eol=lf
+/.version text eol=lf
+/license text eol=lf
 
 # cmd.exe 以 LF 換行可能誤判標籤與續行，CMD 啟動器固定 CRLF。
 *.cmd text eol=crlf

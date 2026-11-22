@@ -11,7 +11,8 @@ $categories=@(
  @{Name='C# 原生來源';Pattern='\.cs$';Eol='lf'},
  @{Name='Go 維護工具';Pattern='\.go$|^go\.(mod|sum)$';Eol='lf'},
  @{Name='JSON 與 XML 資料';Pattern='\.(json|xml)$';Eol='lf'},
- @{Name='CI 與容器設定';Pattern='\.(yml|yaml|dockerfile)$|(^|/)\.dockerignore$';Eol='lf'}
+ @{Name='CI 與容器設定';Pattern='\.(yml|yaml|dockerfile)$|(^|/)\.dockerignore$';Eol='lf'},
+ @{Name='Git 中繼與其他文字';Pattern='\.(txt|html)$|(^|/)\.(gitattributes|gitignore|version)$|^license$';Eol='lf'}
 )
 $thirdParty=@('modules/debloat/win11debloat/','vendor/')
 $locked=@{
@@ -23,7 +24,7 @@ $locked=@{
  'modules/start_menu/assets/payload_baseline.json'='crlf'
  'modules/start_menu/assets/provenance.json'='crlf'
 }
-$checkUncategorized=$false
+$checkUncategorized=$true
 $raw=& git -C $root -c core.quotepath=false ls-files -z --eol
 if($LASTEXITCODE -ne 0){throw '無法列出 Git 追蹤檔案。'}
 $entries=@(([string]($raw -join "`n")).Split([char]0)|ForEach-Object {$_.Trim("`n")}|Where-Object {$_})
