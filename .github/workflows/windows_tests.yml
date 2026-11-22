@@ -108,15 +108,39 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
 
-  powershell-coverage:
+  compute-shards:
+    # 分片數由 repo 變數 CI_SHARDS 決定（未設或非數字為 8），夾在 1–8：Go 分配器與驗證器支援上限為 8。
     needs: [source-preflight]
+    name: 計算 PowerShell 分片數
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      shards: ${{ steps.gen.outputs.shards }}
+      count: ${{ steps.gen.outputs.count }}
+    steps:
+      - id: gen
+        env:
+          CI_SHARDS: ${{ vars.CI_SHARDS }}
+        run: |
+          set -euo pipefail
+          n="${CI_SHARDS:-8}"
+          [[ "${n}" =~ ^[0-9]+$ ]] || n=8
+          (( n < 1 )) && n=1
+          (( n > 8 )) && n=8
+          shards="$(seq 0 $((n - 1)) | paste -sd, -)"
+          echo "shards=[${shards}]" >> "${GITHUB_OUTPUT}"
+          echo "count=${n}" >> "${GITHUB_OUTPUT}"
+          echo "PowerShell shard count = ${n}: [${shards}]"
+
+  powershell-coverage:
+    needs: [source-preflight, compute-shards]
     name: PowerShell 全源量測分片 ${{ matrix.shard }}
     runs-on: windows-2022
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+        shard: ${{ fromJSON(needs.compute-shards.outputs.shards) }}
     defaults:
       run:
         shell: powershell
@@ -147,10 +171,11 @@ jobs:
       - name: 真實執行分配的 Pester suites 並保留全部來源分母
         env:
           SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_COUNT: ${{ needs.compute-shards.outputs.count }}
         run: |
           . .\script\test\ci_quality_summary.ps1
           Invoke-CIShardTimed -ShardIndex ([int]$env:SHARD_INDEX) -SummaryPath $env:GITHUB_STEP_SUMMARY -Action {
-            .\script\test\powershell_coverage_shard.ps1 -SourceRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shard-public') -PrivateDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shard-private') -TimingDirectory (Join-Path $env:RUNNER_TEMP 'powershell-timing-public') -ShardIndex ([int]$env:SHARD_INDEX) -ShardCount 8 -Commit $env:GITHUB_SHA -RunUrl ("https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID") -RunAttempt ([int]$env:GITHUB_RUN_ATTEMPT)
+            .\script\test\powershell_coverage_shard.ps1 -SourceRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shard-public') -PrivateDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shard-private') -TimingDirectory (Join-Path $env:RUNNER_TEMP 'powershell-timing-public') -ShardIndex ([int]$env:SHARD_INDEX) -ShardCount ([int]$env:SHARD_COUNT) -Commit $env:GITHUB_SHA -RunUrl ("https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID") -RunAttempt ([int]$env:GITHUB_RUN_ATTEMPT)
           }
       - name: 僅保留已驗證的相對路徑分片證據七天
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -250,7 +275,7 @@ jobs:
           if-no-files-found: error
   coverage-aggregation:
     name: 同次完整覆蓋率聚合
-    needs: [isolated-tests, powershell-coverage]
+    needs: [isolated-tests, powershell-coverage, compute-shards]
     runs-on: windows-2022
     timeout-minutes: 30
     defaults:
@@ -285,7 +310,7 @@ jobs:
       - name: 當地量測 managed 原生程式完整計數點
         run: |
           & .\script\test\managed_coverage.ps1 -SourceRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'managed-coverage') -Runtime
-      - name: 下載同次與同 attempt 的完整 PowerShell 四片
+      - name: 下載同次與同 attempt 的完整 PowerShell 分片
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           pattern: powershell-shard-${{ github.run_id }}-${{ github.run_attempt }}-*
@@ -298,8 +323,10 @@ jobs:
           path: ${{ runner.temp }}/powershell-timings
           merge-multiple: false
       - name: 收集 PowerShell 與 C# runtime 覆蓋率並強制完整八成
+        env:
+          SHARD_COUNT: ${{ needs.compute-shards.outputs.count }}
         run: |
-          & .\script\test\run_repo_coverage.ps1 -SourceRoot $PWD.Path -PublicDirectory (Join-Path $env:RUNNER_TEMP 'native-stage-import/report') -ManagedEvidencePath (Join-Path $env:RUNNER_TEMP 'managed-coverage/evidence.json') -OutputDirectory (Join-Path $env:RUNNER_TEMP 'repo-coverage') -PowerShellShardDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shards') -PowerShellTimingDirectory (Join-Path $env:RUNNER_TEMP 'powershell-timings') -RunAttempt ([int]$env:GITHUB_RUN_ATTEMPT)
+          & .\script\test\run_repo_coverage.ps1 -SourceRoot $PWD.Path -PublicDirectory (Join-Path $env:RUNNER_TEMP 'native-stage-import/report') -ManagedEvidencePath (Join-Path $env:RUNNER_TEMP 'managed-coverage/evidence.json') -OutputDirectory (Join-Path $env:RUNNER_TEMP 'repo-coverage') -PowerShellShardDirectory (Join-Path $env:RUNNER_TEMP 'powershell-shards') -PowerShellTimingDirectory (Join-Path $env:RUNNER_TEMP 'powershell-timings') -PowerShellShardCount ([int]$env:SHARD_COUNT) -RunAttempt ([int]$env:GITHUB_RUN_ATTEMPT)
       - name: 保留已核對完整清單的計時收據七天
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
