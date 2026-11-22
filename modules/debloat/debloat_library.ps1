@@ -95,6 +95,13 @@ function Invoke-SetupDebloatMissingApps {
 function Invoke-SetupDebloat {
  param([Parameter(Mandatory=$true)][string]$ModuleRoot,[switch]$VerifyOnly,[string]$VerificationRunId,[string]$ReportPath=(Join-Path $env:ProgramData 'NUC8-Setup/Debloat-Result.json'))
  $ErrorActionPreference='Stop'
+ $reportDir=Split-Path -Parent $ReportPath
+ [void][IO.Directory]::CreateDirectory($reportDir)
+ $applyPath=Join-Path $reportDir 'Debloat-Apply-Result.json'
+ if([IO.Path]::GetFullPath($ReportPath).Equals([IO.Path]::GetFullPath($applyPath),[StringComparison]::OrdinalIgnoreCase)){throw '本輪結果與清理結果路徑不可相同。'}
+ $pending=[ordered]@{Success=$false;VerificationRunId=$VerificationRunId;UserSID=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Computer=$env:COMPUTERNAME;CheckedAt=(Get-Date).ToString('o');VerifyOnly=[bool]$VerifyOnly;Status='Incomplete';ExitCode=$null;Log=''}
+ if(-not $VerifyOnly){$pending|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $applyPath -Encoding UTF8}
+ $pending|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $ReportPath -Encoding UTF8
  $apps=@(Get-Content -LiteralPath (Join-Path $ModuleRoot 'debloat_apps.txt')|Where-Object {$_ -and -not $_.StartsWith('#')})
  $profile=Get-Content -LiteralPath (Join-Path $ModuleRoot 'debloat_profile.json') -Raw -Encoding UTF8|ConvertFrom-Json
  $before=@();$code=$null;$log='';$missingResult=$null
@@ -106,6 +113,9 @@ function Invoke-SetupDebloat {
   Invoke-SetupDebloatOneDrive -ModuleRoot $ModuleRoot
   $before=@(Get-AppxPackage -AllUsers -PackageTypeFilter Main,Bundle,Framework|Where-Object {@($_.PackageUserInformation|Where-Object InstallState -eq 'Installed').Count -gt 0}|Select-Object -ExpandProperty Name -Unique)
   $log=Join-Path $logDir 'Win11Debloat.log'
+  $pending.Log=$log
+  $pending|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $applyPath -Encoding UTF8
+  $pending|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $ReportPath -Encoding UTF8
   $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',(Join-Path $ModuleRoot 'win11debloat/Win11Debloat.ps1'),'-CLI','-Silent','-SkipExplorerRestart','-Language','zh-TW','-LogPath',$logDir,'-AppRemovalTarget','AllUsers','-RemoveApps','-Apps',($apps -join ','))
   foreach($feature in $profile.Features){$arguments+=('-'+$feature)}
   Write-Host ('正在執行 Win11Debloat，已選取 '+$apps.Count+' 個 App 項目及 '+$profile.Features.Count+' 項清理設定。') -ForegroundColor Cyan
@@ -124,7 +134,7 @@ function Invoke-SetupDebloat {
  $features=Test-SetupDebloatFeatures -ModuleRoot $ModuleRoot
  $success=($VerifyOnly -or ($code -is [int] -and $code -eq 0)) -and -not $remaining.Count -and -not $provisioned.Count -and $features.Success -and $readbackErrors.Count -eq 0 -and ($null -eq $missingResult -or $missingResult.Success)
  $result=[ordered]@{Success=[bool]$success;VerificationRunId=$VerificationRunId;UserSID=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Computer=$env:COMPUTERNAME;CheckedAt=(Get-Date).ToString('o');VerifyOnly=[bool]$VerifyOnly;ProvisionedRemaining=$(if($provisionedReadbackOK){,$provisioned}else{$null});BeforeAppCount=$before.Count;AfterAppCount=$(if($installedReadbackOK){$after.Count}else{$null});RemovedApps=@(if($installedReadbackOK){$before|Where-Object {$_ -notin $after}});SelectedRemaining=$(if($installedReadbackOK){,$remaining}else{$null});ExitCode=$code;Log=$log;AdditionalApps=$missingResult;ReadbackErrors=@($readbackErrors.ToArray());FeatureChecks=$features.Features;FeatureScope=$features.Scope}
- [void][IO.Directory]::CreateDirectory((Split-Path -Parent $ReportPath))
+ if(-not $VerifyOnly){$result|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $applyPath -Encoding UTF8}
  $result|ConvertTo-Json -Depth 8|Set-Content -LiteralPath $ReportPath -Encoding UTF8
  if($installedReadbackOK){
   Write-Host ('本次實際移除：'+($result.RemovedApps -join ', '))

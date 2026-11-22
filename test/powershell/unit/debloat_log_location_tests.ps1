@@ -19,13 +19,13 @@ try {
  $blocked=$false;try{[IO.File]::WriteAllText((Join-Path $module 'must_not_write.txt'),'x')}catch [UnauthorizedAccessException]{$blocked=$true}
  Assert $blocked '唯讀模組 fixture 真正拒絕建立檔案'
  $before=@(Get-ChildItem -LiteralPath $module -Recurse -Force|ForEach-Object FullName)
- function Get-SetupDebloatFeaturePlan {param($ModuleRoot) @()}
+ function Get-SetupDebloatFeaturePlan {param($ModuleRoot) if($script:failPlan){throw 'fixture plan exception'};@()}
  function Test-SetupDebloatFeatures {param($ModuleRoot) [pscustomobject]@{Success=$true;Features=@();Scope='fixture'}}
  $script:oneDriveCalls=0
  function Invoke-SetupDebloatOneDrive {param($ModuleRoot) $script:oneDriveCalls++}
  function Get-AppxPackage {param([switch]$AllUsers,$PackageTypeFilter,$ErrorAction)}
  function Get-AppxProvisionedPackage {param([switch]$Online,$ErrorAction)}
- $script:code=0;$script:logPath='';$script:nativeCalls=0;$script:requireDataPath=$false;$script:throwNative=$false
+ $script:code=0;$script:logPath='';$script:nativeCalls=0;$script:requireDataPath=$false;$script:throwNative=$false;$script:failPlan=$false
  function Invoke-SetupDebloatNative {param($Arguments)
   $script:nativeCalls++;if($script:requireDataPath -and $env:LOCALAPPDATA -cne (Split-Path -Parent $report)){throw 'upstream data root is not the per-machine fixture'};$index=[array]::IndexOf($Arguments,'-LogPath');if($index -lt 0){throw 'missing LogPath'}
   if($script:throwNative){throw 'fixture native exception'}
@@ -38,11 +38,20 @@ try {
  $result=Invoke-SetupDebloat -ModuleRoot $module -ReportPath $report
  $saved=Get-Content -LiteralPath $report -Raw -Encoding UTF8|ConvertFrom-Json
  Assert ($result.Success -and $result.Log -ceq $script:logPath -and $saved.Log -ceq $script:logPath -and ((Split-Path -Parent (Split-Path -Parent $script:logPath)) -ceq (Split-Path -Parent $report)) -and ([IO.Path]::GetFileName($script:logPath) -ceq 'Win11Debloat.log') -and (Test-Path -LiteralPath $script:logPath -PathType Leaf)) '成功結果與 JSON 指向每機記錄路徑'
+ $oldLog=$saved.Log;$script:throwNative=$true;$threw=$false
+ try{Invoke-SetupDebloat -ModuleRoot $module -ReportPath $report|Out-Null}catch{$threw=$_.Exception.Message -ceq 'fixture native exception'}
+ $script:throwNative=$false;$saved=Get-Content -LiteralPath $report -Raw -Encoding UTF8|ConvertFrom-Json
+ Assert ($threw -and -not $saved.Success -and $saved.Log -ne '' -and $saved.Log -cne $oldLog) 'native exception does not leave previous success as current result'
  $script:code=7;$failed=$false;try{Invoke-SetupDebloat -ModuleRoot $module -ReportPath $report|Out-Null}catch{$failed=$true}
  $saved=Get-Content -LiteralPath $report -Raw -Encoding UTF8|ConvertFrom-Json
  Assert ($failed -and -not $saved.Success -and $saved.ExitCode -eq 7 -and $saved.Log -ceq $script:logPath) '原生失敗仍傳播並保留記錄路徑'
+ $script:code=0;$lastSuccess=Invoke-SetupDebloat -ModuleRoot $module -ReportPath $report
  $calls=$script:nativeCalls;$verify=Invoke-SetupDebloat -ModuleRoot $module -ReportPath $report -VerifyOnly
  Assert ($verify.Success -and $verify.Log -ceq '' -and $script:nativeCalls -eq $calls) 'VerifyOnly 不執行原生程序且記錄路徑為空'
+ $applyPath=Join-Path (Split-Path -Parent $report) 'Debloat-Apply-Result.json'
+ Assert (Test-Path -LiteralPath $applyPath -PathType Leaf) 'apply result remains available after VerifyOnly'
+ $apply=Get-Content -LiteralPath $applyPath -Raw -Encoding UTF8|ConvertFrom-Json
+ Assert ($apply.Success -and $apply.Log -ceq $lastSuccess.Log -and $apply.Log -ceq $script:logPath -and -not $apply.VerifyOnly) 'VerifyOnly preserves last apply result and log provenance'
  $previousLocal=$env:LOCALAPPDATA
  try {
   $env:LOCALAPPDATA='';$script:requireDataPath=$true;$script:code=0
@@ -51,12 +60,24 @@ try {
   $script:throwNative=$true;$failed=$false
   try{Invoke-SetupDebloat -ModuleRoot $module -ReportPath $report|Out-Null}catch{$failed=$_.Exception.Message -match 'fixture native exception'}
   Assert ($failed -and [string]::IsNullOrEmpty($env:LOCALAPPDATA)) '原生例外會傳播且還原缺失的 LOCALAPPDATA'
+  $fresh=Get-Content -LiteralPath $report -Raw -Encoding UTF8|ConvertFrom-Json
+  $apply=Get-Content -LiteralPath $applyPath -Raw -Encoding UTF8|ConvertFrom-Json
+  Assert (-not $fresh.Success -and -not $apply.Success -and $fresh.Log -ceq $apply.Log -and $fresh.Log -ne '' -and $fresh.Log -cne $script:logPath) 'native exception leaves current failed result and log location'
   $script:throwNative=$false
  } finally {$env:LOCALAPPDATA=$previousLocal;$script:requireDataPath=$false;$script:throwNative=$false}
+ $script:failPlan=$true;$failed=$false
+ try{Invoke-SetupDebloat -ModuleRoot $module -ReportPath $report|Out-Null}catch{$failed=$_.Exception.Message -ceq 'fixture plan exception'}
+ $script:failPlan=$false
+ $fresh=Get-Content -LiteralPath $report -Raw -Encoding UTF8|ConvertFrom-Json
+ $apply=Get-Content -LiteralPath $applyPath -Raw -Encoding UTF8|ConvertFrom-Json
+ Assert ($failed -and -not $fresh.Success -and -not $apply.Success -and $fresh.Log -ceq '' -and $apply.Log -ceq '') 'preflight exception replaces stale success without claiming a log'
  $badParent=Join-Path $fixture 'not_a_directory';[IO.File]::WriteAllText($badParent,'fixture')
  $calls=$script:nativeCalls;$oneDrive=$script:oneDriveCalls;$failed=$false
  try{Invoke-SetupDebloat -ModuleRoot $module -ReportPath (Join-Path $badParent 'result.json')|Out-Null}catch{$failed=$true}
  Assert ($failed -and $script:nativeCalls -eq $calls -and $script:oneDriveCalls -eq $oneDrive) '無法建立記錄目錄時先停止且不執行清理'
+ $calls=$script:nativeCalls;$failed=$false
+ try{Invoke-SetupDebloat -ModuleRoot $module -ReportPath $applyPath -VerifyOnly|Out-Null}catch{$failed=$true}
+ Assert ($failed -and $script:nativeCalls -eq $calls) 'apply and verification report paths cannot alias'
  $after=@(Get-ChildItem -LiteralPath $module -Recurse -Force|ForEach-Object FullName)
  Assert (($before -join "`n") -ceq ($after -join "`n")) '模組目錄沒有新增任何檔案'
 } finally {
