@@ -68,30 +68,37 @@ func TestPullRequestSyncMainMerge(t *testing.T) {
 	git("commit", "--quiet", "-m", "主線：base 之後的提交")
 	future := git("rev-parse", "HEAD")
 
-	runCase := func(head, ref string, base string) error {
+	runCase := func(head, ref string, base string, headRepo string) error {
 		synthetic := merge("synthetic", treeOf(base, head), base, head)
 		git("switch", "--quiet", "--detach", synthetic)
 		raw := fmt.Sprintf(`{"repository":{"full_name":"%s"},"number":9,"pull_request":{"number":9,"base":{"sha":"%s","ref":"main","repo":{"full_name":"%s"}},"head":{"sha":"%s","ref":"%s","repo":{"full_name":"%s"}}}}`,
-			fixedRepository, base, fixedRepository, head, ref, fixedRepository)
+			fixedRepository, base, fixedRepository, head, ref, headRepo)
 		return checkEventInRepository(repo, "pull_request", "refs/pull/9/merge", synthetic, "", []byte(raw), root, []string{root})
 	}
+	git("switch", "--quiet", "--detach", prOld)
+	write("f.txt", "f\n")
+	git("commit", "--quiet", "-m", "功能：新增 f")
+	prNew := git("rev-parse", "HEAD")
 	for _, tc := range []struct {
-		name string
-		head string
-		ref  string
-		base string
-		want bool
+		name     string
+		head     string
+		ref      string
+		base     string
+		headRepo string
+		want     bool
 	}{
-		{"sync merge accepted", good, "feature/x", main2, true},
-		{"title names a different branch", good, "feature/y", main2, false},
-		{"second parent is newer than base", merge(syncTitle, treeOf(prOld, future), prOld, future), "feature/x", main2, false},
-		{"first parent is not a PR commit", merge(syncTitle, treeOf(main1, prOld), main1, prOld), "feature/x", main2, false},
-		{"merge brings extra content", merge(syncTitle, extraTree, prOld, main1), "feature/x", main2, false},
-		{"other English title", merge("Merge branch 'dev' into feature/x", treeOf(prOld, main1), prOld, main1), "feature/x", main2, false},
-		{"no head ref in event", good, "", main2, false},
+		{"sync merge accepted", good, "feature/x", main2, fixedRepository, true},
+		{"title names a different branch", good, "feature/y", main2, fixedRepository, false},
+		{"second parent is newer than base", merge(syncTitle, treeOf(prOld, future), prOld, future), "feature/x", main2, fixedRepository, false},
+		{"first parent is not a PR commit", merge(syncTitle, treeOf(main1, prOld), main1, prOld), "feature/x", main2, fixedRepository, false},
+		{"merge brings extra content", merge(syncTitle, extraTree, prOld, main1), "feature/x", main2, fixedRepository, false},
+		{"other English title", merge("Merge branch 'dev' into feature/x", treeOf(prOld, main1), prOld, main1), "feature/x", main2, fixedRepository, false},
+		{"head repository is another owner (fork)", good, "feature/x", main2, "other-owner/windows_setup", false},
+		{"second parent is inside the PR range", merge(syncTitle, treeOf(prNew, prOld), prNew, prOld), "feature/x", main2, fixedRepository, false},
+		{"no head ref in event", good, "", main2, fixedRepository, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err := runCase(tc.head, tc.ref, tc.base)
+			err := runCase(tc.head, tc.ref, tc.base, tc.headRepo)
 			if (err == nil) != tc.want {
 				t.Fatalf("want accepted=%v: %v", tc.want, err)
 			}
