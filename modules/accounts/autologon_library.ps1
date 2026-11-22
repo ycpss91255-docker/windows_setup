@@ -24,3 +24,45 @@ function Invoke-SetupLsaSecret {
  if($status -eq [uint32]3221225524){return $false}
  throw ('LSA機密'+$(if($Action -eq 'Remove'){'刪除'}else{'查詢'})+'失敗（Win32錯誤 '+[WindowsSetup.AutologonLsa]::LsaNtStatusToWinError($status)+'）。')
 }
+function Assert-SetupAutologonPlainPath {
+ param([string]$Path)
+ $full=[IO.Path]::GetFullPath($Path);$cursor=$full
+ while($cursor){
+  if(Test-Path -LiteralPath $cursor){$item=Get-Item -LiteralPath $cursor -Force -ErrorAction Stop;if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw '自動登入紀錄路徑不可使用重新解析點。'}}
+  $parent=[IO.Path]::GetDirectoryName($cursor);if($parent -eq $cursor){break};$cursor=$parent
+ }
+ return $full
+}
+function Read-SetupWinlogonValue {
+ param([string]$Name)
+ $key=Get-Item -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -ErrorAction Stop
+ $exists=$Name -in @($key.GetValueNames())
+ $kind='';$value=$null
+ if($exists){$kind=[string]$key.GetValueKind($Name);$value=$key.GetValue($Name)}
+ [pscustomobject]@{Exists=$exists;Kind=$kind;Value=$value}
+}
+function Get-SetupAutologonState {
+ $auto=Read-SetupWinlogonValue AutoAdminLogon
+ $plain=(Read-SetupWinlogonValue DefaultPassword).Exists
+ $secret=Invoke-SetupLsaSecret -Name DefaultPassword -Action Query
+ [pscustomobject]@{AutoAdminLogon=$(if($auto.Exists){[string]$auto.Value}else{$null});PlainPasswordPresent=$plain;LsaSecretPresent=$secret;Disabled=($auto.Exists -and $auto.Kind -eq 'String' -and [string]$auto.Value -ceq '0' -and -not $plain -and -not $secret)}
+}
+function Invoke-SetupAutologonRestore {
+ param([Parameter(Mandatory=$true)][string]$ReportPath,[Parameter(Mandatory=$true)][string]$UserSid,[string]$Computer=$env:COMPUTERNAME)
+ $ErrorActionPreference='Stop'
+ $ReportPath=Assert-SetupAutologonPlainPath $ReportPath
+ $success=$false;$errorText='';$state=$null
+ try{
+  $path='HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+  New-ItemProperty -LiteralPath $path -Name AutoAdminLogon -Value '0' -PropertyType String -Force -ErrorAction Stop|Out-Null
+  if((Read-SetupWinlogonValue DefaultPassword).Exists){Remove-ItemProperty -LiteralPath $path -Name DefaultPassword -ErrorAction Stop}
+  if(Invoke-SetupLsaSecret -Name DefaultPassword -Action Query){[void](Invoke-SetupLsaSecret -Name DefaultPassword -Action Remove)}
+  $state=Get-SetupAutologonState
+  $success=$state.Disabled
+  if(-not $success){throw '自動登入停用讀回不符合要求，可能被組織政策或其他工具覆寫。'}
+ }catch{$success=$false;$errorText=$_.Exception.Message}
+ $result=[ordered]@{Success=$success;Mode='Restore';UserSID=$UserSid;Computer=$Computer;CheckedAt=(Get-Date).ToString('o');Error=$errorText;AutoAdminLogon=$state.AutoAdminLogon;PlainPasswordPresent=$state.PlainPasswordPresent;LsaSecretPresent=$state.LsaSecretPresent;Scope='停用此電腦自動登入並清除儲存的密碼；保留 DefaultUserName 與 DefaultDomainName；實際不再自動登入需重新開機確認。'}
+ [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($ReportPath));[IO.File]::WriteAllText($ReportPath,($result|ConvertTo-Json),(New-Object Text.UTF8Encoding($true)))
+ if(-not $success){throw $errorText}
+ [pscustomobject]$result
+}
