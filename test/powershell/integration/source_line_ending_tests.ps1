@@ -7,7 +7,8 @@ function Assert([bool]$Condition,[string]$Message){Write-Host ('@@ASSERT@@'+(@{N
 function Format-Offenders($Items){$list=@($Items);if($list.Count -eq 0){return ''};return ' ('+$list.Count+'): '+(($list|Select-Object -First 8) -join ', ')}
 $categories=@(
  @{Name='CMD 啟動器';Pattern='\.cmd$';Eol='crlf'},
- @{Name='PowerShell 腳本';Pattern='\.ps1$';Eol='lf'}
+ @{Name='PowerShell 腳本';Pattern='\.ps1$';Eol='lf'},
+ @{Name='C# 原生來源';Pattern='\.cs$';Eol='lf'}
 )
 $thirdParty=@('modules/debloat/win11debloat/')
 $locked=@{
