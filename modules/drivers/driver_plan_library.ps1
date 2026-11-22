@@ -12,7 +12,7 @@ function Test-SetupDriverNotInstalled {
   [string]::IsNullOrEmpty([string]$Device.DriverProvider) -and [string]::IsNullOrEmpty([string]$Device.DriverVersion) -and [string]::IsNullOrEmpty([string]$Device.DriverSigner))
 }
 function Get-SetupDriverTargetPlan {
- param([Parameter(Mandatory=$true)]$Target,[object[]]$Devices=@(),[int]$Build,[string]$Architecture)
+ param([Parameter(Mandatory=$true)]$Target,[object[]]$Devices=@(),[int]$Build,[string]$Architecture,[object[]]$OwnerTargets=@())
  $matches=@($Devices|Where-Object {$ids=@($_.HardwareIds);@($Target.HardwareIds|Where-Object {$_ -in $ids}).Count -gt 0})
  $status='';$reason=''
  if($Build -lt $Target.MinimumBuild -or $Architecture -ne $Target.Architecture){$status='NotApplicable';$reason='作業系統或架構不適用'}
@@ -26,6 +26,18 @@ function Get-SetupDriverTargetPlan {
   if($possibleErrors.Count){$status='Unverified';$reason='相符裝置硬體屬性未能讀取'}else{$status='Absent';$reason='未枚舉相符硬體'}
  }
  if($status){return [pscustomobject]@{InstanceId='';InfPath=$Target.InfPath;Status=$status;Reason=$reason;CurrentVersion='';TargetVersion=$Target.DriverVersion;TargetProvider=$Target.Provider;ProviderAliases=@($Target.ProviderAliases)}}
+ if($Target.PSObject.Properties['NamingOnly'] -and $Target.NamingOnly -eq $true){
+  # 宣告式命名INF不綁定裝置：同一硬體ID的另一個非宣告式目標已驗證為目前或較新版本，才算通過。
+  foreach($device in $matches){
+   $owned=@($OwnerTargets|Where-Object {$_.InfPath -cne $Target.InfPath -and -not ($_.PSObject.Properties['NamingOnly'] -and $_.NamingOnly -eq $true)}|ForEach-Object {
+    $owner=$_;$shared=@($owner.HardwareIds|Where-Object {$_ -in @($Target.HardwareIds) -and $_ -in @($device.HardwareIds)})
+    if($shared.Count){@(Get-SetupDriverTargetPlan -Target $owner -Devices @($device) -Build $Build -Architecture $Architecture)|Where-Object {$_.InstanceId -ceq [string]$device.InstanceId -and $_.Status -in @('Current','NewerInstalled')}|ForEach-Object {$owner.InfPath}}
+   })
+   if($owned.Count){$status='Current';$reason='宣告式命名INF；同硬體ID由已驗證目標綁定：'+[IO.Path]::GetFileName([string]$owned[0])}else{$status='Unverified';$reason='宣告式命名INF；同硬體ID沒有已驗證綁定的其他目標'}
+   [pscustomobject]@{InstanceId=[string]$device.InstanceId;InfPath=[string]$Target.InfPath;Status=$status;Reason=$reason;CurrentVersion=[string]$device.DriverVersion;CurrentProvider=[string]$device.DriverProvider;DriverSigned=$device.DriverSigned;TargetVersion=[string]$Target.DriverVersion;TargetProvider=[string]$Target.Provider;ProviderAliases=@($Target.ProviderAliases)}
+  }
+  return
+ }
  foreach($device in $matches){
   $current=$null;$desired=$null
   $comparable=($device.DriverProvider -eq $Target.Provider -or $device.DriverProvider -in @($Target.ProviderAliases))
@@ -183,6 +195,10 @@ function Invoke-SetupDriverTarget {
  param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][string]$Root,[int]$Build,[string]$Architecture,[string]$LogPath,[switch]$RequiredPresent)
  $null=Assert-SetupDriverTargetIntegrity -Target $Target -Root $Root
  $plans=@(Get-SetupDriverTargetPlan -Target $Target -Devices @(Get-SetupDriverDeviceInventory -Targets @($Target)) -Build $Build -Architecture $Architecture)
+ if($Target.PSObject.Properties['NamingOnly'] -and $Target.NamingOnly -eq $true){
+  foreach($plan in $plans){if($plan.Status -notin @('Absent','NotApplicable')){$plan.Status='NotApplicable';$plan.Reason='宣告式命名INF不安裝；由最終核對確認同硬體ID的綁定目標'}}
+  return [pscustomobject]@{Results=@($plans);RebootRequired=$false;Failures=@()}
+ }
  if($RequiredPresent){foreach($plan in $plans){if($plan.Status -eq 'Absent'){$plan.Status='Unverified';$plan.Reason='必需子元件尚未枚舉，需續跑核實'}}}
  $failures=@();$reboot=$false;$results=@()
  if(@($plans|Where-Object Status -eq 'UpdateRequired').Count){
