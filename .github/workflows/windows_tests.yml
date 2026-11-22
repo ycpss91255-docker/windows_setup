@@ -215,6 +215,8 @@ jobs:
         run: |
           & .\script\test\create_portal_fixture.ps1 -OutputDirectory (Join-Path $env:RUNNER_TEMP 'requirements-fixture')
       - name: 核對本次新增合併提交標題
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('run','./script/test/commitlint/mergecheck')
@@ -751,7 +753,7 @@ jobs:
           EXPECTED_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           LATEST_RELEASE_METADATA: ${{ github.event_name == 'workflow_dispatch' && format('{0}/latest-release.json', runner.temp) || '' }}
         run: |
-          go run ./script/test/verify_deployment --base-url https://ycpss91255.github.io/windows_setup/ --readme readme.md --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --portal-dir "$RUNNER_TEMP/verified-portal" --latest-release-metadata "$LATEST_RELEASE_METADATA"
+          go run ./script/test/verify_deployment --base-url https://ycpss91255-lab.github.io/windows_setup/ --readme readme.md --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --portal-dir "$RUNNER_TEMP/verified-portal" --latest-release-metadata "$LATEST_RELEASE_METADATA"
 
       - name: 匿名核對公開版本與不可變證據
         if: startsWith(github.ref, 'refs/tags/v')
@@ -764,4 +766,4 @@ jobs:
         run: |
           gh api "repos/$RELEASE_REPO/releases/tags/$RELEASE_TAG" > "$RUNNER_TEMP/release-metadata.json"
           go build -o "$RUNNER_TEMP/report-bundle-tool" ./script/test/report_bundle_tool
-          go run ./script/test/verify_deployment --mode release --require-runtime --base-url https://ycpss91255.github.io/windows_setup/ --readme readme.md --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --tag "$RELEASE_TAG" --release-metadata "$RUNNER_TEMP/release-metadata.json" --report-bundle-tool "$RUNNER_TEMP/report-bundle-tool" --report-archive "$RUNNER_TEMP/tag-report-download/windows_setup_report_${RELEASE_TAG}.zip" --run-attempt "$GITHUB_RUN_ATTEMPT" --download-release-asset --release-repository "$RELEASE_REPO"
+          go run ./script/test/verify_deployment --mode release --require-runtime --base-url https://ycpss91255-lab.github.io/windows_setup/ --readme readme.md --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --tag "$RELEASE_TAG" --release-metadata "$RUNNER_TEMP/release-metadata.json" --report-bundle-tool "$RUNNER_TEMP/report-bundle-tool" --report-archive "$RUNNER_TEMP/tag-report-download/windows_setup_report_${RELEASE_TAG}.zip" --run-attempt "$GITHUB_RUN_ATTEMPT" --download-release-asset --release-repository "$RELEASE_REPO"
