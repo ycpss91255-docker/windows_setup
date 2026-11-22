@@ -23,6 +23,9 @@ $guard=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.IfStatem
 Assert ($guard.Count -eq 1 -and $guard[0].Extent.Text.Contains($verify[0].Extent.Text) -and @($powercfg|Where-Object {$_.Extent.StartOffset -lt $guard[0].Extent.StartOffset}).Count -eq 0) '只讀驗證在任何 powercfg 寫入前結束'
 $report=@($ast.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Join-Path' -and $n.Extent.Text.Contains('NUC8-Setup') -and $n.Extent.Text.Contains('Power-Result.json')},$true))
 Assert ($report.Count -eq 1 -and $report[0].Extent.Text.Contains('$env:ProgramData')) '休眠結果寫入目前電腦 ProgramData'
+$aggregate=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'core/verification_library.ps1'),[ref]$tokens,[ref]$errors)
+$fresh=@($aggregate.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-FreshVerification' -and $n.Extent.Text.Contains('apply_power_settings.ps1')},$true))
+Assert ($fresh.Count -eq 1 -and $fresh[0].Extent.Text.Contains('NUC8-Setup/Power-Result.json') -and $fresh[0].Extent.Text -match 'VerifyOnly=\$true') '總驗收與重開後驗收讀取本輪休眠結果'
 $prerequisites=Get-Content (Join-Path $root 'core/test_setup_prerequisites.ps1') -Raw
 Assert ($prerequisites.Contains("'power_library.ps1'")) '工具包完整性檢查包含電源函式庫'
 Write-Host 'ALL PASS: power module wiring'

@@ -50,6 +50,10 @@ try{
  $uac=Invoke-FreshVerification -ScriptPath (Resolve-NucPath 'apply_uac_settings.ps1') -ReportPath (Join-Path $env:ProgramData 'NUC8-Setup/UAC-Result.json') -Arguments @{VerifyOnly=$true}
  Add-Check '管理員提權提示政策' $uac.Success 'EnableLUA仍為1；此電腦管理員自動核准提權。'
 }catch{Add-Check '管理員提權提示政策' $false $_.Exception.Message}
+try{
+ $power=Invoke-FreshVerification -ScriptPath (Resolve-NucPath 'apply_power_settings.ps1') -ReportPath (Join-Path $env:ProgramData 'NUC8-Setup/Power-Result.json') -Arguments @{VerifyOnly=$true}
+ Add-Check '休眠停用（含快速啟動）' $power.Success ('休眠設定：'+$power.HibernateSource+'='+$power.HibernateEnabled+'；休眠檔存在：'+$power.HiberFilePresent+'；快速啟動依賴休眠而失效。')
+}catch{Add-Check '休眠停用（含快速啟動）' $false $_.Exception.Message}
 $sshFirewall=Get-SetupSSHFirewallStatus
 Add-Check 'SSH 防火牆規則' $sshFirewall.Passed $sshFirewall.Detail
 foreach($setting in @('STANDBYIDLE','HIBERNATEIDLE')){
