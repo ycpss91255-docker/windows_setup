@@ -4,9 +4,13 @@
 # 自有程式碼與設定以 LF 儲存及檢出。
 *.ps1 text eol=lf
 *.cs text eol=lf
+*.go text eol=lf
+/go.mod text eol=lf
+/go.sum text eol=lf
 
 # cmd.exe 以 LF 換行可能誤判標籤與續行，CMD 啟動器固定 CRLF。
 *.cmd text eol=crlf
 
 # 第三方內容保留上游原位元組。
 /modules/debloat/win11debloat/** -text
+/vendor/** -text

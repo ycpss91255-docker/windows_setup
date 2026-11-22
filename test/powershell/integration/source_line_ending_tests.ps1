@@ -8,9 +8,10 @@ function Format-Offenders($Items){$list=@($Items);if($list.Count -eq 0){return '
 $categories=@(
  @{Name='CMD 啟動器';Pattern='\.cmd$';Eol='crlf'},
  @{Name='PowerShell 腳本';Pattern='\.ps1$';Eol='lf'},
- @{Name='C# 原生來源';Pattern='\.cs$';Eol='lf'}
+ @{Name='C# 原生來源';Pattern='\.cs$';Eol='lf'},
+ @{Name='Go 維護工具';Pattern='\.go$|^go\.(mod|sum)$';Eol='lf'}
 )
-$thirdParty=@('modules/debloat/win11debloat/')
+$thirdParty=@('modules/debloat/win11debloat/','vendor/')
 $locked=@{
 
 }
