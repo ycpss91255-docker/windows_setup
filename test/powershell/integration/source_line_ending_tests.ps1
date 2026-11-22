@@ -10,7 +10,8 @@ $categories=@(
  @{Name='PowerShell 腳本';Pattern='\.ps1$';Eol='lf'},
  @{Name='C# 原生來源';Pattern='\.cs$';Eol='lf'},
  @{Name='Go 維護工具';Pattern='\.go$|^go\.(mod|sum)$';Eol='lf'},
- @{Name='JSON 與 XML 資料';Pattern='\.(json|xml)$';Eol='lf'}
+ @{Name='JSON 與 XML 資料';Pattern='\.(json|xml)$';Eol='lf'},
+ @{Name='CI 與容器設定';Pattern='\.(yml|yaml|dockerfile)$|(^|/)\.dockerignore$';Eol='lf'}
 )
 $thirdParty=@('modules/debloat/win11debloat/','vendor/')
 $locked=@{
