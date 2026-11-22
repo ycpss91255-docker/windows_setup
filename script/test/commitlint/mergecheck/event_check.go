@@ -75,7 +75,11 @@ type githubEvent struct {
 			} `json:"repo"`
 		} `json:"base"`
 		Head struct {
-			SHA string `json:"sha"`
+			SHA  string `json:"sha"`
+			Ref  string `json:"ref"`
+			Repo struct {
+				FullName string `json:"full_name"`
+			} `json:"repo"`
 		} `json:"head"`
 	} `json:"pull_request"`
 }
@@ -97,6 +101,9 @@ func parseSourceEvent(kind, ref, sha, main string, raw []byte) (sourceEvent, err
 		v.Kind = "pull_request"
 		v.Base = e.PullRequest.Base.SHA
 		v.Head = e.PullRequest.Head.SHA
+		if e.PullRequest.Head.Repo.FullName == fixedRepository {
+			v.HeadRef = e.PullRequest.Head.Ref
+		}
 	case "push":
 		if e.Deleted || e.Ref != ref {
 			return v, fmt.Errorf("invalid push metadata")
@@ -221,7 +228,7 @@ func checkEventInRepository(repo, kind, ref, sha, main string, raw []byte, ancho
 		return err
 	}
 	excluded = append(excluded, roots...)
-	return validateMergeTitlesForEvent(repo, tips, excluded, v.Kind)
+	return validateMergeTitlesSync(repo, tips, excluded, v.Kind, syncContext{Ref: v.HeadRef, Base: v.Base})
 }
 
 func main() {
