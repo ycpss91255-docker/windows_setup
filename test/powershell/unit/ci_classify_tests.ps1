@@ -51,6 +51,7 @@ try{
  # 完整腳本：真 Git diff，失敗時 fail open。
  function Invoke-FixtureGit([string[]]$Arguments){$o=& git.exe -c core.autocrlf=false -C $fixture @Arguments 2>&1;if($LASTEXITCODE -ne 0){throw ($o|Out-String)};$o}
  Put 'readme.md' 'base'
+ Put 'tool.ps1' "function Invoke-Tool { 'code that must be tested' }"
  Invoke-FixtureGit @('init','--quiet','-b','main')|Out-Null;Invoke-FixtureGit @('add','.')|Out-Null
  Invoke-FixtureGit @('-c','user.name=CI Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','base')|Out-Null
  Invoke-FixtureGit @('checkout','--quiet','-b','topic')|Out-Null
@@ -78,6 +79,16 @@ try{
  & $script -FailOpen -OutputPath $outOpen
  $openLines=@(Get-Content -LiteralPath $outOpen -Encoding UTF8)
  Assert (($openLines -ccontains 'select_docker_tests=true') -and ($openLines -ccontains 'select_tests=true') -and ($openLines -ccontains 'select_doc_checks=false') -and ($openLines -ccontains 'doc_tests=')) '明確 FailOpen 不讀 Git 也輸出完整套件'
+ # 把程式碼改名成文件不可被改名偵測隱藏：舊 .ps1 的刪除與新 .md 的新增都必須列入。
+ Invoke-FixtureGit @('checkout','--quiet','-b','renamed','main')|Out-Null
+ Invoke-FixtureGit @('mv','tool.ps1','tool.md')|Out-Null
+ Invoke-FixtureGit @('-c','user.name=CI Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','rename')|Out-Null
+ $outRename=Join-Path $fixture 'out_rename.txt'
+ & $script -EventName pull_request -BaseRef main -Root $fixture -OutputPath $outRename
+ $renameLines=@(Get-Content -LiteralPath $outRename -Encoding UTF8)
+ Assert (($renameLines -ccontains 'select_docker_tests=true') -and ($renameLines -ccontains 'select_tests=true') -and ($renameLines -ccontains 'select_doc_checks=false')) '程式碼改名為 Markdown 仍選完整套件'
+ $changed=@(Get-CIChangedPaths -Root $fixture -BaseRef main)
+ Assert (($changed -ccontains 'tool.ps1') -and ($changed -ccontains 'tool.md')) '變更清單同時列出改名前後路徑'
 }finally{
  if($fixture.StartsWith([IO.Path]::GetFullPath($env:TEMP),[StringComparison]::OrdinalIgnoreCase)){Remove-Item -LiteralPath $fixture -Recurse -Force}
 }

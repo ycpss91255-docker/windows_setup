@@ -56,7 +56,7 @@ function Get-CIDocumentTestNames {
 function Get-CIChangedPaths {
  param([string]$Root,[string]$BaseRef)
  if([string]::IsNullOrWhiteSpace($BaseRef)){return $null}
- $lines=@(& git.exe -c core.quotepath=false -C $Root diff --name-only ($BaseRef+'...HEAD') 2>$null)
+ $lines=@(& git.exe -c core.quotepath=false -C $Root diff --no-renames --no-ext-diff --name-only ($BaseRef+'...HEAD') 2>$null)
  if($LASTEXITCODE -ne 0){return $null}
  return @($lines|ForEach-Object {[string]$_})
 }

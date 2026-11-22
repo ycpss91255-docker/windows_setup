@@ -23,7 +23,7 @@ Windows 測試依事件分成三個階段，必要檢查名稱 `ci-rollup` 不�
 
 純文件 PR 指所有變更路徑都是根目錄 `*.md`、`license`、`doc/**/*.md` 或 `.github/pull_request_template.md`。第三方內容中的 `LICENSE`、含上層路徑或反斜線的路徑、非 Markdown 檔一律不算文件。文件檢查清單由 `script/test/ci_classify.ps1` 讀取現有 PowerShell 測試推導：列入引用被改文件路徑的測試，以及名稱屬於全域契約（architecture、layout、Markdown 換行）的測試，不在 workflow 內手寫路徑表，並以 `run_ci.ps1 -Suite` 在完整清單檢查之後只執行這些 suite。
 
-分類失敗、取不到 diff、路徑無法判斷或 PR 含任何程式碼時，一律選完整套件（fail open）。`ci-rollup` 只有在分類工作成功、對應 `select_*` 明確為 `false` 且該工作確實 skipped 時，才把略過視為通過；被選中的工作失敗、取消或略過都使整體失敗。這是政策語意變更：純文件 PR 不再於 PR 階段執行全來源量測與容器測試，完整驗證改由 main、merge_group 與 tag 強制。
+分類以 `git diff --no-renames` 取得變更，改名會同時列出舊路徑與新路徑，因此把程式碼改名成 Markdown 不會被當成文件。分類失敗、取不到 diff、路徑無法判斷或 PR 含任何程式碼時，一律選完整套件（fail open）；依變更範圍選測屬後續階段。文件檢查清單只由 PowerShell 測試內容推導，讀取 Markdown 的 Go 測試與 requirements-gate 在純文件 PR 不執行，改由 main、merge_group 與 tag 的完整套件補上，此為已知取捨。`ci-rollup` 只有在分類工作成功、對應 `select_*` 明確為 `false` 且該工作確實 skipped 時，才把略過視為通過；被選中的工作失敗、取消或略過都使整體失敗。這是政策語意變更：純文件 PR 不再於 PR 階段執行全來源量測與容器測試，完整驗證改由 main、merge_group 與 tag 強制。
 
 ### 平行測試與完整證據聚合
 
