@@ -66,3 +66,7 @@ function Invoke-SetupAutologonRestore {
  if(-not $success){throw $errorText}
  [pscustomobject]$result
 }
+function Invoke-CurrentUserAutologonRestore {
+ $root=Join-Path $env:ProgramData 'NUC8-Setup'
+ Invoke-SetupAutologonRestore -ReportPath (Join-Path $root 'Autologon-Result.json') -UserSid ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
+}
