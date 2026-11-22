@@ -28,8 +28,8 @@ function Get-SetupNetworkPreflightMessage {
  '網路分類不保證來源名稱可解析或服務可用；若 Windows Update 出現 0x8024402C，請核對 DNS 與代理設定、確認組織網路要求，修正後重試。不要自行停用安全設定。'
  if($Observation.Status -cne 'Internet'){
   '請確認 Wi-Fi 或乙太網路連線；需要時連線後重試。已快取元件與本機驅動仍依既有檢查處理；本提示不變更階段結果。'
-  '若 SSH 或 Windows Update 階段失敗，連線後可分別執行 modules\ssh\apply_ssh_settings.cmd 或 modules\updates\install_windows_updates.cmd 重試該模組。'
  }
+ '若 SSH 或 Windows Update 階段失敗，連線後可分別執行 modules\ssh\apply_ssh_settings.cmd 或 modules\updates\install_windows_updates.cmd 重試該模組。'
 }
 function Show-SetupNetworkPreflight {
  param([bool]$Interactive=$false)

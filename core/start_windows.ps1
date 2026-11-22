@@ -9,7 +9,8 @@ if($AfterRestart -or $VerifyOnly){
 }else{
  . (Join-Path $PSScriptRoot 'network_preflight_library.ps1')
  . (Join-Path $PSScriptRoot 'hardware.ps1')
- Show-SetupNetworkPreflight -Interactive:((Test-SetupInteractiveHost) -and -not $NonInteractive)
- $request=Select-SetupDriverRequest -PackageRoot (Split-Path -Parent $PSScriptRoot) -DriverPackagePath $DriverPackagePath -PathSpecified:$PSBoundParameters.ContainsKey('DriverPackagePath') -ConfirmedBoard $ConfirmedBoard -ConfirmationComputer $ConfirmationComputer -Interactive:((Test-SetupInteractiveHost) -and -not $NonInteractive)
+ $interactive=(-not $NonInteractive) -and (Test-SetupInteractiveHost)
+ Show-SetupNetworkPreflight -Interactive:$interactive
+ $request=Select-SetupDriverRequest -PackageRoot (Split-Path -Parent $PSScriptRoot) -DriverPackagePath $DriverPackagePath -PathSpecified:$PSBoundParameters.ContainsKey('DriverPackagePath') -ConfirmedBoard $ConfirmedBoard -ConfirmationComputer $ConfirmationComputer -Interactive:$interactive
  & (Join-Path $PSScriptRoot $entry) -DriverPackagePath $request.DriverPackagePath -ConfirmedBoard $request.ConfirmedBoard -ConfirmationComputer $request.ConfirmationComputer -NonInteractive:$NonInteractive
 }

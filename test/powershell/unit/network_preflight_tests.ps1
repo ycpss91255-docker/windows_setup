@@ -18,3 +18,6 @@ foreach($status in @('Offline','Local','Unknown','Internet')){
  $text=@(Get-SetupNetworkPreflightMessage -Observation ([pscustomobject]@{Status=$status})) -join ' '
  Assert ($text -match 'DNS' -and $text -match '代理' -and $text -match '0x8024402C' -and $text -match '不保證') ('各狀態提供安全來源疑難指引 '+$status)
 }
+
+$internetText=@(Get-SetupNetworkPreflightMessage -Observation ([pscustomobject]@{Status='Internet'})) -join ' '
+Assert ($internetText -match 'modules\\ssh\\apply_ssh_settings\.cmd' -and $internetText -match 'modules\\updates\\install_windows_updates\.cmd') '網際網路分類仍提供各單一模組重試入口'
