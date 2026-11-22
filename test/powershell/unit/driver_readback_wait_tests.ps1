@@ -1,7 +1,8 @@
 ﻿#Requires -Version 5.1
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot '../../../modules/drivers/driver_plan_library.ps1')
-function Assert([bool]$value,[string]$name){if(-not $value){throw $name}}
+function Assert([bool]$Value,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Value}|ConvertTo-Json -Compress));if(-not $Value){throw $Name}}
+function Get-SetupDriverLiveDriverProperty {param([string]$InstanceId) return $null}
 function Assert-SetupDriverTargetIntegrity {param($Target,$Root) return $true}
 $script:inventoryReads=0;$script:scans=0;$script:sleeps=@();$script:bindAfter=1
 function Get-SetupDriverDeviceInventory {param($Targets) $script:inventoryReads++;return [pscustomobject]@{InstanceId='PCI\FIXTURE\1';Bound=($script:inventoryReads -gt $script:bindAfter)}}

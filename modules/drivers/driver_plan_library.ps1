@@ -179,10 +179,27 @@ function Invoke-SetupDriverPnpRescan {
  $output=& (Get-SetupDriverPnpTool) /scan-devices 2>&1
  [pscustomobject]@{ExitCode=$LASTEXITCODE;Output=@($output)}
 }
+function Get-SetupDriverLiveDriverProperty {
+ param([Parameter(Mandatory=$true)][string]$InstanceId)
+ try{
+  $version=(Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_DriverVersion' -ErrorAction Stop).Data
+  $provider=(Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_DriverProvider' -ErrorAction Stop).Data
+  if([string]::IsNullOrWhiteSpace([string]$version) -or [string]::IsNullOrWhiteSpace([string]$provider)){return $null}
+  return [pscustomobject]@{DriverVersion=[string]$version;DriverProvider=[string]$provider}
+ }catch{return $null}
+}
 function Get-SetupDriverSettledReadback {
  param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][object[]]$Plans,[bool]$Poll=$true,[int]$TimeoutSeconds=30,[int]$IntervalSeconds=5)
  $required=@($Plans|Where-Object Status -eq 'UpdateRequired')
- $read={$devices=@(Get-SetupDriverDeviceInventory -Targets @($Target));@($required|ForEach-Object{Get-SetupDriverReadback -Plan $_ -Devices $devices})}
+ $read={
+  $devices=@(Get-SetupDriverDeviceInventory -Targets @($Target)|ForEach-Object{
+   $device=$_;$live=$null
+   if($device.InstanceId -in @($required|ForEach-Object InstanceId)){$live=Get-SetupDriverLiveDriverProperty -InstanceId ([string]$device.InstanceId)}
+   if($live){$device=$device.PSObject.Copy();$device.DriverVersion=[string]$live.DriverVersion;$device.DriverProvider=[string]$live.DriverProvider}
+   $device
+  })
+  @($required|ForEach-Object{Get-SetupDriverReadback -Plan $_ -Devices $devices})
+ }
  $readbacks=@(& $read);$waited=0
  if($Poll -and @($readbacks|Where-Object Status -eq 'Unverified').Count){
   $null=Invoke-SetupDriverPnpRescan
