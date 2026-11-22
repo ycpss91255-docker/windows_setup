@@ -22,10 +22,11 @@
 
 ## 合併與歷史
 
-- 日常變更走工作分支與 Pull Request，最終 PR HEAD 的全部必要 CI 及 `ci-rollup` 通過後才合併，不以直接推送 main 繞過門檻。
+- 日常變更走工作分支與 Pull Request，不以直接推送 main 繞過門檻。main 使用 merge queue：PR 階段只要求最終 PR HEAD 通過最小必要集合（`ci-rollup`，其內容為來源核對、`classify` 選中的 job）；加入佇列後，`merge_group` 對「合進 main 之後的結果」執行完整套件，必要檢查 `ci-rollup` 通過才合併。push 到 main 與 `v*` 標籤同樣執行完整套件。完整套件不得因 PR 階段縮減而省略，`classify` 失敗或無法判斷時一律選全部（fail open）。
+- PR 事件的來源前置核對只要求事件 SHA 自洽（PR 身分、head 未被替換、checkout tree 等於事件合併結果），不要求 base 等於當下 main；`merge_group` 事件維持嚴格核對，合併前驗證的是佇列合成後的實際組合。
 - 建立 PR 時在描述記錄相關範圍與初始測試證據；建立後所有補充資訊（包括新增 TDD 紅／綠燈證據、重測、CI 與獨立審查）使用 `gh pr comment` 新增留言，不修改原描述補充資訊。
 - 只使用 merge commit；禁止 squash、rebase merge、fixup 及任何改寫已推送歷史的做法。合併提交標題使用「合併：」加中文結果。既有提交與 SHA 保留。
-- `git log --first-parent` 顯示主線合併總覽，`git log` 顯示完整提交歷史。合併佇列若啟用，仍須保留 merge commit 方式及必要檢查。
+- `git log --first-parent` 顯示主線合併總覽，`git log` 顯示完整提交歷史。合併佇列的合併方式固定為 merge commit（ruleset `main merge queue`：`MERGE`、`ci-rollup` 必要、禁止 force push 與刪除、無繞過者），不得改為 squash 或 rebase，也不得移除必要檢查。
 - 提交訊息輔助檢查依 `readme.md` 明確選用，不自動安裝或覆蓋既有 hook；工具只提供有限提示，實際 TDD、單一任務與機密排除仍須人工審查。
 
 ## 編碼與架構
