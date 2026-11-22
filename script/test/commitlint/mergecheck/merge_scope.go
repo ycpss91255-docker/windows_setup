@@ -80,6 +80,12 @@ func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind stri
 			if e != nil {
 				return e
 			}
+			if strings.HasPrefix(title, "Merge pull request #") {
+				if e := queueMergeCommitValid(repo, fields[0], title, fields[2]); e != nil {
+					return e
+				}
+				continue
+			}
 			if !strings.HasPrefix(title, "合併：") || !strings.ContainsFunc(strings.TrimPrefix(title, "合併："), func(r rune) bool { return unicode.Is(unicode.Han, r) }) {
 				return fmt.Errorf("new merge commit has invalid title: %s", fields[0])
 			}

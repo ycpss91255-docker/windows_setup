@@ -6,3 +6,5 @@ PR 檢查事件的 base、head、實際 merge checkout 與 tree，僅檢查 PR h
 
 CI 使用完整 checkout，從固定 GitHub HTTPS 來源取得 manifest 每個精確 SHA 所需物件，不跟隨目前 PR 分支；若上游不再提供某物件會停止並需維護者審查。此工具不修改 branch protection、標籤或既有歷史。原有可選 `commit-msg` hook 的單筆訊息檢查保持獨立。
 採用此檢查前已合併至 main 的 `fb7a85067449f316055fe4867318d2037e560455` 標題不符新規則；僅 tag 與 main 手動執行的歷史掃描對該單一提交免除標題檢查。它不是豁免根，祖先與後續提交仍按既定範圍檢查；PR 與 main push 不套用此例外。
+
+合併佇列以 GitHub 固定格式產生的 merge commit（標題 `Merge pull request #<n> from <本倉庫 owner>/<head 分支>`）可通過：正文第一行須為中文「領域：結果」PR 標題，第二個父提交必須等於該 PR 目前的 head，且 head 倉庫與分支須與標題一致；以 GitHub API 查詢 PR head，查詢失敗一律拒絕。其他英文合併標題仍拒絕，人工合併的「合併：…」規則與既有歷史豁免不變。
