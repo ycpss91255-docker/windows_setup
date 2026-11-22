@@ -1,14 +1,14 @@
 # windows_setup
 
-[![Windows CI](https://github.com/ycpss91255/windows_setup/actions/workflows/windows_tests.yml/badge.svg)](https://github.com/ycpss91255/windows_setup/actions/workflows/windows_tests.yml)
+[![Windows CI](https://github.com/ycpss91255-lab/windows_setup/actions/workflows/windows_tests.yml/badge.svg)](https://github.com/ycpss91255-lab/windows_setup/actions/workflows/windows_tests.yml)
 
 ![Runtime: PowerShell | C#](https://img.shields.io/badge/Runtime-PowerShell%20%7C%20C%23-blue?style=flat-square)
-[![Coverage](https://ycpss91255.github.io/windows_setup/main/coverage.svg)](https://ycpss91255.github.io/windows_setup/)
+[![Coverage](https://ycpss91255-lab.github.io/windows_setup/main/coverage.svg)](https://ycpss91255-lab.github.io/windows_setup/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square)](license)
 
 新範圍成功部署後，上方覆蓋率徽章顯示最近一次成功部署 main 的 PowerShell/C# runtime 可執行行覆蓋率；舊徽章在更新前仍代表當時的口徑。點擊徽章可查閱該次報表與來源。若部署失敗，徽章保留上次成功結果，請以 Windows CI 與 Actions 的最新執行結果為準。PR 不更新公開報表。
 
-使用 **v0.2.5 或更新版本**時，在對應的 [GitHub Release](https://github.com/ycpss91255/windows_setup/releases) Assets 下載 `windows_setup_report_<version>.zip`，解壓後開啟 `index.html`，即可查看原生與容器報表及各自的量測範圍（Scope）。v0.2.4 仍使用該版既有的原始品質附件與歷史報表頁，不提供此 ZIP。
+使用 **v0.2.5 或更新版本**時，在對應的 [GitHub Release](https://github.com/ycpss91255-lab/windows_setup/releases) Assets 下載 `windows_setup_report_<version>.zip`，解壓後開啟 `index.html`，即可查看原生與容器報表及各自的量測範圍（Scope）。v0.2.4 仍使用該版既有的原始品質附件與歷史報表頁，不提供此 ZIP。
 
 Windows 設定工具：以 Init 與 Windows 兩個入口完成帳號初始化、模組設定與後續驗收。本文以繁體中文提供完整操作說明；版本摘要見 [變更紀錄](doc/changelog/changelog.md)，實作與驗證細節以中文 Git 提交及 GitHub Release 為準。
 
@@ -551,7 +551,7 @@ Hosts／SSH 獨立入口為 `modules\ssh\apply_hosts_sync.cmd`、`sync_hosts.cmd
 
 以下可以從全新的 Release 下載開始，不使用任何既有 Downloads／USB 資產。準備電腦需要 Windows 與網路；此階段只準備檔案，不執行 Init、Windows 設定或 Autologon。
 
-1. 開啟 [Releases](https://github.com/ycpss91255/windows_setup/releases)，選擇要使用的版本，先閱讀該版本說明與已知限制。標示 **Pre-release** 的版本是預覽版，不能當作已完成實機驗收。展開該版本的 **Assets**，下載 **Source code (zip)**。
+1. 開啟 [Releases](https://github.com/ycpss91255-lab/windows_setup/releases)，選擇要使用的版本，先閱讀該版本說明與已知限制。標示 **Pre-release** 的版本是預覽版，不能當作已完成實機驗收。展開該版本的 **Assets**，下載 **Source code (zip)**。
 2. 在檔案總管對下載的 ZIP 按右鍵 →「全部解壓縮」。打開解壓後資料夾，直到同一層可看到 `init.cmd`、`windows.cmd`、`readme.md`、`core` 與 `modules`；這一層就是工具包根目錄。可將它重新命名為 `windows_setup`，保留完整內容，**不要直接在 ZIP 視窗內執行**。解壓與執行位置必須可寫入，而且不能是稍後會被清理的桌面。
 3. 開啟 [Microsoft Sysinternals Autologon 官方頁](https://learn.microsoft.com/en-us/sysinternals/downloads/autologon)，按 **Download Autologon** 取得 `Autologon.zip`，另行「全部解壓縮」。從中找到 **`Autologon64.exe`**；不要選 `Autologon.exe` 或 `Autologon64a.exe`，這套工具使用 x64 版本。
 4. 在 `Autologon64.exe` 按右鍵 →「內容」→「數位簽章」，選擇 Microsoft Corporation 的簽章並按「詳細資料」，確認顯示此數位簽章正常。若沒有簽章、不是 Microsoft 或驗證失敗，先停止，重新從官方取得並排查驗證問題，不要略過。將核對後的 **`Autologon64.exe`** 複製到剛才工具包根目錄的 **`modules\accounts`**，最終位置為 `windows_setup\modules\accounts\Autologon64.exe`；不用雙擊 EXE。
