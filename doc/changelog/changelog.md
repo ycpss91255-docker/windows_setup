@@ -3,6 +3,9 @@
 本文件記錄使用者可見的行為、相容性及遷移要求。詳細實作與驗證紀錄見中文 Git 提交；發布版本與來源提交以 GitHub Release 為準。
 
 ## [Unreleased]
+### Fixed（修正）
+
+- 電源模組的 `Power-Before-*.txt` 與 `Power-After.txt` 改寫到 `%ProgramData%\NUC8-Setup`，不再留在可能放在 USB 的工具包；工具包內既有舊檔不會自動刪除。
 
 ## [v0.2.6] — 2026-11-21
 ### Changed（變更）
