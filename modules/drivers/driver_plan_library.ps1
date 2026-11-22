@@ -191,7 +191,12 @@ function Invoke-SetupDriverTarget {
   elseif($native.ExitCode -notin @(0,259)){$failures+=($Target.InfPath+': '+$native.ExitCode)}
   $after=@(Get-SetupDriverDeviceInventory -Targets @($Target))
   foreach($plan in $plans){
-   if($plan.Status -eq 'UpdateRequired'){$result=Get-SetupDriverReadback -Plan $plan -Devices $after;$results+=$result;if($result.Status -eq 'Unverified'){$failures+=($Target.InfPath+': 安裝後版本尚未核實')}}
+   if($plan.Status -eq 'UpdateRequired'){
+    $result=Get-SetupDriverReadback -Plan $plan -Devices $after
+    if($native.ExitCode -notin @(0,259,3010)){$result.Status='InstallFailed';$result.Reason='原生安裝失敗，退出碼 '+$native.ExitCode}
+    $results+=$result
+    if($result.Status -eq 'Unverified'){$failures+=($Target.InfPath+': 安裝後版本尚未核實')}
+   }
    else{$results+=$plan}
   }
  }else{$results=$plans}
