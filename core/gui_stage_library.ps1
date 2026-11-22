@@ -351,6 +351,10 @@ function Invoke-SetupGuiRole {
   if(-not $result.Success -and -not(Test-SetupGuiPendingResult -Role $Role -Result $result)){throw $result.Error}
   if($Role -ceq 'Icons' -and $stage.Context.IconMode -ceq 'Save'){Write-SetupIconReference -PackageRoot $stage.Context.SourcePackageRoot -Reference $result.Reference}
   if($Role -ceq 'Taskbar' -and -not $VerifyOnly){Register-SetupTaskbarFinalize -Stage $stage -Scope $scope}
+  if($Role -ceq 'Theme' -and $result.TaskbarPixelsVerified -cne $true){
+   if($result.TaskbarAppearanceStatus -ceq 'AutoHidden') {Write-Warning '深色與背景設定已確認；工作列目前自動隱藏，顏色尚未驗證。請顯示工作列後重新驗證。'}
+   else {Write-Warning '深色與背景設定已確認；工作列顏色尚未驗證。'}
+  }
   return $result
  }finally{$stage.Lock.Dispose()}
 }
