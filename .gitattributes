@@ -1,2 +1,6 @@
 # 保留腳本實際部署的編碼與換行，不在兩份工具包間自動轉換。
 * -text
+# 自有 Markdown 文件固定使用 Windows CRLF；第三方與 vendor 保留上游原始位元組。
+*.md text eol=crlf
+/modules/debloat/win11debloat/** -text
+/vendor/** -text
