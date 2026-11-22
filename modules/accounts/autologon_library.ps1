@@ -70,3 +70,12 @@ function Invoke-CurrentUserAutologonRestore {
  $root=Join-Path $env:ProgramData 'NUC8-Setup'
  Invoke-SetupAutologonRestore -ReportPath (Join-Path $root 'Autologon-Result.json') -UserSid ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
 }
+function Get-SetupAutologonRestoreVerification {
+ param([Parameter(Mandatory=$true)][string]$ReportPath,[string]$UserSid=([Security.Principal.WindowsIdentity]::GetCurrent().User.Value),[string]$Computer=$env:COMPUTERNAME)
+ $ReportPath=Assert-SetupAutologonPlainPath $ReportPath
+ if(-not (Test-Path -LiteralPath $ReportPath -PathType Leaf)){throw '沒有自動登入停用結果；目前未啟用自動登入。'}
+ $report=Get-Content -LiteralPath $ReportPath -Raw -Encoding UTF8|ConvertFrom-Json
+ if($report.Success -isnot [bool] -or -not $report.Success -or $report.Mode -cne 'Restore' -or $report.UserSID -cne $UserSid -or $report.Computer -cne $Computer){throw '自動登入停用結果不是此電腦、此帳號的成功還原。'}
+ if(-not (Get-SetupAutologonState).Disabled){throw '已有停用結果，但本輪讀回仍有自動登入值或儲存的密碼。'}
+ return ('已依 -Restore 停用自動登入並清除儲存的密碼（'+$report.CheckedAt+'）；如需再啟用請重跑自動登入模組。')
+}
