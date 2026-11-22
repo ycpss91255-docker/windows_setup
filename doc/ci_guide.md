@@ -11,6 +11,20 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File script/test/verify_clien
 
 工作流程位於 .github/workflows/windows_tests.yml：使用 windows-2022、Windows PowerShell 5.1、唯讀 contents 權限，設定執行時間上限與併發控制。Action 固定到已核對的 commit。main 推送、版本標籤、Pull Request 與 workflow_dispatch 都可觸發；ci-rollup 統一呈現測試門檻。
 
+### PR、main 與 tag 的三個階段
+
+Windows 測試依事件分成三個階段，必要檢查名稱 `ci-rollup` 不變：
+
+| 階段 | 事件 | 內容 |
+| --- | --- | --- |
+| push-to-branch（PR） | `pull_request` | `classify` 比對 PR 與 base 的 diff 輸出 `select_*`；只改文件時僅跑 `doc-checks`，其他情況跑完整套件 |
+| push-to-main | `push`（main）、`merge_group` | 一律完整套件，包含 isolated-tests、全源量測、docker-tests、覆蓋率聚合、requirements-gate 與部署 |
+| release | `push` tag | 完整套件加既有發布流程 |
+
+純文件 PR 指所有變更路徑都是根目錄 `*.md`、`license`、`doc/**/*.md` 或 `.github/pull_request_template.md`。第三方內容中的 `LICENSE`、含上層路徑或反斜線的路徑、非 Markdown 檔一律不算文件。文件檢查清單由 `script/test/ci_classify.ps1` 讀取現有 PowerShell 測試推導：列入引用被改文件路徑的測試，以及名稱屬於全域契約（architecture、layout、Markdown 換行）的測試，不在 workflow 內手寫路徑表，並以 `run_ci.ps1 -Suite` 在完整清單檢查之後只執行這些 suite。
+
+分類失敗、取不到 diff、路徑無法判斷或 PR 含任何程式碼時，一律選完整套件（fail open）。`ci-rollup` 只有在分類工作成功、對應 `select_*` 明確為 `false` 且該工作確實 skipped 時，才把略過視為通過；被選中的工作失敗、取消或略過都使整體失敗。這是政策語意變更：純文件 PR 不再於 PR 階段執行全來源量測與容器測試，完整驗證改由 main、merge_group 與 tag 強制。
+
 ### 平行測試與完整證據聚合
 
 原生完整測試、Go 維護工具測試與四片 PowerShell 量測平行執行。聚合核對本次提交、執行 ID、attempt 與來源雜湊後，結合 C# 量測，產生 runtime 覆蓋率及正式報告。

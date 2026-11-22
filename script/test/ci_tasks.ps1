@@ -23,9 +23,20 @@ function Export-CIPowerShellRawEvidence {
  if(-not(Test-Path -LiteralPath $tool -PathType Leaf)){throw 'Completed raw evidence has no export verification tool.'}
  Invoke-CINative -File $tool -Arguments @('export-powershell','--source-root',$SourceRoot,'--evidence-dir',$evidence,'--output-dir',(Join-Path $RunnerTemp 'powershell-raw-public'))
 }
+function Resolve-CIRollupStates {
+ # PR 分類只有在分類工作成功、對應選擇值明確為 false 且該工作確實 skipped 時，才把 skipped 視為通過。
+ param([Parameter(Mandatory=$true)][hashtable]$Results,[Parameter(Mandatory=$true)][hashtable]$Selection)
+ $resolved=$Results.Clone()
+ if(-not $Results.ContainsKey('Classify') -or $Results['Classify'] -cne 'success'){return $resolved}
+ foreach($name in @('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage','DocChecks')){
+  if($Results.ContainsKey($name) -and $Results[$name] -ceq 'skipped' -and $Selection.ContainsKey($name) -and $Selection[$name] -ceq 'false'){$resolved[$name]='success'}
+ }
+ return $resolved
+}
 function Assert-CIResults {
  param([hashtable]$Results)
  foreach($name in @('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage')){if(-not $Results.ContainsKey($name) -or $Results[$name] -cne 'success'){throw ('必要工作失敗、取消或跳過：'+$name)}}
+ foreach($name in @('Classify','DocChecks')){if($Results.ContainsKey($name) -and $Results[$name] -cne 'success'){throw ('必要工作失敗、取消或跳過：'+$name)}}
 }
 function Assert-CIRequiredTools {
  param([switch]$Managed)

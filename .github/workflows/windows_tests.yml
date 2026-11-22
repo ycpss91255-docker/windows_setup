@@ -57,8 +57,63 @@ jobs:
           export PREFLIGHT_MAIN_SHA
           go run ./script/test/pr_source_preflight -repo . -event "$GITHUB_EVENT_PATH" -authority "$RUNNER_TEMP/pr-authority.json" -checkout "$(git rev-parse HEAD)" -run-sha "$GITHUB_SHA" -base "$EVENT_BASE" -head "$EVENT_HEAD"
 
-  oobe_payload_inspection:
+  classify:
+    name: PR 變更分類
     needs: [source-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      select_tests: ${{ steps.classify.outputs.select_tests || steps.fallback.outputs.select_tests }}
+      select_powershell_coverage: ${{ steps.classify.outputs.select_powershell_coverage || steps.fallback.outputs.select_powershell_coverage }}
+      select_coverage_aggregation: ${{ steps.classify.outputs.select_coverage_aggregation || steps.fallback.outputs.select_coverage_aggregation }}
+      select_requirements_gate: ${{ steps.classify.outputs.select_requirements_gate || steps.fallback.outputs.select_requirements_gate }}
+      select_docker_tests: ${{ steps.classify.outputs.select_docker_tests || steps.fallback.outputs.select_docker_tests }}
+      select_oobe_payload: ${{ steps.classify.outputs.select_oobe_payload || steps.fallback.outputs.select_oobe_payload }}
+      select_doc_checks: ${{ steps.classify.outputs.select_doc_checks || steps.fallback.outputs.select_doc_checks }}
+      doc_tests: ${{ steps.classify.outputs.doc_tests }}
+    steps:
+      - name: 取得完整歷史以計算 PR 變更
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 依 diff 選出可在 PR 階段略過的工作
+        id: classify
+        continue-on-error: true
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          & ./script/test/ci_classify.ps1 -EventName $env:EVENT_NAME -BaseRef ('origin/' + $env:BASE_REF) -Root $PWD.Path -OutputPath $env:GITHUB_OUTPUT
+      - name: 分類失敗時改跑完整套件
+        id: fallback
+        if: steps.classify.outcome != 'success'
+        shell: pwsh
+        run: |
+          & ./script/test/ci_classify.ps1 -FailOpen -OutputPath $env:GITHUB_OUTPUT
+
+  doc-checks:
+    name: 文件輕量檢查
+    needs: [classify]
+    if: needs.classify.outputs.select_doc_checks == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: 取得原始碼
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: 只執行引用被改文件的測試與全域契約測試
+        shell: powershell
+        env:
+          DOC_TESTS: ${{ needs.classify.outputs.doc_tests }}
+        run: |
+          & .\script\test\run_ci.ps1 -Layer All -ReportDirectory (Join-Path $env:RUNNER_TEMP 'doc-checks') -Suite ($env:DOC_TESTS -split ',')
+
+  oobe_payload_inspection:
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_oobe_payload == 'true'
     name: 設定包唯讀內容驗證
     runs-on: windows-2022
     timeout-minutes: 5
@@ -109,7 +164,8 @@ jobs:
           if-no-files-found: warn
 
   powershell-coverage:
-    needs: [source-preflight]
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_powershell_coverage == 'true'
     name: PowerShell 全源量測分片 ${{ matrix.shard }}
     runs-on: windows-2022
     timeout-minutes: 60
@@ -168,7 +224,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   isolated-tests:
-    needs: [source-preflight]
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_tests == 'true'
     runs-on: windows-2022
     timeout-minutes: 90
     defaults:
@@ -250,7 +307,8 @@ jobs:
           if-no-files-found: error
   coverage-aggregation:
     name: 同次完整覆蓋率聚合
-    needs: [isolated-tests, powershell-coverage]
+    needs: [classify, isolated-tests, powershell-coverage]
+    if: needs.classify.outputs.select_coverage_aggregation == 'true'
     runs-on: windows-2022
     timeout-minutes: 30
     defaults:
@@ -346,8 +404,8 @@ jobs:
 
   requirements-gate:
     name: requirements-gate
-    if: always() && needs.coverage-aggregation.result != 'cancelled'
-    needs: [coverage-aggregation]
+    if: always() && needs.classify.outputs.select_requirements_gate == 'true' && needs.coverage-aggregation.result != 'cancelled'
+    needs: [classify, coverage-aggregation]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -392,7 +450,8 @@ jobs:
           go run ./script/test/repo_coverage_tool verify --runtime --artifact-dir acceptance-artifact --source-root . --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --require-complete --minimum-percent 80
 
   docker-tests:
-    needs: [source-preflight]
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_docker_tests == 'true'
     name: docker-tests
     runs-on: windows-2022
     timeout-minutes: 125
@@ -465,7 +524,7 @@ jobs:
   ci-rollup:
     name: ci-rollup
     if: always()
-    needs: [isolated-tests, requirements-gate, docker-tests, oobe_payload_inspection, powershell-coverage, coverage-aggregation]
+    needs: [classify, doc-checks, isolated-tests, requirements-gate, docker-tests, oobe_payload_inspection, powershell-coverage, coverage-aggregation]
     runs-on: windows-2022
     timeout-minutes: 5
     steps:
@@ -482,10 +541,21 @@ jobs:
           OOBE_PAYLOAD_RESULT: ${{ needs.oobe_payload_inspection.result }}
           POWERSHELL_COVERAGE_RESULT: ${{ needs.powershell-coverage.result }}
           COVERAGE_RESULT: ${{ needs.coverage-aggregation.result }}
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          DOC_CHECKS_RESULT: ${{ needs.doc-checks.result }}
+          SELECT_TESTS: ${{ needs.classify.outputs.select_tests }}
+          SELECT_REQUIREMENTS: ${{ needs.classify.outputs.select_requirements_gate }}
+          SELECT_DOCKER: ${{ needs.classify.outputs.select_docker_tests }}
+          SELECT_PAYLOAD: ${{ needs.classify.outputs.select_oobe_payload }}
+          SELECT_POWERSHELL_COVERAGE: ${{ needs.classify.outputs.select_powershell_coverage }}
+          SELECT_COVERAGE: ${{ needs.classify.outputs.select_coverage_aggregation }}
+          SELECT_DOC_CHECKS: ${{ needs.classify.outputs.select_doc_checks }}
         run: |
           . .\script\test\ci_tasks.ps1
           . .\script\test\ci_quality_summary.ps1
-          $states=@{Tests=$env:TEST_RESULT;Requirements=$env:REQUIREMENTS_RESULT;Docker=$env:DOCKER_RESULT;Payload=$env:OOBE_PAYLOAD_RESULT;PowerShellCoverage=$env:POWERSHELL_COVERAGE_RESULT;Coverage=$env:COVERAGE_RESULT}
+          $states=@{Tests=$env:TEST_RESULT;Requirements=$env:REQUIREMENTS_RESULT;Docker=$env:DOCKER_RESULT;Payload=$env:OOBE_PAYLOAD_RESULT;PowerShellCoverage=$env:POWERSHELL_COVERAGE_RESULT;Coverage=$env:COVERAGE_RESULT;Classify=$env:CLASSIFY_RESULT;DocChecks=$env:DOC_CHECKS_RESULT}
+          $selection=@{Tests=$env:SELECT_TESTS;Requirements=$env:SELECT_REQUIREMENTS;Docker=$env:SELECT_DOCKER;Payload=$env:SELECT_PAYLOAD;PowerShellCoverage=$env:SELECT_POWERSHELL_COVERAGE;Coverage=$env:SELECT_COVERAGE;DocChecks=$env:SELECT_DOC_CHECKS}
+          $states=Resolve-CIRollupStates -Results $states -Selection $selection
           Write-CIQualityFailureSummary -States $states -SummaryPath $env:GITHUB_STEP_SUMMARY
           Assert-CIResults $states
 
