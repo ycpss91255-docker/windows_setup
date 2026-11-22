@@ -38,3 +38,23 @@ $script:failure=[Management.Automation.MethodInvocationException]::new('outer PR
 $script:captured=$null;$failed=$false
 try{Invoke-SetupMdnsPublisherWorker -RunId $script:workerRun -CodeRoot $script:workerRoot}catch{$failed=$true}
 Assert ($failed -and $script:captured.Status -ceq 'Failed' -and $script:captured.Error -ceq 'callback-status=123') 'worker preserves sanitized cycle diagnostic'
+
+function New-FixtureTimeoutLease {
+ $lease=[pscustomobject]@{Registered=$true}
+ $lease|Add-Member ScriptMethod Dispose {throw [TimeoutException]::new('Native cancellation/deregistration is still pending; memory retained until its callback or process exit.')}
+ return $lease
+}
+$state=[pscustomobject]@{Leases=@((New-FixtureTimeoutLease));Fingerprint='old';Plans=@();Ready=$true;Status='Registered';Error=''}
+$script:captured=$null;$failed=$false
+try{Invoke-SetupMdnsPublisherCycle -State $state -Context @{} -Facts $facts -CodeRoot 'fixture' -StatusPath 'fixture'}catch{$failed=$true}
+Assert ($failed -and $script:captured.Status -ceq 'Failed' -and $script:captured.Error -match 'cleanup-timeout') 'primary lease disposal timeout remains classified'
+$script:registrationCalls=0
+function New-SetupMdnsNativeRegistration {param($CodeRoot,$Row) $script:registrationCalls++;if($script:registrationCalls -eq 1){return New-FixtureTimeoutLease};throw [Management.Automation.MethodInvocationException]::new('outer PRIVATE',[InvalidOperationException]::new('Native registration callback failed: 123'))}
+$twoFacts=[pscustomobject]@{ComputerName='FIXTURE';Addresses=@([pscustomobject]@{InterfaceIndex=1;IPAddress='192.0.2.9'},[pscustomobject]@{InterfaceIndex=2;IPAddress='192.0.2.10'});PolicyAllowed=$true;DnsClientRunning=$true;SshdRunning=$true;DnsClientProcessId=1}
+$state=[pscustomobject]@{Leases=@();Fingerprint='';Plans=@();Ready=$false;Status='Starting';Error=''};$script:captured=$null;$failed=$false
+try{Invoke-SetupMdnsPublisherCycle -State $state -Context @{} -Facts $twoFacts -CodeRoot 'fixture' -StatusPath 'fixture'}catch{$failed=$true}
+Assert ($failed -and -not $script:captured.Ready -and $script:captured.Error -match 'callback-status=123' -and $script:captured.Error -match 'cleanup-timeout' -and $script:captured.Error -notmatch 'PRIVATE') 'registration and cleanup failures remain distinct'
+foreach($code in @('4294967295','4294967296','9999999999')){
+ $out=Get-SetupMdnsSafeFailure ([InvalidOperationException]::new(('Native registration callback failed: '+$code)))
+ Assert ($(if($code -eq '4294967295'){$out -ceq ('callback-status='+$code)}else{$out -ceq 'unknown'})) 'native status must fit uint32'
+}

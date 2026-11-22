@@ -58,11 +58,12 @@ function Get-SetupMdnsSafeFailure {
  $current=$Exception;$seen=0
  while($current -and $seen -lt 12){
   $message=$current.Message
+  if($message -ceq '原生mDNS撤銷未完成：cleanup-timeout'){return 'cleanup-timeout'}
   if($message -ceq 'Native registration callback schema differs or has no instance.'){return 'callback-schema'}
   if($message.StartsWith('Native callback read failed: ')){return 'callback-read-failed'}
   if($message.StartsWith('Native callback free failed: ')){return 'callback-free-failed'}
-  if($message -cmatch '\ANative registration callback failed: ([0-9]{1,10})\z'){return ('callback-status='+$Matches[1])}
-  if($message -cmatch '\ANative request did not return DNS_REQUEST_PENDING: ([0-9]{1,10})\z'){return ('request-status='+$Matches[1])}
+  if($message -cmatch '\ANative registration callback failed: ([0-9]{1,10})\z'){$number=[uint32]0;if([uint32]::TryParse($Matches[1],[ref]$number)){return ('callback-status='+$number)}}
+  if($message -cmatch '\ANative request did not return DNS_REQUEST_PENDING: ([0-9]{1,10})\z'){$number=[uint32]0;if([uint32]::TryParse($Matches[1],[ref]$number)){return ('request-status='+$number)}}
   if($current -is [TimeoutException] -and $message -ceq 'Native mDNS registration callback timed out.'){return 'registration-timeout'}
   if($current -is [TimeoutException] -and $message -ceq 'Native cancellation/deregistration is still pending; memory retained until its callback or process exit.'){return 'cleanup-timeout'}
   $current=$current.InnerException;$seen++
