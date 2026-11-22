@@ -84,6 +84,7 @@ function Get-SetupDriverManifestEntries {
    foreach($driver in $drivers){
     if($driver.DriverVersion -notmatch '^\d+(\.\d+){3}$' -or -not $driver.Provider -or $driver.Architecture -ne 'amd64' -or $driver.MinimumBuild -lt 10240 -or $driver.MinimumBuild -gt 99999){throw '驅動版本、架構或最低作業系統規格不合法。'}
     if(@($driver.HardwareIds).Count -lt 1){throw '驅動需要明確硬體 ID。'}
+    if($driver.PSObject.Properties['NamingOnly'] -and ($driver.NamingOnly -isnot [bool] -or -not $driver.NamingOnly -or $driver.ParentTarget)){throw '驅動 NamingOnly 只能是 true 且不可有父目標。'}
     foreach($id in $driver.HardwareIds){if($id -notmatch '^(?:(PCI|ACPI|HDAUDIO|USB)\\[A-Z0-9_&]+|SWC\\[A-Z0-9_&.-]+|ROOT\\AMDLOG)$'){throw '驅動硬體 ID 不合法。'}}
     $inf=[string]$driver.InfPath
     if($inf -notmatch '^[a-zA-Z0-9_ .()/-]+\.inf$' -or $inf -match '(^|/)\.\.(/|$)' -or [IO.Path]::IsPathRooted($inf)){throw '驅動 INF 路徑必須是安全相對路徑。'}

@@ -19,7 +19,7 @@ function Invoke-SetupDriverVerification {
   if(Test-SetupDriverScopeAbsent -Entry $entry -Devices $devices -Build $build){$results+=@($entry.Drivers|ForEach-Object {New-SetupDriverScopeSkippedResult -Target $_});continue}
   foreach($target in $entry.Drivers){
   $step++;Write-Host ('['+$step+'/'+$allTargets.Count+'] 核對 '+$entry.Id+' / '+$target.InfPath)
-  $plans=@(Get-SetupDriverTargetPlan -Target $target -Devices $devices -Build $build -Architecture amd64)
+  $plans=@(Get-SetupDriverTargetPlan -Target $target -Devices $devices -Build $build -Architecture amd64 -OwnerTargets $allTargets)
   if($target.ParentTarget){
    $parent=@($entry.Drivers|Where-Object Id -CEQ $target.ParentTarget)[0]
    $parentPlans=@(Get-SetupDriverTargetPlan -Target $parent -Devices $devices -Build $build -Architecture amd64)
