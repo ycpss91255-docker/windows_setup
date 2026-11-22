@@ -36,4 +36,26 @@ foreach($mode in @($false,$true)){
  Assert ($saved.ProblemDevices.Count -eq 1 -and $saved.User.Name -eq 'fixture' -and -not $saved.RebootRequired) '實際枚舉結果與使用者SID保留'
  if($mode){Assert ($saved.UpdateResultError -eq 'fixture update identity error' -and $saved.TPM -eq 'fixture tpm failure') '可選API與受保護更新盤點錯誤如實保存'}else{Assert ($saved.UpdateResult.RunId -eq 'fixture_run' -and $saved.SecureBoot) '正常更新身分與安全狀態讀回'}
 }
-Write-Host 'ALL PASS: named audit source, TEMP only, Windows changes trapped.'
+Write-Host 'ALL PASS: named audit source, TEMP only, Windows changes trapped.'# Exercise the real update-result reader with an owned missing-result fixture.
+. (Join-Path $root 'modules/updates/update_stage_library.ps1')
+function Assert-SetupUpdateAncestors {param($CommonDataRoot)}
+function Assert-SetupUpdateProtectedPath {param($Path) [void](Microsoft.PowerShell.Management\Get-Item -LiteralPath $Path -ErrorAction Stop)}
+function Read-SetupUpdateContext {param($StageRoot) [pscustomobject]@{UserSID='fixture_sid';Computer=$env:COMPUTERNAME;RunId='fixture_run'}}
+$stage=Join-Path $fixture 'windows_setup_update';[void][IO.Directory]::CreateDirectory($stage)
+[IO.File]::WriteAllText((Join-Path $stage 'context.json'),'{}')
+$script:sshMode='absent';$script:hostLines=@()
+function Get-CimInstance {param($ClassName,$Filter,$ErrorAction);if($ClassName -eq 'Win32_Service'){if($script:sshMode -eq 'unknown'){throw 'fixture service query error'};if($script:sshMode -eq 'running'){return [pscustomobject]@{State='Running';StartMode='Auto'}};return};return [pscustomobject]@{Name='fixture';Caption='fixture';BuildNumber='22631'}}
+function Write-Host {param($Object,$ForegroundColor);$script:hostLines+=([string]$Object)}
+foreach($mode in @('absent','running','unknown')){
+ $script:sshMode=$mode;$script:hostLines=@();$reportPath=Join-Path $fixture ('audit_'+$mode+'.json')
+ $audit=Invoke-SetupAudit -ReportPath $reportPath -UserSID fixture_sid -CommonDataRoot $fixture
+ $saved=Get-Content -LiteralPath $reportPath -Raw -Encoding UTF8|ConvertFrom-Json
+ if($saved.UpdateResult -ne $null -or [string]::IsNullOrWhiteSpace($saved.UpdateResultError)){throw 'missing update must retain original error'}
+ if(-not ($script:hostLines -match '沒有本輪更新結果')){throw 'missing update summary must be explicit'}
+ if($mode -eq 'absent' -and -not ($script:hostLines -match 'SSH：未安裝')){throw 'absent SSH must be explicit'}
+ if($mode -eq 'absent' -and $null -ne $saved.SSH){throw 'absent SSH must remain null in audit'}
+ if($mode -eq 'running' -and ($saved.SSH.State -cne 'Running' -or $saved.SSH.StartMode -cne 'Auto')){throw 'installed SSH data must remain in audit'}
+ if($mode -eq 'running' -and -not ($script:hostLines -match 'SSH：Running；啟動方式：Auto')){throw 'running SSH remains visible'}
+ if($mode -eq 'unknown' -and (-not ($script:hostLines -match 'SSH：狀態未知') -or $saved.SSHError -ne 'fixture service query error')){throw 'failed SSH query must remain unknown and preserve error'}
+ if((@($script:hostLines|Where-Object {$_ -like 'Windows Update：*'}) -join "`n").Contains($fixture)){throw 'console leaked private result error path'}
+}
