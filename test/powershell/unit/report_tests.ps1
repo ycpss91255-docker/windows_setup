@@ -72,7 +72,7 @@ Assert ($passedBadge.svg.rect[1].fill -eq '#4c1' -and $failedBadge.svg.rect[1].f
 [xml]$coverageBadge=Get-Content (Join-Path $fixture 'coverage.svg') -Raw -Encoding UTF8
 Assert ($coverageBadge.svg.g[0].rect[1].fill -eq '#9f9f9f' -and $coverageBadge.svg.'aria-label'.Contains('not measured') -and -not $coverageBadge.svg.'aria-label'.Contains('%')) 'Coverage 未量測使用中性灰色而非假百分比'
 
-Assert ($html.Contains('archive/'+('a'*40)+'.zip') -and -not $html.Contains('href="https://github.com/ycpss91255/windows_setup/releases"')) '分支報告下載指向本次提交，不導向舊發布版'
+Assert ($html.Contains('archive/'+('a'*40)+'.zip') -and -not $html.Contains('href="https://github.com/ycpss91255-docker/windows_setup/releases"')) '分支報告下載指向本次提交，不導向舊發布版'
 Assert (-not $html.Contains('完整 Windows 安裝') -and $html.Contains('blob/main/readme.md')) '明細保留目前使用步驟且不顯示取消的交付要求'
 
 $changeOutput=Join-Path $fixture 'maintenance_changes'

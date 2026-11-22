@@ -59,7 +59,7 @@ func run() error {
 		}
 		return a.ValidateGoCoverageReport(read, files, *sha, *run, false)
 	}
-	if err := a.ValidateOverviewBadge(doc, "https://ycpss91255.github.io/windows_setup/"); err != nil {
+	if err := a.ValidateOverviewBadge(doc, "https://ycpss91255-docker.github.io/windows_setup/"); err != nil {
 		return err
 	}
 	if err := requireRuntimeCoverage(report); err != nil {
