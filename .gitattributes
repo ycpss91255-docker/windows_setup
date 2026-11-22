@@ -7,9 +7,21 @@
 *.go text eol=lf
 /go.mod text eol=lf
 /go.sum text eol=lf
+*.json text eol=lf
+*.xml text eol=lf
 
 # cmd.exe 以 LF 換行可能誤判標籤與續行，CMD 啟動器固定 CRLF。
 *.cmd text eol=crlf
+
+# 雜湊已記錄原位元組的資產不轉換：驅動 manifest 綁定已發行 ManifestSHA256；
+# 設定包來源 XML 綁定 provenance SourceSHA256；基線與 provenance 保留原檔。
+/drivers/*/manifest.json -text
+/modules/init/assets/hide_oobe.xml -text
+/modules/init/assets/payload_baseline.json -text
+/modules/init/assets/provenance.json -text
+/modules/start_menu/assets/empty_start.xml -text
+/modules/start_menu/assets/payload_baseline.json -text
+/modules/start_menu/assets/provenance.json -text
 
 # 第三方內容保留上游原位元組。
 /modules/debloat/win11debloat/** -text

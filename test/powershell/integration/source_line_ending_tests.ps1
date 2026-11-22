@@ -9,11 +9,18 @@ $categories=@(
  @{Name='CMD 啟動器';Pattern='\.cmd$';Eol='crlf'},
  @{Name='PowerShell 腳本';Pattern='\.ps1$';Eol='lf'},
  @{Name='C# 原生來源';Pattern='\.cs$';Eol='lf'},
- @{Name='Go 維護工具';Pattern='\.go$|^go\.(mod|sum)$';Eol='lf'}
+ @{Name='Go 維護工具';Pattern='\.go$|^go\.(mod|sum)$';Eol='lf'},
+ @{Name='JSON 與 XML 資料';Pattern='\.(json|xml)$';Eol='lf'}
 )
 $thirdParty=@('modules/debloat/win11debloat/','vendor/')
 $locked=@{
-
+ 'drivers/nuc8i7hvk_hnk/manifest.json'='crlf'
+ 'modules/init/assets/hide_oobe.xml'='lf'
+ 'modules/init/assets/payload_baseline.json'='crlf'
+ 'modules/init/assets/provenance.json'='crlf'
+ 'modules/start_menu/assets/empty_start.xml'='lf'
+ 'modules/start_menu/assets/payload_baseline.json'='crlf'
+ 'modules/start_menu/assets/provenance.json'='crlf'
 }
 $checkUncategorized=$false
 $raw=& git -C $root -c core.quotepath=false ls-files -z --eol
