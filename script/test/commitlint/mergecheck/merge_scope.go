@@ -128,6 +128,13 @@ func deriveEventScope(repo string, event sourceEvent, anchor string) ([]string, 
 			return nil, nil, fmt.Errorf("PR checkout tree mismatch")
 		}
 		return []string{event.Head}, []string{event.Base}, nil
+	case "merge_group":
+		// 佇列分組：group head 必須由 base（main 當下）合成，範圍為 base 之後新增的提交，
+		// 其中的合併提交須符合佇列合併標題規則（標題格式、中文 PR 標題、第二個父提交為 PR head）。
+		if event.Head != event.Checkout || !commitOID.MatchString(event.Base) || !isAncestor(repo, anchor, event.Base) || !isAncestor(repo, event.Base, event.Head) {
+			return nil, nil, fmt.Errorf("invalid merge group ancestry")
+		}
+		return []string{event.Head}, []string{event.Base}, nil
 	case "push_main":
 		if event.After != event.Checkout || !isAncestor(repo, anchor, event.Before) || !isAncestor(repo, event.Before, event.After) {
 			return nil, nil, fmt.Errorf("invalid main push ancestry")

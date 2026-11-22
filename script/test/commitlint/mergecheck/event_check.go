@@ -59,6 +59,12 @@ type githubEvent struct {
 	Repository struct {
 		FullName string `json:"full_name"`
 	} `json:"repository"`
+	MergeGroup *struct {
+		BaseRef string `json:"base_ref"`
+		BaseSHA string `json:"base_sha"`
+		HeadRef string `json:"head_ref"`
+		HeadSHA string `json:"head_sha"`
+	} `json:"merge_group"`
 	PullRequest *struct {
 		Number int `json:"number"`
 		Base   struct {
@@ -105,6 +111,14 @@ func parseSourceEvent(kind, ref, sha, main string, raw []byte) (sourceEvent, err
 		} else {
 			return v, fmt.Errorf("unsupported push ref")
 		}
+	case "merge_group":
+		g := e.MergeGroup
+		if g == nil || g.BaseRef != "refs/heads/main" || g.HeadSHA != sha || g.HeadRef != ref || !strings.HasPrefix(ref, "refs/heads/gh-readonly-queue/main/") {
+			return v, fmt.Errorf("invalid merge group metadata")
+		}
+		v.Kind = "merge_group"
+		v.Base = g.BaseSHA
+		v.Head = g.HeadSHA
 	case "workflow_dispatch":
 		if ref != "refs/heads/main" {
 			return v, fmt.Errorf("unsupported manual ref")
@@ -156,9 +170,6 @@ func checkGitHubEvent(repo string) error {
 		return fmt.Errorf("unexpected repository")
 	}
 	kind := os.Getenv("GITHUB_EVENT_NAME")
-	if kind == "merge_group" {
-		return fmt.Errorf("merge_group input is not yet supported")
-	}
 	roots, err := frozenRoots()
 	if err != nil {
 		return err
