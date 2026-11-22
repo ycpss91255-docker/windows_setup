@@ -15,6 +15,12 @@ $verifier=@'
 param([string]$VerificationRunId)
 $check=[pscustomobject]@{Name='開始選單釘選清空';Status='Passed';Passed=$true}
 $record=@{VerificationRunId=$VerificationRunId;Computer=$env:COMPUTERNAME;UserSID=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Passed=$true;Checks=@($check)}
+if($env:ACCEPTANCE_FIXTURE_MODE -in @('taskbar-cleared','taskbar-pending','taskbar-read-failure')){
+ $ok=$env:ACCEPTANCE_FIXTURE_MODE -eq 'taskbar-cleared'
+ $detail=if($env:ACCEPTANCE_FIXTURE_MODE -eq 'taskbar-read-failure'){'讀取失敗；畫面未知。'}else{'畫面未知；讀回狀態不證明登入。'}
+ $record.Passed=$ok
+ $record.Checks=@([pscustomobject]@{Name='Edge-only 釘選配置';Status=$(if($ok){'Passed'}else{'Failed'});Passed=$ok;Detail=$detail},[pscustomobject]@{Name='工作列待處理項目讀回';Status=$(if($ok){'Passed'}else{'Failed'});Passed=$ok;Detail=$detail})
+}
 if($env:ACCEPTANCE_FIXTURE_MODE -eq 'wrong-id'){$record.VerificationRunId='old-run'}
 if($env:ACCEPTANCE_FIXTURE_MODE -eq 'wrong-machine'){$record.Computer='other-machine'}
 if($env:ACCEPTANCE_FIXTURE_MODE -eq 'wrong-user'){$record.UserSID='other-user'}
@@ -25,12 +31,13 @@ if($env:ACCEPTANCE_FIXTURE_MODE -eq 'throw') {throw 'fixture failure'}
 $oldMode=$env:ACCEPTANCE_FIXTURE_MODE
 $seenIds=@()
 try{
- foreach($mode in @('success','wrong-id','wrong-machine','wrong-user','two-start','throw','prior-error','previous-other')){
+ foreach($mode in @('success','wrong-id','wrong-machine','wrong-user','two-start','throw','prior-error','previous-other','taskbar-cleared','taskbar-pending','taskbar-read-failure')){
   $script:caseDir=Join-Path $fixture $mode;New-Item -ItemType Directory $script:caseDir|Out-Null
   [IO.File]::WriteAllText((Join-Path $script:caseDir 'verify_only.ps1'),$verifier,[Text.UTF8Encoding]::new($true))
   $env:ACCEPTANCE_FIXTURE_MODE=$mode
   $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
   $previous=[pscustomobject]@{Computer=$env:COMPUTERNAME;UserSID=$sid;Success=$false;PendingModules=@([pscustomobject]@{Module='apply_start_menu_settings.ps1'})}
+
   if($mode -eq 'previous-other'){$previous.Computer='other-machine'}
   $errors=@();if($mode -eq 'prior-error'){$errors=@('fixture prior failure')}
   $resultPath=Join-Path $script:caseDir 'Setup-Result.json';$threw=$false
@@ -42,8 +49,14 @@ try{
    Assert ([guid]::TryParse($current,[ref]$parsed) -and $current -notin $seenIds) ('fresh unique run ID is supplied: '+$mode)
    $seenIds+=@($current)
   }
-  $expected=$mode -in @('success','two-start','previous-other')
+  $expected=$mode -in @('success','two-start','previous-other','taskbar-cleared')
   Assert (($report.Success -eq $expected) -and ($threw -ne $expected)) ('report and throw retain acceptance outcome: '+$mode)
+  if($mode -eq 'success'){Assert ($report.TaskbarEvidence.VisualStatus -ceq 'Unknown' -and @($report.TaskbarEvidence.PolicyChecks).Count -eq 0) '缺少工作列資料不憑空推斷'}
+  if($mode -like 'taskbar-*'){
+   Assert ($report.TaskbarEvidence.VisualStatus -ceq 'Unknown') ('實際畫面未知持久保留 '+$mode)
+   Assert (@($report.TaskbarEvidence.PolicyChecks).Count -eq 2) ('政策與待處理讀回持久保留 '+$mode)
+   Assert ($report.TaskbarEvidence.PolicyChecks[0].Passed -eq ($mode -eq 'taskbar-cleared')) ('保留本輪讀回結果 '+$mode)
+  }
   if($mode -eq 'previous-other'){Assert (-not (Test-Path $resultPath)) 'different previous owner is not updated'}
   elseif($mode -eq 'success'){Assert (@($previous.PendingModules).Count -eq 0 -and $previous.Success) 'single passed Start check clears matching pending module'}
   elseif($mode -eq 'two-start'){Assert (@($previous.PendingModules).Count -eq 1) 'duplicate passed Start checks retain pending module'}
