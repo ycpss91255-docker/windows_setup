@@ -87,6 +87,19 @@ try{
  Put 'test/powershell/unit/first_tests.ps1' $pass
  $r=Run 'parallel_failure' 'Unit' 'CI 測試未通過' 2
  Assert (-not $r.Success -and $r.Checks[1].Passed -and $r.Checks[2].ExitCode -eq 7) '平行執行時單一 suite 失敗仍使整體失敗並保留退出碼'
+ # 平行子程序必須沿用父程序的主控台編碼；背景工作會失去主控台而退回預設碼頁，使中文輸出判讀失敗。
+ $priorEncoding=[Console]::OutputEncoding;$encodingChanged=$false
+ try{[Console]::OutputEncoding=[Text.Encoding]::GetEncoding(437);$encodingChanged=$true}catch{}
+ try{
+  if($encodingChanged){
+   $encodingSuite='$expected=[int]$env:CI_EXPECT_CODEPAGE'+"`n"+'Write-Output (''@@ASSERT@@''+(@{Name=''child console code page matches parent'';Passed=([Console]::OutputEncoding.CodePage -eq $expected)}|ConvertTo-Json -Compress))'
+   Put 'test/powershell/unit/first_tests.ps1' $encodingSuite
+   Put 'test/powershell/unit/second_tests.ps1' $encodingSuite
+   $env:CI_EXPECT_CODEPAGE='437'
+   $r=Run 'parallel_encoding' 'Unit' '' 2
+   Assert ($r.Success -and $r.Checks.Count -eq 3) '平行 suite 沿用父程序的主控台編碼，不退回預設碼頁'
+  }
+ }finally{[Console]::OutputEncoding=$priorEncoding;$env:CI_EXPECT_CODEPAGE=$null}
  foreach($invalid in @(0,5)){
   $rejected=$false;try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp ('bad_'+$invalid)) -Layer Unit -Parallelism $invalid}catch{$rejected=$true}
   Assert $rejected ('拒絕超出範圍的平行數 '+$invalid)

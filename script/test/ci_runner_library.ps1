@@ -29,7 +29,7 @@ foreach($kind in @('unit','integration')){
 }
 $cases=@($cases|Where-Object {$Layer -eq 'All' -or $_.Layer -eq $Layer})
 if(-not $cases.Count){throw '沒有符合所選層級的測試，不得回報成功。'}
-# Each case runs in its own Windows PowerShell child process; the same block runs inline (serial) or in a background job.
+# Each case runs in its own Windows PowerShell child process; this block runs the serial path inline.
 $runCase={
  param([string]$CaseName,[string[]]$CaseArguments,[string]$LogDirectory,[string]$WorkingDirectory,[string]$ShellPath)
  $ErrorActionPreference='Stop'
@@ -61,12 +61,35 @@ function Complete-SetupCICase($Case,$Outcome){
  $outcomes[$Case.Name]=[pscustomobject]@{Name=$Case.Name;Layer=$Case.Layer;Status=$(if($code -eq 0){'Passed'}else{'Failed'});Executed=$true;Passed=($code -eq 0);ExitCode=$code;DurationSeconds=[math]::Round($Outcome.Seconds,3);Assertions=$assertions}
  Write-Host ($Case.Name+': '+$(if($code -eq 0){'PASS'}else{'FAIL'}))
 }
-function Receive-SetupCIJob($Entry){
- $outcome=$null
- try{$outcome=@(Receive-Job -Job $Entry.Job -ErrorAction Stop)|Where-Object {$_ -and $_.PSObject.Properties['Code']}|Select-Object -Last 1}catch{$_|Out-String|Out-File (Join-Path $ReportDirectory ($Entry.Case.Name+'.log')) -Append -Encoding UTF8}
- Remove-Job -Job $Entry.Job -Force
- if(-not $outcome){$outcome=[pscustomobject]@{Code=1;Seconds=0.0}}
- Complete-SetupCICase $Entry.Case $outcome
+# Parallel cases run as direct children of this process (through cmd redirection) so they share its console and code page;
+# background jobs lose the console and fall back to a default code page, which garbles non-ASCII test output.
+$cmdPath=Join-Path $env:WINDIR 'System32\cmd.exe'
+function Start-SetupCIProcess($Case,$Arguments){
+ $raw=Join-Path $ReportDirectory ($Case.Name+'.raw')
+ $quoted=@(@($shellPath)+@($Arguments)|ForEach-Object {'"'+$_+'"'})
+ $command='"'+($quoted -join ' ')+' > "'+$raw+'" 2>&1"'
+ $process=Start-Process -FilePath $cmdPath -ArgumentList @('/d','/c',$command) -NoNewWindow -PassThru
+ $null=$process.Handle
+ [pscustomobject]@{Case=$Case;Process=$process;Raw=$raw;Timer=[Diagnostics.Stopwatch]::StartNew()}
+}
+function Complete-SetupCIProcess($Entry){
+ $Entry.Process.WaitForExit()
+ $Entry.Timer.Stop()
+ $code=[int]$Entry.Process.ExitCode
+ $log=Join-Path $ReportDirectory ($Entry.Case.Name+'.log')
+ try{
+  $text=[Console]::OutputEncoding.GetString([IO.File]::ReadAllBytes($Entry.Raw))
+  [IO.File]::WriteAllText($log,$text,(New-Object Text.UTF8Encoding $true))
+  [IO.File]::Delete($Entry.Raw)
+ }catch{$code=1;$_|Out-String|Out-File $log -Append -Encoding UTF8}
+ Complete-SetupCICase $Entry.Case ([pscustomobject]@{Code=$code;Seconds=$Entry.Timer.Elapsed.TotalSeconds})
+}
+function Wait-SetupCIProcess([int]$Limit){
+ while($running.Count -ge $Limit -and $running.Count -gt 0){
+  $finished=@($running|Where-Object {$_.Process.HasExited})
+  if(-not $finished.Count){Start-Sleep -Milliseconds 200;continue}
+  foreach($entry in $finished){[void]$running.Remove($entry);Complete-SetupCIProcess $entry}
+ }
 }
 foreach($case in $cases){
  $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$case.Path)+$case.Arguments
@@ -74,20 +97,10 @@ foreach($case in $cases){
   Complete-SetupCICase $case (& $runCase $case.Name $arguments $ReportDirectory $workingDirectory $shellPath)
   continue
  }
- while($running.Count -ge $Parallelism){
-  $finished=Wait-Job -Job @($running|ForEach-Object {$_.Job}) -Any
-  $entry=@($running|Where-Object {$_.Job.Id -eq $finished.Id})[0]
-  [void]$running.Remove($entry)
-  Receive-SetupCIJob $entry
- }
- $running.Add([pscustomobject]@{Case=$case;Job=(Start-Job -ScriptBlock $runCase -ArgumentList @($case.Name,$arguments,$ReportDirectory,$workingDirectory,$shellPath))})
+ Wait-SetupCIProcess $Parallelism
+ $running.Add((Start-SetupCIProcess $case $arguments))
 }
-while($running.Count){
- $finished=Wait-Job -Job @($running|ForEach-Object {$_.Job}) -Any
- $entry=@($running|Where-Object {$_.Job.Id -eq $finished.Id})[0]
- [void]$running.Remove($entry)
- Receive-SetupCIJob $entry
-}
+Wait-SetupCIProcess 1
 # Report order follows the roster, never completion order.
 foreach($case in $cases){$results.Add($outcomes[$case.Name])}
 $success=@($results|Where-Object {$_.Executed -and -not $_.Passed}).Count -eq 0
