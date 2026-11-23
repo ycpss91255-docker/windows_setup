@@ -1,0 +1,101 @@
+﻿InstanceId : PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\3&00000000&0&A9
+KeyName    : DEVPKEY_Device_HardwareIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A161&SUBSYS_20738086, PCI\VEN_8086&DEV_A16
+             1&CC_118000, PCI\VEN_8086&DEV_A161&CC_1180}
+
+InstanceId : PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\3&00000000&0&A9
+KeyName    : DEVPKEY_Device_CompatibleIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A161&REV_31, PCI\VEN_8086&DEV_A161, PCI\VEN_8086&CC_118000, PCI\VEN_8086&CC_1180...}
+
+InstanceId : PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\3&00000000&0&A9
+KeyName    : DEVPKEY_Device_ProblemCode
+Type       : UInt32
+Data       : 0
+
+InstanceId : PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\3&00000000&0&A9
+KeyName    : DEVPKEY_Device_DriverInfPath
+Type       : String
+Data       : oem5.inf
+
+InstanceId : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+KeyName    : DEVPKEY_Device_HardwareIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A127&SUBSYS_20738086, PCI\VEN_8086&DEV_A12
+             7&CC_118000, PCI\VEN_8086&DEV_A127&CC_1180}
+
+InstanceId : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+KeyName    : DEVPKEY_Device_CompatibleIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A127&REV_31, PCI\VEN_8086&DEV_A127, PCI\VEN_8086&CC_118000, PCI\VEN_8086&CC_1180...}
+
+InstanceId : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+KeyName    : DEVPKEY_Device_ProblemCode
+Type       : UInt32
+Data       : 28
+
+InstanceId : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+KeyName    : DEVPKEY_Device_DriverInfPath
+Type       : Empty
+
+InstanceId : PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\3&00000000&0&A8
+KeyName    : DEVPKEY_Device_HardwareIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A160&SUBSYS_20738086, PCI\VEN_8086&DEV_A16
+             0&CC_118000, PCI\VEN_8086&DEV_A160&CC_1180}
+
+InstanceId : PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\3&00000000&0&A8
+KeyName    : DEVPKEY_Device_CompatibleIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A160&REV_31, PCI\VEN_8086&DEV_A160, PCI\VEN_8086&CC_118000, PCI\VEN_8086&CC_1180...}
+
+InstanceId : PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\3&00000000&0&A8
+KeyName    : DEVPKEY_Device_ProblemCode
+Type       : UInt32
+Data       : 0
+
+InstanceId : PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\3&00000000&0&A8
+KeyName    : DEVPKEY_Device_DriverInfPath
+Type       : String
+Data       : oem5.inf
+
+InstanceId : ACPI\INT345D\3&00000000&0
+KeyName    : DEVPKEY_Device_HardwareIds
+Type       : StringList
+Data       : {ACPI\VEN_INT&DEV_345D, ACPI\INT345D, *INT345D}
+
+InstanceId : ACPI\INT345D\3&00000000&0
+KeyName    : DEVPKEY_Device_CompatibleIds
+Type       : Empty
+
+InstanceId : ACPI\INT345D\3&00000000&0
+KeyName    : DEVPKEY_Device_ProblemCode
+Type       : UInt32
+Data       : 0
+
+InstanceId : ACPI\INT345D\3&00000000&0
+KeyName    : DEVPKEY_Device_DriverInfPath
+Type       : String
+Data       : oem4.inf
+
+InstanceId : PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\3&00000000&0&AA
+KeyName    : DEVPKEY_Device_HardwareIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A162&SUBSYS_20738086, PCI\VEN_8086&DEV_A16
+             2&CC_118000, PCI\VEN_8086&DEV_A162&CC_1180}
+
+InstanceId : PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\3&00000000&0&AA
+KeyName    : DEVPKEY_Device_CompatibleIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A162&REV_31, PCI\VEN_8086&DEV_A162, PCI\VEN_8086&CC_118000, PCI\VEN_8086&CC_1180...}
+
+InstanceId : PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\3&00000000&0&AA
+KeyName    : DEVPKEY_Device_ProblemCode
+Type       : UInt32
+Data       : 0
+
+InstanceId : PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\3&00000000&0&AA
+KeyName    : DEVPKEY_Device_DriverInfPath
+Type       : String
+Data       : oem5.inf
