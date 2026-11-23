@@ -1,0 +1,151 @@
+{
+ "InstanceId": "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&FIXTURE&0&A2",
+ "TargetVersion": "10.1.6.2",
+ "TargetProvider": "INTEL",
+ "PublishedName": "oem27.inf",
+ "SignerName": "Microsoft Windows Hardware Compatibility Publisher",
+ "afterInstall": [
+  {
+   "atSeconds": 0,
+   "freshProcessSameAsInProcess": true,
+   "cim": {
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null
+   },
+   "devpkey": {
+    "DriverVersion": "10.1.6.2",
+    "DriverProvider": "INTEL",
+    "DriverInfPath": "oem27.inf",
+    "ProblemCode": "0"
+   },
+   "status": "OK"
+  },
+  {
+   "atSeconds": 2,
+   "freshProcessSameAsInProcess": true,
+   "cim": {
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null
+   },
+   "devpkey": {
+    "DriverVersion": "10.1.6.2",
+    "DriverProvider": "INTEL",
+    "DriverInfPath": "oem27.inf",
+    "ProblemCode": "0"
+   },
+   "status": "OK"
+  },
+  {
+   "atSeconds": 5,
+   "freshProcessSameAsInProcess": true,
+   "cim": {
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null
+   },
+   "devpkey": {
+    "DriverVersion": "10.1.6.2",
+    "DriverProvider": "INTEL",
+    "DriverInfPath": "oem27.inf",
+    "ProblemCode": "0"
+   },
+   "status": "OK"
+  },
+  {
+   "atSeconds": 10,
+   "freshProcessSameAsInProcess": true,
+   "cim": {
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null
+   },
+   "devpkey": {
+    "DriverVersion": "10.1.6.2",
+    "DriverProvider": "INTEL",
+    "DriverInfPath": "oem27.inf",
+    "ProblemCode": "0"
+   },
+   "status": "OK"
+  },
+  {
+   "atSeconds": 20,
+   "freshProcessSameAsInProcess": true,
+   "cim": {
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null
+   },
+   "devpkey": {
+    "DriverVersion": "10.1.6.2",
+    "DriverProvider": "INTEL",
+    "DriverInfPath": "oem27.inf",
+    "ProblemCode": "0"
+   },
+   "status": "OK"
+  },
+  {
+   "atSeconds": 30,
+   "freshProcessSameAsInProcess": true,
+   "cim": {
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null
+   },
+   "devpkey": {
+    "DriverVersion": "10.1.6.2",
+    "DriverProvider": "INTEL",
+    "DriverInfPath": "oem27.inf",
+    "ProblemCode": "0"
+   },
+   "status": "OK"
+  },
+  {
+   "atSeconds": 60,
+   "freshProcessSameAsInProcess": true,
+   "cim": {
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null
+   },
+   "devpkey": {
+    "DriverVersion": "10.1.6.2",
+    "DriverProvider": "INTEL",
+    "DriverInfPath": "oem27.inf",
+    "ProblemCode": "0"
+   },
+   "status": "OK"
+  },
+  {
+   "atSeconds": 120,
+   "freshProcessSameAsInProcess": true,
+   "cim": {
+    "DriverVersion": "10.1.6.2",
+    "DriverProviderName": "INTEL",
+    "IsSigned": true
+   },
+   "devpkey": {
+    "DriverVersion": "10.1.6.2",
+    "DriverProvider": "INTEL",
+    "DriverInfPath": "oem27.inf",
+    "ProblemCode": "0"
+   },
+   "status": "OK"
+  }
+ ],
+ "afterRemoveGhost": {
+  "cim": {
+   "DriverVersion": "10.1.6.2",
+   "DriverProviderName": "INTEL",
+   "IsSigned": false
+  },
+  "devpkey": {
+   "DriverVersion": null,
+   "DriverProvider": null,
+   "DriverInfPath": null,
+   "ProblemCode": "0"
+  },
+  "status": "OK"
+ }
+}

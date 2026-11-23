@@ -14,7 +14,7 @@ function Start-Sleep {param([int]$Seconds) $script:sleeps+=$Seconds}
 function Get-SetupDriverReadback {param($Plan,$Devices) $bound=@($Devices|Where-Object Bound).Count -gt 0;return [pscustomobject]@{InstanceId=$Plan.InstanceId;Status=$(if($bound){'Updated'}else{'Unverified'});Reason=$(if($bound){'fixture bound'}else{'fixture unbound'})}}
 $target=[pscustomobject]@{InfPath='fixture.inf'}
 function Invoke-Fixture {Invoke-SetupDriverTarget -Target $target -Root 'C:\fixture' -Build 26200 -Architecture amd64 -LogPath 'C:\fixture\synthetic.log'}
-function Reset-Fixture {param([int]$BindAfter,[int]$ExitCode=0) $script:inventoryReads=0;$script:scans=0;$script:sleeps=@();$script:bindAfter=$BindAfter;$script:exitCode=$ExitCode}
+function Reset-Fixture {param([int]$BindAfter,[int]$ExitCode=0) $script:inventoryReads=0;$script:scans=0;$script:sleeps=@();$script:bindAfter=$BindAfter;$script:exitCode=$ExitCode;$script:SetupDriverReadbackWaited=0}
 
 # 立即綁定：不掃描、不等待
 Reset-Fixture -BindAfter 1
@@ -35,8 +35,8 @@ Reset-Fixture -BindAfter 999
 $r=Invoke-Fixture
 Assert ($r.Results[0].Status -eq 'Unverified') '始終未綁定不得標為成功'
 Assert ($r.Failures.Count -gt 0) '始終未綁定須列入失敗'
-Assert (($script:sleeps|Measure-Object -Sum).Sum -le 30 -and $script:sleeps.Count -ge 1) '總等待須有 30 秒上限'
-Assert ($r.Results[0].Reason -match '30') '失敗原因須註明已等待秒數'
+Assert (($script:sleeps|Measure-Object -Sum).Sum -le 150 -and $script:sleeps.Count -ge 1) '總等待須有 150 秒上限（NUC 實測 CIM 列需 60～120 秒）'
+Assert ($r.Results[0].Reason -match '150') '失敗原因須註明已等待秒數'
 Assert ($script:scans -eq 1) '始終未綁定只重新掃描一次'
 
 # 原生安裝失敗：不掃描、不等待

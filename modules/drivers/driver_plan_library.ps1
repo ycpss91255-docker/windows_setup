@@ -185,17 +185,44 @@ function Get-SetupDriverLiveDriverProperty {
   $version=(Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_DriverVersion' -ErrorAction Stop).Data
   $provider=(Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_DriverProvider' -ErrorAction Stop).Data
   if([string]::IsNullOrWhiteSpace([string]$version) -or [string]::IsNullOrWhiteSpace([string]$provider)){return $null}
-  return [pscustomobject]@{DriverVersion=[string]$version;DriverProvider=[string]$provider}
+  $infPath=$null
+  try{$infPath=[string](Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_DriverInfPath' -ErrorAction Stop).Data}catch{$infPath=$null}
+  return [pscustomobject]@{DriverVersion=[string]$version;DriverProvider=[string]$provider;InfPath=$infPath}
+ }catch{return $null}
+}
+function Get-SetupDriverEnumDriversXmlText {
+ $output=& (Get-SetupDriverPnpTool) /enum-drivers /devices /format xml 2>&1
+ if($LASTEXITCODE -ne 0){throw ('原生驅動盤點失敗：'+$LASTEXITCODE)}
+ return ($output -join "`n")
+}
+function Get-SetupDriverPublishedSigner {
+ param([Parameter(Mandatory=$true)][string]$PublishedName)
+ try{
+  $settings=New-Object Xml.XmlReaderSettings;$settings.DtdProcessing=[Xml.DtdProcessing]::Prohibit;$settings.XmlResolver=$null
+  $reader=[Xml.XmlReader]::Create([IO.StringReader]::new([string](Get-SetupDriverEnumDriversXmlText)),$settings)
+  try{$document=New-Object Xml.XmlDocument;$document.XmlResolver=$null;$document.Load($reader)}finally{$reader.Dispose()}
+  $nodes=@($document.DocumentElement.SelectNodes('*')|Where-Object {$_.GetAttribute('DriverName') -ieq $PublishedName})
+  if($nodes.Count -ne 1){return $null}
+  $signer=@($nodes[0].SelectNodes('SignerName'))
+  if($signer.Count -ne 1){return $null}
+  return [string]$signer[0].InnerText
  }catch{return $null}
 }
 function Get-SetupDriverSettledReadback {
- param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][object[]]$Plans,[bool]$Poll=$true,[int]$TimeoutSeconds=30,[int]$IntervalSeconds=5)
+ param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][object[]]$Plans,[bool]$Poll=$true,[int]$TimeoutSeconds=150,[int]$IntervalSeconds=5)
  $required=@($Plans|Where-Object Status -eq 'UpdateRequired')
  $read={
   $devices=@(Get-SetupDriverDeviceInventory -Targets @($Target)|ForEach-Object{
    $device=$_;$live=$null
    if($device.InstanceId -in @($required|ForEach-Object InstanceId)){$live=Get-SetupDriverLiveDriverProperty -InstanceId ([string]$device.InstanceId)}
-   if($live){$device=$device.PSObject.Copy();$device.DriverVersion=[string]$live.DriverVersion;$device.DriverProvider=[string]$live.DriverProvider}
+   if($live){
+    $device=$device.PSObject.Copy();$device.DriverVersion=[string]$live.DriverVersion;$device.DriverProvider=[string]$live.DriverProvider
+    # CIM 的簽章欄位在新列出現前為空；此時改以 pnputil 的簽署者名稱判定，且只接受既有 CAT 規則的發行者。
+    if($device.PSObject.Properties['DriverSignatureKnown'] -and -not $device.DriverSignatureKnown -and $live.InfPath){
+     $signer=Get-SetupDriverPublishedSigner -PublishedName ([string]$live.InfPath)
+     $device.DriverSigned=($signer -ieq 'Microsoft Windows Hardware Compatibility Publisher')
+    }
+   }
    $device
   })
   @($required|ForEach-Object{Get-SetupDriverReadback -Plan $_ -Devices $devices})
@@ -203,7 +230,9 @@ function Get-SetupDriverSettledReadback {
  $readbacks=@(& $read);$waited=0
  if($Poll -and @($readbacks|Where-Object Status -eq 'Unverified').Count){
   $null=Invoke-SetupDriverPnpRescan
-  while(@($readbacks|Where-Object Status -eq 'Unverified').Count -and $waited -lt $TimeoutSeconds){Start-Sleep -Seconds $IntervalSeconds;$waited+=$IntervalSeconds;$readbacks=@(& $read)}
+  # 等待額度由同一程序內所有目標共用；NUC 實測 Win32_PnPSignedDriver 新列需 60～120 秒才出現。
+  if($null -eq $script:SetupDriverReadbackWaited){$script:SetupDriverReadbackWaited=0}
+  while(@($readbacks|Where-Object Status -eq 'Unverified').Count -and $script:SetupDriverReadbackWaited -lt $TimeoutSeconds){Start-Sleep -Seconds $IntervalSeconds;$waited+=$IntervalSeconds;$script:SetupDriverReadbackWaited+=$IntervalSeconds;$readbacks=@(& $read)}
  }
  foreach($readback in $readbacks){if($waited -gt 0 -and $readback.Status -eq 'Unverified'){$readback.Reason=([string]$readback.Reason+'；安裝後已等待 '+$waited+' 秒仍未綁定')}}
  return $readbacks
