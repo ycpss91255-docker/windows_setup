@@ -17,7 +17,7 @@ func TestRequirementsGateTestsOnlyDoesNotRequireGoCoverageInventory(t *testing.T
 	}
 	source := t.TempDir()
 	inputs := map[string]string{
-		"readme.md": "init.cmd windows.cmd Shift+F10 -AfterRestart -VerifyOnly\n[![Coverage](https://ycpss91255.github.io/windows_setup/main/coverage.svg)](https://ycpss91255.github.io/windows_setup/)\n![CI](https://github.com/example/repo/actions/workflows/windows_tests.yml/badge.svg)\n",
+		"readme.md": "init.cmd windows.cmd Shift+F10 -AfterRestart -VerifyOnly\n[![Coverage](https://ycpss91255-lab.github.io/windows_setup/main/coverage.svg)](https://ycpss91255-lab.github.io/windows_setup/)\n![CI](https://github.com/example/repo/actions/workflows/windows_tests.yml/badge.svg)\n",
 		"init.cmd":  "@echo off\r\n", "windows.cmd": "@echo off\r\n", ".github/workflows/windows_tests.yml": "name: fixture\n",
 		"script/test/tool/a.go": "package tool\n", "script/package/tool/b.go": "package tool\n",
 	}
