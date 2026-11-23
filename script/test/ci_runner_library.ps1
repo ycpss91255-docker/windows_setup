@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
 function Invoke-SetupCI {
- param([Parameter(Mandatory=$true)][string]$PackageRoot,[Parameter(Mandatory=$true)][string]$ReportDirectory,[ValidateSet('All','Unit','Integration')][string]$Layer='All',[string[]]$Suite=@())
+ param([Parameter(Mandatory=$true)][string]$PackageRoot,[Parameter(Mandatory=$true)][string]$ReportDirectory,[ValidateSet('All','Unit','Integration')][string]$Layer='All',[ValidateRange(1,4)][int]$Parallelism=1,[string[]]$Suite=@())
 $ErrorActionPreference='Stop'
 $testRoot=Join-Path $packageRoot 'test'
 . (Join-Path $PSScriptRoot 'test_report.ps1')
@@ -43,26 +43,80 @@ if($PSBoundParameters.ContainsKey('Suite')){
  if($layers.Count -eq 1){$reportLayer=$layers[0]}
 }
 if(-not $cases.Count){throw '沒有符合所選層級的測試，不得回報成功。'}
-foreach($case in $cases){
- $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$case.Path)+$case.Arguments
+# Each case runs in its own Windows PowerShell child process; this block runs the serial path inline.
+$runCase={
+ param([string]$CaseName,[string[]]$CaseArguments,[string]$LogDirectory,[string]$WorkingDirectory,[string]$ShellPath)
+ $ErrorActionPreference='Stop'
+ Set-Location -LiteralPath $WorkingDirectory
+ $log=Join-Path $LogDirectory ($CaseName+'.log')
  $code=1
  $timer=[Diagnostics.Stopwatch]::StartNew()
  $previousPreference=$ErrorActionPreference
  try{
   # Native stderr can contain Git warnings; the child exit code decides failure.
   $ErrorActionPreference='Continue'
-  & (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe') @arguments 2>&1 | Out-File (Join-Path $ReportDirectory ($case.Name+'.log')) -Encoding UTF8
+  & $ShellPath @CaseArguments 2>&1 | Out-File $log -Encoding UTF8
   $code=$LASTEXITCODE
- }catch{$_|Out-String|Out-File (Join-Path $ReportDirectory ($case.Name+'.log')) -Append -Encoding UTF8}finally{$ErrorActionPreference=$previousPreference}
+ }catch{$_|Out-String|Out-File $log -Append -Encoding UTF8}finally{$ErrorActionPreference=$previousPreference}
  $timer.Stop()
+ [pscustomobject]@{Code=[int]$code;Seconds=[double]$timer.Elapsed.TotalSeconds}
+}
+$shellPath=Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+$workingDirectory=(Get-Location).ProviderPath
+$outcomes=@{}
+$running=New-Object Collections.Generic.List[object]
+function Complete-SetupCICase($Case,$Outcome){
+ $code=$Outcome.Code
  $assertions=@()
- foreach($line in @(Get-Content -LiteralPath (Join-Path $ReportDirectory ($case.Name+'.log')))){
+ foreach($line in @(Get-Content -LiteralPath (Join-Path $ReportDirectory ($Case.Name+'.log')))){
   if($line.StartsWith('@@ASSERT@@')){try{$record=$line.Substring(10)|ConvertFrom-Json;if($record.Passed -isnot [bool] -or $record.Name -isnot [string]){throw 'Invalid assertion record'};$assertions+=$record}catch{$code=1}}
  }
  if(-not $assertions.Count -or @($assertions|Where-Object {-not $_.Passed}).Count){$code=1}
- $results.Add([pscustomobject]@{Name=$case.Name;Layer=$case.Layer;Status=$(if($code -eq 0){'Passed'}else{'Failed'});Executed=$true;Passed=($code -eq 0);ExitCode=$code;DurationSeconds=[math]::Round($timer.Elapsed.TotalSeconds,3);Assertions=$assertions})
- Write-Host ($case.Name+': '+$(if($code -eq 0){'PASS'}else{'FAIL'}))
+ $outcomes[$Case.Name]=[pscustomobject]@{Name=$Case.Name;Layer=$Case.Layer;Status=$(if($code -eq 0){'Passed'}else{'Failed'});Executed=$true;Passed=($code -eq 0);ExitCode=$code;DurationSeconds=[math]::Round($Outcome.Seconds,3);Assertions=$assertions}
+ Write-Host ($Case.Name+': '+$(if($code -eq 0){'PASS'}else{'FAIL'}))
 }
+# Parallel cases run as direct children of this process (through cmd redirection) so they share its console and code page;
+# background jobs lose the console and fall back to a default code page, which garbles non-ASCII test output.
+$cmdPath=Join-Path $env:WINDIR 'System32\cmd.exe'
+function Start-SetupCIProcess($Case,$Arguments){
+ $raw=Join-Path $ReportDirectory ($Case.Name+'.raw')
+ $quoted=@(@($shellPath)+@($Arguments)|ForEach-Object {'"'+$_+'"'})
+ $command='"'+($quoted -join ' ')+' > "'+$raw+'" 2>&1"'
+ $process=Start-Process -FilePath $cmdPath -ArgumentList @('/d','/c',$command) -NoNewWindow -PassThru
+ $null=$process.Handle
+ [pscustomobject]@{Case=$Case;Process=$process;Raw=$raw;Timer=[Diagnostics.Stopwatch]::StartNew()}
+}
+function Complete-SetupCIProcess($Entry){
+ $Entry.Process.WaitForExit()
+ $Entry.Timer.Stop()
+ $code=[int]$Entry.Process.ExitCode
+ $log=Join-Path $ReportDirectory ($Entry.Case.Name+'.log')
+ try{
+  $text=[Console]::OutputEncoding.GetString([IO.File]::ReadAllBytes($Entry.Raw))
+  [IO.File]::WriteAllText($log,$text,(New-Object Text.UTF8Encoding $true))
+  [IO.File]::Delete($Entry.Raw)
+ }catch{$code=1;$_|Out-String|Out-File $log -Append -Encoding UTF8}
+ Complete-SetupCICase $Entry.Case ([pscustomobject]@{Code=$code;Seconds=$Entry.Timer.Elapsed.TotalSeconds})
+}
+function Wait-SetupCIProcess([int]$Limit){
+ while($running.Count -ge $Limit -and $running.Count -gt 0){
+  $finished=@($running|Where-Object {$_.Process.HasExited})
+  if(-not $finished.Count){Start-Sleep -Milliseconds 200;continue}
+  foreach($entry in $finished){[void]$running.Remove($entry);Complete-SetupCIProcess $entry}
+ }
+}
+foreach($case in $cases){
+ $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',$case.Path)+$case.Arguments
+ if($Parallelism -le 1){
+  Complete-SetupCICase $case (& $runCase $case.Name $arguments $ReportDirectory $workingDirectory $shellPath)
+  continue
+ }
+ Wait-SetupCIProcess $Parallelism
+ $running.Add((Start-SetupCIProcess $case $arguments))
+}
+Wait-SetupCIProcess 1
+# Report order follows the roster, never completion order.
+foreach($case in $cases){$results.Add($outcomes[$case.Name])}
 $success=@($results|Where-Object {$_.Executed -and -not $_.Passed}).Count -eq 0
 $runUrl=if($env:GITHUB_REPOSITORY -and $env:GITHUB_RUN_ID){'https://github.com/'+$env:GITHUB_REPOSITORY+'/actions/runs/'+$env:GITHUB_RUN_ID}else{''}
 $publicDirectory=Join-Path $ReportDirectory 'public'

@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
-param([ValidateSet('All','Unit','Integration')][string]$Layer='All',[string]$ReportDirectory=(Join-Path ([IO.Path]::GetTempPath()) ('NUC-CI-'+[guid]::NewGuid().ToString('N'))),[string[]]$Suite=@())
+param([ValidateSet('All','Unit','Integration')][string]$Layer='All',[string]$ReportDirectory=(Join-Path ([IO.Path]::GetTempPath()) ('NUC-CI-'+[guid]::NewGuid().ToString('N'))),[ValidateRange(1,4)][int]$Parallelism=1,[string[]]$Suite=@())
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'ci_runner_library.ps1')
 $suiteArguments=@{};if($PSBoundParameters.ContainsKey('Suite')){$suiteArguments['Suite']=$Suite}
-Invoke-SetupCI -PackageRoot ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))) -ReportDirectory $ReportDirectory -Layer $Layer @suiteArguments
+Invoke-SetupCI -PackageRoot ([IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))) -ReportDirectory $ReportDirectory -Layer $Layer -Parallelism $Parallelism @suiteArguments
