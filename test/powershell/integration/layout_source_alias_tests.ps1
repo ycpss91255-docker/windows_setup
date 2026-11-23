@@ -21,24 +21,15 @@ $literalShort=$filesystem.GetFolder($literalLong).ShortPath
 Assert (-not(Test-Path -LiteralPath (Join-Path $literalLong '.git')) -and (Test-Path -LiteralPath (Join-Path $literalLong 'vendor/golang.org/x/net/LICENSE'))) '含字面括號及中文的完整來源ZIP確實保留必要上游授權'
 $inputs+=@([pscustomobject]@{Name='literal_long';Path=$literalLong})
 if($literalShort -cne $literalLong){$inputs+=@([pscustomobject]@{Name='literal_short';Path=$literalShort})}
-# 各來源路徑互不相干，同時啟動各自的 Windows PowerShell 5.1 子程序；斷言內容與順序不變。
-function Invoke-LayoutFixtures([object[]]$Inputs,[string]$Suffix){
- $runs=@(foreach($inputRoot in $Inputs){
-  $log=Join-Path $fixture ($inputRoot.Name+$Suffix+'.private.log')
-  $arguments=@('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+(Join-Path $root 'test/powershell/integration/layout_tests.ps1')+'"'),'-PackageRoot',('"'+$inputRoot.Path+'"'),'-SourceOnly')
-  $process=Start-Process -FilePath (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe') -ArgumentList $arguments -RedirectStandardOutput $log -RedirectStandardError ($log+'.err') -NoNewWindow -PassThru
-  $null=$process.Handle
-  [pscustomobject]@{Input=$inputRoot;Process=$process;Log=$log}
- })
- foreach($run in $runs){$run.Process.WaitForExit()}
- foreach($run in $runs){
-  $assertions=@(Get-Content -LiteralPath $run.Log -Encoding UTF8|Where-Object {$_.StartsWith('@@ASSERT@@')}|ForEach-Object {$_.Substring(10)|ConvertFrom-Json})
-  [pscustomobject]@{Input=$run.Input;ExitCode=$run.Process.ExitCode;Assertions=$assertions}
- }
+function Invoke-LayoutFixture([string]$PackageRoot,[string]$Name){
+ $log=Join-Path $fixture ($Name+'.private.log');$prior=$ErrorActionPreference
+ try{$ErrorActionPreference='Continue';& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'test/powershell/integration/layout_tests.ps1') -PackageRoot $PackageRoot -SourceOnly *> $log;$code=$LASTEXITCODE}finally{$ErrorActionPreference=$prior}
+ $assertions=@(Get-Content -LiteralPath $log|Where-Object {$_.StartsWith('@@ASSERT@@')}|ForEach-Object {$_.Substring(10)|ConvertFrom-Json})
+ [pscustomobject]@{ExitCode=$code;Assertions=$assertions}
 }
 $baseline=$null
-foreach($result in @(Invoke-LayoutFixtures $inputs '_complete')){
- $inputRoot=$result.Input
+foreach($inputRoot in $inputs){
+ $result=Invoke-LayoutFixture $inputRoot.Path ($inputRoot.Name+'_complete')
  Assert ($result.ExitCode -eq 0 -and $result.Assertions.Count -gt 0 -and @($result.Assertions|Where-Object {-not $_.Passed}).Count -eq 0) ('原生 '+$inputRoot.Name+' 套件路徑通過完整來源版面及路由檢查')
  if($null -eq $baseline){$baseline=@($result.Assertions.Name)}else{Assert (($result.Assertions.Name -join "`n") -ceq ($baseline -join "`n")) '相同完整來源內容的長短與字面路徑保留相同斷言集合'}
 }
@@ -47,8 +38,9 @@ foreach($sourceRoot in @($long,$literalLong)){
  $license=Join-Path $sourceRoot 'vendor/golang.org/x/net/LICENSE'
  Remove-Item -LiteralPath $license -Force
 }
-foreach($result in @(Invoke-LayoutFixtures $inputs '_missing_license')){
- $inputRoot=$result.Input
+foreach($inputRoot in $inputs){
+ $result=Invoke-LayoutFixture $inputRoot.Path ($inputRoot.Name+'_missing_license')
  $failed=@($result.Assertions|Where-Object {-not $_.Passed})
  Assert ($result.ExitCode -ne 0 -and $failed.Count -eq 1 -and $failed[0].Name -ceq 'official HTML parser license retains upstream spelling: vendor/golang.org/x/net/LICENSE') ('原生 '+$inputRoot.Name+' 路徑不會略過真正缺少的上游授權')
-}$global:LASTEXITCODE=0
+}
+$global:LASTEXITCODE=0
