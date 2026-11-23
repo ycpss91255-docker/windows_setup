@@ -13,10 +13,10 @@ import (
 //go:embed grandfather.json
 var frozenManifest []byte
 
-const frozenDigest = "d91f075b3cf1ba17c2c35b0e1173deecd64ef651abd92432934114217250531a"
-const fixedRepository = "ycpss91255/windows_setup"
+const frozenDigest = "b2beb4ae871556ded569d3add2dd54d18314d857e802567bbbbb054470625259"
+const fixedRepository = "ycpss91255-lab/windows_setup"
 const fixedAnchor = "242d21a56c6b645ab8f5767aa27c36e8490a48a4"
-const fixedRemote = "https://github.com/ycpss91255/windows_setup.git"
+const fixedRemote = "https://github.com/ycpss91255-lab/windows_setup.git"
 
 type frozenConfig struct {
 	Repository   string `json:"repository"`
@@ -59,6 +59,12 @@ type githubEvent struct {
 	Repository struct {
 		FullName string `json:"full_name"`
 	} `json:"repository"`
+	MergeGroup *struct {
+		BaseRef string `json:"base_ref"`
+		BaseSHA string `json:"base_sha"`
+		HeadRef string `json:"head_ref"`
+		HeadSHA string `json:"head_sha"`
+	} `json:"merge_group"`
 	PullRequest *struct {
 		Number int `json:"number"`
 		Base   struct {
@@ -69,7 +75,11 @@ type githubEvent struct {
 			} `json:"repo"`
 		} `json:"base"`
 		Head struct {
-			SHA string `json:"sha"`
+			SHA  string `json:"sha"`
+			Ref  string `json:"ref"`
+			Repo struct {
+				FullName string `json:"full_name"`
+			} `json:"repo"`
 		} `json:"head"`
 	} `json:"pull_request"`
 }
@@ -91,6 +101,9 @@ func parseSourceEvent(kind, ref, sha, main string, raw []byte) (sourceEvent, err
 		v.Kind = "pull_request"
 		v.Base = e.PullRequest.Base.SHA
 		v.Head = e.PullRequest.Head.SHA
+		if e.PullRequest.Head.Repo.FullName == fixedRepository {
+			v.HeadRef = e.PullRequest.Head.Ref
+		}
 	case "push":
 		if e.Deleted || e.Ref != ref {
 			return v, fmt.Errorf("invalid push metadata")
@@ -105,6 +118,14 @@ func parseSourceEvent(kind, ref, sha, main string, raw []byte) (sourceEvent, err
 		} else {
 			return v, fmt.Errorf("unsupported push ref")
 		}
+	case "merge_group":
+		g := e.MergeGroup
+		if g == nil || g.BaseRef != "refs/heads/main" || g.HeadSHA != sha || g.HeadRef != ref || !strings.HasPrefix(ref, "refs/heads/gh-readonly-queue/main/") {
+			return v, fmt.Errorf("invalid merge group metadata")
+		}
+		v.Kind = "merge_group"
+		v.Base = g.BaseSHA
+		v.Head = g.HeadSHA
 	case "workflow_dispatch":
 		if ref != "refs/heads/main" {
 			return v, fmt.Errorf("unsupported manual ref")
@@ -156,9 +177,6 @@ func checkGitHubEvent(repo string) error {
 		return fmt.Errorf("unexpected repository")
 	}
 	kind := os.Getenv("GITHUB_EVENT_NAME")
-	if kind == "merge_group" {
-		return fmt.Errorf("merge_group input is not yet supported")
-	}
 	roots, err := frozenRoots()
 	if err != nil {
 		return err
@@ -210,7 +228,7 @@ func checkEventInRepository(repo, kind, ref, sha, main string, raw []byte, ancho
 		return err
 	}
 	excluded = append(excluded, roots...)
-	return validateMergeTitlesForEvent(repo, tips, excluded, v.Kind)
+	return validateMergeTitlesSync(repo, tips, excluded, v.Kind, syncContext{Ref: v.HeadRef, Base: v.Base})
 }
 
 func main() {

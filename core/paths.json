@@ -138,6 +138,7 @@
   "verification.ps1": "core/verification.ps1",
   "paths.json": "core/paths.json",
   "start_windows.ps1": "core/start_windows.ps1",
+  "network_preflight_library.ps1": "core/network_preflight_library.ps1",
   "init_entry_library.ps1": "modules/init/init_entry_library.ps1",
   "initialize_setup.ps1": "modules/init/initialize_setup.ps1",
   "initialize_nuc.ps1": "modules/init/initialize_nuc.ps1",

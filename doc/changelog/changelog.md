@@ -7,6 +7,10 @@
 
 - 自動登入模組提供 `-Restore`：取消自動登入並清除 Autologon 儲存的密碼，不需輸入密碼，也不還原套用前的狀態；`windows.cmd -VerifyOnly` 會把確認已停用的自動登入標示為略過。
 
+### Changed（變更）
+
+- 倉庫已移至 `ycpss91255-lab` 組織：README、Release 下載與品質報表連結改用 `https://github.com/ycpss91255-lab/windows_setup` 及 `https://ycpss91255-lab.github.io/windows_setup/`，舊網址不保證持續轉址。
+
 ## [v0.2.6] — 2026-11-21
 ### Changed（變更）
 
