@@ -1,0 +1,187 @@
+﻿Class                       : System
+FriendlyName                : Intel(R) Serial IO I2C Host Controller - A161
+InstanceId                  : PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\3&00000000&0&A9
+Problem                     : CM_PROB_NONE
+ConfigManagerErrorCode      : CM_PROB_NONE
+ProblemDescription          : 
+Caption                     : Intel(R) Serial IO I2C Host Controller - A161
+Description                 : Intel(R) Serial IO I2C Host Controller - A161
+InstallDate                 : 
+Name                        : Intel(R) Serial IO I2C Host Controller - A161
+Status                      : OK
+Availability                : 
+ConfigManagerUserConfig     : False
+CreationClassName           : Win32_PnPEntity
+DeviceID                    : PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\3&00000000&0&A9
+ErrorCleared                : 
+ErrorDescription            : 
+LastErrorCode               : 
+PNPDeviceID                 : PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\3&00000000&0&A9
+PowerManagementCapabilities : 
+PowerManagementSupported    : 
+StatusInfo                  : 
+SystemCreationClassName     : Win32_ComputerSystem
+SystemName                  : FIXTURE-PC
+ClassGuid                   : {4d36e97d-e325-11ce-bfc1-08002be10318}
+CompatibleID                : {PCI\VEN_8086&DEV_A161&REV_31, PCI\VEN_8086&DEV_A161, PCI\VEN_8086&CC_118000, PCI\VEN_808
+                              6&CC_1180...}
+HardwareID                  : {PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A161&SUBSYS_20738086, PCI
+                              \VEN_8086&DEV_A161&CC_118000, PCI\VEN_8086&DEV_A161&CC_1180}
+Manufacturer                : Intel Corporation
+PNPClass                    : System
+Present                     : True
+Service                     : iaLPSS2_I2C
+PSComputerName              : 
+CimClass                    : ROOT/cimv2:Win32_PnPEntity
+CimInstanceProperties       : {Caption, Description, InstallDate, Name...}
+CimSystemProperties         : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Class                       : 
+FriendlyName                : PCI 資料擷取以及訊號處理控制器
+InstanceId                  : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+Problem                     : CM_PROB_FAILED_INSTALL
+ConfigManagerErrorCode      : CM_PROB_FAILED_INSTALL
+ProblemDescription          : 
+Caption                     : PCI 資料擷取以及訊號處理控制器
+Description                 : PCI 資料擷取以及訊號處理控制器
+InstallDate                 : 
+Name                        : PCI 資料擷取以及訊號處理控制器
+Status                      : Error
+Availability                : 
+ConfigManagerUserConfig     : False
+CreationClassName           : Win32_PnPEntity
+DeviceID                    : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+ErrorCleared                : 
+ErrorDescription            : 
+LastErrorCode               : 
+PNPDeviceID                 : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+PowerManagementCapabilities : 
+PowerManagementSupported    : 
+StatusInfo                  : 
+SystemCreationClassName     : Win32_ComputerSystem
+SystemName                  : FIXTURE-PC
+ClassGuid                   : 
+CompatibleID                : {PCI\VEN_8086&DEV_A127&REV_31, PCI\VEN_8086&DEV_A127, PCI\VEN_8086&CC_118000, PCI\VEN_808
+                              6&CC_1180...}
+HardwareID                  : {PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A127&SUBSYS_20738086, PCI
+                              \VEN_8086&DEV_A127&CC_118000, PCI\VEN_8086&DEV_A127&CC_1180}
+Manufacturer                : 
+PNPClass                    : 
+Present                     : True
+Service                     : 
+PSComputerName              : 
+CimClass                    : ROOT/cimv2:Win32_PnPEntity
+CimInstanceProperties       : {Caption, Description, InstallDate, Name...}
+CimSystemProperties         : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Class                       : System
+FriendlyName                : Intel(R) Serial IO I2C Host Controller - A160
+InstanceId                  : PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\3&00000000&0&A8
+Problem                     : CM_PROB_NONE
+ConfigManagerErrorCode      : CM_PROB_NONE
+ProblemDescription          : 
+Caption                     : Intel(R) Serial IO I2C Host Controller - A160
+Description                 : Intel(R) Serial IO I2C Host Controller - A160
+InstallDate                 : 
+Name                        : Intel(R) Serial IO I2C Host Controller - A160
+Status                      : OK
+Availability                : 
+ConfigManagerUserConfig     : False
+CreationClassName           : Win32_PnPEntity
+DeviceID                    : PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\3&00000000&0&A8
+ErrorCleared                : 
+ErrorDescription            : 
+LastErrorCode               : 
+PNPDeviceID                 : PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\3&00000000&0&A8
+PowerManagementCapabilities : 
+PowerManagementSupported    : 
+StatusInfo                  : 
+SystemCreationClassName     : Win32_ComputerSystem
+SystemName                  : FIXTURE-PC
+ClassGuid                   : {4d36e97d-e325-11ce-bfc1-08002be10318}
+CompatibleID                : {PCI\VEN_8086&DEV_A160&REV_31, PCI\VEN_8086&DEV_A160, PCI\VEN_8086&CC_118000, PCI\VEN_808
+                              6&CC_1180...}
+HardwareID                  : {PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A160&SUBSYS_20738086, PCI
+                              \VEN_8086&DEV_A160&CC_118000, PCI\VEN_8086&DEV_A160&CC_1180}
+Manufacturer                : Intel Corporation
+PNPClass                    : System
+Present                     : True
+Service                     : iaLPSS2_I2C
+PSComputerName              : 
+CimClass                    : ROOT/cimv2:Win32_PnPEntity
+CimInstanceProperties       : {Caption, Description, InstallDate, Name...}
+CimSystemProperties         : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Class                       : System
+FriendlyName                : Intel(R) Serial IO GPIO Host Controller - INT345D
+InstanceId                  : ACPI\INT345D\3&00000000&0
+Problem                     : CM_PROB_NONE
+ConfigManagerErrorCode      : CM_PROB_NONE
+ProblemDescription          : 
+Caption                     : Intel(R) Serial IO GPIO Host Controller - INT345D
+Description                 : Intel(R) Serial IO GPIO Host Controller - INT345D
+InstallDate                 : 
+Name                        : Intel(R) Serial IO GPIO Host Controller - INT345D
+Status                      : OK
+Availability                : 
+ConfigManagerUserConfig     : False
+CreationClassName           : Win32_PnPEntity
+DeviceID                    : ACPI\INT345D\3&00000000&0
+ErrorCleared                : 
+ErrorDescription            : 
+LastErrorCode               : 
+PNPDeviceID                 : ACPI\INT345D\3&00000000&0
+PowerManagementCapabilities : 
+PowerManagementSupported    : 
+StatusInfo                  : 
+SystemCreationClassName     : Win32_ComputerSystem
+SystemName                  : FIXTURE-PC
+ClassGuid                   : {4d36e97d-e325-11ce-bfc1-08002be10318}
+CompatibleID                : 
+HardwareID                  : {ACPI\VEN_INT&DEV_345D, ACPI\INT345D, *INT345D}
+Manufacturer                : Intel Corporation
+PNPClass                    : System
+Present                     : True
+Service                     : iaLPSS2_GPIO2
+PSComputerName              : 
+CimClass                    : ROOT/cimv2:Win32_PnPEntity
+CimInstanceProperties       : {Caption, Description, InstallDate, Name...}
+CimSystemProperties         : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Class                       : System
+FriendlyName                : Intel(R) Serial IO I2C Host Controller - A162
+InstanceId                  : PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\3&00000000&0&AA
+Problem                     : CM_PROB_NONE
+ConfigManagerErrorCode      : CM_PROB_NONE
+ProblemDescription          : 
+Caption                     : Intel(R) Serial IO I2C Host Controller - A162
+Description                 : Intel(R) Serial IO I2C Host Controller - A162
+InstallDate                 : 
+Name                        : Intel(R) Serial IO I2C Host Controller - A162
+Status                      : OK
+Availability                : 
+ConfigManagerUserConfig     : False
+CreationClassName           : Win32_PnPEntity
+DeviceID                    : PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\3&00000000&0&AA
+ErrorCleared                : 
+ErrorDescription            : 
+LastErrorCode               : 
+PNPDeviceID                 : PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\3&00000000&0&AA
+PowerManagementCapabilities : 
+PowerManagementSupported    : 
+StatusInfo                  : 
+SystemCreationClassName     : Win32_ComputerSystem
+SystemName                  : FIXTURE-PC
+ClassGuid                   : {4d36e97d-e325-11ce-bfc1-08002be10318}
+CompatibleID                : {PCI\VEN_8086&DEV_A162&REV_31, PCI\VEN_8086&DEV_A162, PCI\VEN_8086&CC_118000, PCI\VEN_808
+                              6&CC_1180...}
+HardwareID                  : {PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A162&SUBSYS_20738086, PCI
+                              \VEN_8086&DEV_A162&CC_118000, PCI\VEN_8086&DEV_A162&CC_1180}
+Manufacturer                : Intel Corporation
+PNPClass                    : System
+Present                     : True
+Service                     : iaLPSS2_I2C
+PSComputerName              : 
+CimClass                    : ROOT/cimv2:Win32_PnPEntity
+CimInstanceProperties       : {Caption, Description, InstallDate, Name...}
+CimSystemProperties         : Microsoft.Management.Infrastructure.CimSystemProperties
