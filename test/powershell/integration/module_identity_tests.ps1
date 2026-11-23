@@ -85,6 +85,7 @@ $desktopEntry=Join-Path $desktopDir "desktop ' 中文.ps1"
 Copy-Item -LiteralPath (Join-Path $root 'modules/desktop/desktop_icon_layout.ps1') -Destination $desktopEntry
 [IO.File]::WriteAllText((Join-Path $desktopCore 'entry_os_boundary.ps1'),@'
 function Get-SetupEntryIdentity { [IO.File]::WriteAllText($env:DESKTOP_FIXTURE_SID_MARKER,'called'); 'desktop-fixture-sid' }
+function Get-SetupEntryUserUILanguage { param([string]$UserSid) [IO.File]::WriteAllText($env:DESKTOP_FIXTURE_CULTURE_MARKER,$UserSid); $name=[string]$env:DESKTOP_FIXTURE_CULTURE; [pscustomobject]@{Name=$name;Source='fixture-target-user';Reason=$(if($name){''}else{'fixture cannot read target user language'})} }
 function Test-SetupEntryAdministrator { [IO.File]::WriteAllText($env:DESKTOP_FIXTURE_ADMIN_MARKER,'called'); $env:DESKTOP_FIXTURE_ADMIN -eq 'true' }
 function Start-SetupEntryElevated { param([string]$Command,[switch]$UseSystemPowerShell) @{Command=$Command;System=$UseSystemPowerShell.IsPresent}|ConvertTo-Json -Compress|Set-Content -LiteralPath $env:DESKTOP_FIXTURE_CAPTURE -Encoding UTF8 }
 '@,[Text.UTF8Encoding]::new($true))
@@ -105,11 +106,11 @@ function global:Get-Service {throw 'blocked service'}
 function global:Set-Service {throw 'blocked service'}
 function global:Start-Service {throw 'blocked service'}
 function global:Register-ScheduledTask {throw 'blocked task'}
-function global:Get-UICulture {[IO.File]::WriteAllText($env:DESKTOP_FIXTURE_CULTURE_MARKER,'called');[pscustomobject]@{Name=$env:DESKTOP_FIXTURE_CULTURE}}
+function global:Get-UICulture {[IO.File]::WriteAllText($env:DESKTOP_FIXTURE_CALLER_MARKER,'called');[pscustomobject]@{Name=$env:DESKTOP_FIXTURE_CALLER_CULTURE}}
 $arguments=@{Mode=$Mode;ExpectedUserSID=$ExpectedSID};if($Worker){$arguments.Worker=$true};if($RunId){$arguments.VerificationRunId=$RunId}
 & $Entry @arguments
 '@,[Text.UTF8Encoding]::new($true))
-$env:DESKTOP_FIXTURE_CAPTURE=Join-Path $desktopFixture 'desktop_capture.json';$env:DESKTOP_FIXTURE_SID_MARKER=Join-Path $desktopFixture 'sid.marker';$env:DESKTOP_FIXTURE_ADMIN_MARKER=Join-Path $desktopFixture 'admin.marker';$env:DESKTOP_FIXTURE_CULTURE_MARKER=Join-Path $desktopFixture 'culture.marker';$env:DESKTOP_FIXTURE_ADMIN='false';$env:DESKTOP_FIXTURE_CULTURE='zh-TW'
+$env:DESKTOP_FIXTURE_CAPTURE=Join-Path $desktopFixture 'desktop_capture.json';$env:DESKTOP_FIXTURE_SID_MARKER=Join-Path $desktopFixture 'sid.marker';$env:DESKTOP_FIXTURE_ADMIN_MARKER=Join-Path $desktopFixture 'admin.marker';$env:DESKTOP_FIXTURE_CULTURE_MARKER=Join-Path $desktopFixture 'culture.marker';$env:DESKTOP_FIXTURE_CALLER_MARKER=Join-Path $desktopFixture 'caller.marker';$env:DESKTOP_FIXTURE_CALLER_CULTURE='en-US';$env:DESKTOP_FIXTURE_ADMIN='false';$env:DESKTOP_FIXTURE_CULTURE='zh-TW'
 $priorPreference=$ErrorActionPreference;$ErrorActionPreference='Continue'
 try{& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $desktopWrapper -Entry $desktopEntry -Mode Save -ExpectedSID 'desktop-fixture-sid' *> (Join-Path $desktopFixture 'red_or_green.log');$desktopExit=$LASTEXITCODE}finally{$ErrorActionPreference=$priorPreference}
 Assert ($desktopExit -eq 0 -and (Test-Path -LiteralPath $env:DESKTOP_FIXTURE_CAPTURE)) 'desktop entry uses replaceable identity and system elevation boundary'
@@ -127,9 +128,9 @@ function Read-DesktopCommand([string]$Text) {
  }
  return $values
 }
-function Invoke-DesktopFixture([string]$Mode,[string]$Sid,[string]$Culture,[bool]$Admin,[bool]$Worker,[string]$RunId) {
- foreach($path in @($env:DESKTOP_FIXTURE_CAPTURE,$env:DESKTOP_FIXTURE_SID_MARKER,$env:DESKTOP_FIXTURE_ADMIN_MARKER,$env:DESKTOP_FIXTURE_CULTURE_MARKER)){[IO.File]::Delete($path)}
- $env:DESKTOP_FIXTURE_ADMIN=$Admin.ToString().ToLowerInvariant();$env:DESKTOP_FIXTURE_CULTURE=$Culture
+function Invoke-DesktopFixture([string]$Mode,[string]$Sid,[string]$Culture,[bool]$Admin,[bool]$Worker,[string]$RunId,[string]$CallerCulture='en-US') {
+ foreach($path in @($env:DESKTOP_FIXTURE_CAPTURE,$env:DESKTOP_FIXTURE_SID_MARKER,$env:DESKTOP_FIXTURE_ADMIN_MARKER,$env:DESKTOP_FIXTURE_CULTURE_MARKER,$env:DESKTOP_FIXTURE_CALLER_MARKER)){[IO.File]::Delete($path)}
+ $env:DESKTOP_FIXTURE_ADMIN=$Admin.ToString().ToLowerInvariant();$env:DESKTOP_FIXTURE_CULTURE=$Culture;$env:DESKTOP_FIXTURE_CALLER_CULTURE=$CallerCulture
  $args=@('-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$desktopWrapper,'-Entry',$desktopEntry,'-Mode',$Mode,'-ExpectedSID',$Sid)
  if($Worker){$args+='-Worker'};if($RunId){$args+=@('-RunId',$RunId)}
  $prior=$ErrorActionPreference;$ErrorActionPreference='Continue'
@@ -152,6 +153,18 @@ foreach($mode in @('Load','Verify')){
  $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' 'en-US' $false $false ''
  Assert ($code -eq 0 -and (Test-Path $env:DESKTOP_FIXTURE_CULTURE_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_ADMIN_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE) -and ((Get-Content (Join-Path $desktopFixture 'case.log') -Raw) -match 'Skipped')) ('non-Save culture skip precedes admin: '+$mode)
 }
+foreach($mode in @('Load','Verify')){
+ $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' 'en-US' $false $false '' 'zh-TW';$log=Get-Content (Join-Path $desktopFixture 'case.log') -Raw
+ Assert ($code -eq 0 -and -not (Test-Path $env:DESKTOP_FIXTURE_CALLER_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE) -and $log -match 'Skipped' -and $log -match 'fixture-target-user' -and $log -match 'en-US') ('caller zh-TW with non-zh-TW target skips and names target source: '+$mode)
+ $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' 'zh-TW' $false $true $runId 'en-US'
+ $case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json;$command=Read-DesktopCommand $case.Command
+ Assert ($code -eq 0 -and -not (Test-Path $env:DESKTOP_FIXTURE_CALLER_MARKER) -and $command.Mode -ceq $mode) ('caller non-zh-TW with zh-TW target continues to elevation: '+$mode)
+ $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' 'zh-TW' $false $true $runId 'zh-TW'
+ $case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json;$command=Read-DesktopCommand $case.Command
+ Assert ($code -eq 0 -and -not (Test-Path $env:DESKTOP_FIXTURE_CALLER_MARKER) -and $command.Mode -ceq $mode) ('caller and target both zh-TW continue: '+$mode)
+ $code=Invoke-DesktopFixture $mode 'desktop-fixture-sid' '' $false $true $runId 'zh-TW';$log=Get-Content (Join-Path $desktopFixture 'case.log') -Raw
+ Assert ($code -eq 0 -and -not (Test-Path $env:DESKTOP_FIXTURE_CALLER_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_ADMIN_MARKER) -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE) -and $log -match 'Unknown' -and $log -match 'fixture cannot read target user language') ('unreadable target language reports Unknown with reason: '+$mode)
+}
 $code=Invoke-DesktopFixture 'Save' 'desktop-fixture-sid' 'en-US' $false $true $runId
 $case=Get-Content $env:DESKTOP_FIXTURE_CAPTURE -Raw|ConvertFrom-Json;$command=Read-DesktopCommand $case.Command
 Assert ($code -eq 0 -and $case.System -and $command.Mode -ceq 'Save' -and $command.Worker -and $command.VerificationRunId -ceq $runId -and -not (Test-Path $env:DESKTOP_FIXTURE_CULTURE_MARKER)) 'Save bypasses culture and captures worker and run ID safely'
@@ -172,7 +185,26 @@ try{$code=Invoke-DesktopFixture 'Save' 'desktop-fixture-sid' 'zh-TW' $true $fals
 $fakeBoundary=Join-Path $desktopCore 'entry_os_boundary.ps1';$backup=$fakeBoundary+'.owned-backup'
 [IO.File]::Move($fakeBoundary,$backup)
 try{$code=Invoke-DesktopFixture 'Save' 'desktop-fixture-sid' 'zh-TW' $true $false '';Assert ($code -ne 0 -and -not (Test-Path $env:DESKTOP_FIXTURE_CAPTURE)) 'missing boundary fails closed before GUI'}finally{[IO.File]::Move($backup,$fakeBoundary)}
-Remove-Item Env:DESKTOP_FIXTURE_CAPTURE,Env:DESKTOP_FIXTURE_SID_MARKER,Env:DESKTOP_FIXTURE_ADMIN_MARKER,Env:DESKTOP_FIXTURE_CULTURE_MARKER,Env:DESKTOP_FIXTURE_ADMIN,Env:DESKTOP_FIXTURE_CULTURE
+Remove-Item Env:DESKTOP_FIXTURE_CAPTURE,Env:DESKTOP_FIXTURE_SID_MARKER,Env:DESKTOP_FIXTURE_ADMIN_MARKER,Env:DESKTOP_FIXTURE_CULTURE_MARKER,Env:DESKTOP_FIXTURE_CALLER_MARKER,Env:DESKTOP_FIXTURE_CALLER_CULTURE,Env:DESKTOP_FIXTURE_ADMIN,Env:DESKTOP_FIXTURE_CULTURE
+# Target-user language lookup uses a synthetic registry root, never the real language settings
+& {
+ . (Join-Path $root 'core/entry_os_boundary.ps1')
+ $synthetic='HKCU:\Software\NUC8SetupTest_'+[guid]::NewGuid().ToString('N')
+ try{
+  $sid='S-1-5-21-1-2-3-1001';$desktopKey=$synthetic+'\'+$sid+'\Control Panel\Desktop'
+  [void](New-Item -Path ($desktopKey+'\MuiCached') -Force)
+  $absent=Get-SetupEntryUserUILanguage -UserSid 'S-1-5-21-9-9-9-9' -RegistryRoot $synthetic
+  Assert ($absent.Name -ceq '' -and $absent.Reason) 'target language lookup reports Unknown with reason when user hive is absent'
+  $empty=Get-SetupEntryUserUILanguage -UserSid $sid -RegistryRoot $synthetic
+  Assert ($empty.Name -ceq '' -and $empty.Reason) 'target language lookup reports Unknown with reason when no language is recorded'
+  New-ItemProperty -Path ($desktopKey+'\MuiCached') -Name MachinePreferredUILanguages -PropertyType MultiString -Value @('zh-TW') | Out-Null
+  $cached=Get-SetupEntryUserUILanguage -UserSid $sid -RegistryRoot $synthetic
+  Assert ($cached.Name -ceq 'zh-TW' -and $cached.Source -match 'MachinePreferredUILanguages') 'target language lookup falls back to cached machine language'
+  New-ItemProperty -Path $desktopKey -Name PreferredUILanguages -PropertyType MultiString -Value @('en-US','zh-TW') | Out-Null
+  $preferred=Get-SetupEntryUserUILanguage -UserSid $sid -RegistryRoot $synthetic
+  Assert ($preferred.Name -ceq 'en-US' -and $preferred.Source -match 'PreferredUILanguages' -and $preferred.Source -notmatch 'Machine') 'target language lookup prefers first user preferred language'
+ }finally{if(Test-Path -LiteralPath $synthetic){Remove-Item -LiteralPath $synthetic -Recurse -Force}}
+}
 & {
  . (Join-Path $root 'core/entry_os_boundary.ps1')
  $script:launchFile='';$script:launchVerb='';$script:launchArgs=''
