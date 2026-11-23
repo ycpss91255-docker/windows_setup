@@ -1,20 +1,24 @@
 ﻿#Requires -Version 5.1
 function Invoke-SetupCI {
- param([Parameter(Mandatory=$true)][string]$PackageRoot,[Parameter(Mandatory=$true)][string]$ReportDirectory,[ValidateSet('All','Unit','Integration')][string]$Layer='All',[ValidateRange(1,4)][int]$Parallelism=1,[string[]]$Suite=@())
+ param([Parameter(Mandatory=$true)][string]$PackageRoot,[Parameter(Mandatory=$true)][string]$ReportDirectory,[ValidateSet('All','Unit','Integration')][string]$Layer='All',[ValidateRange(1,4)][int]$Parallelism=1,[string[]]$Suite=@(),[int]$ShardIndex=0,[int]$ShardCount=1)
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot 'ci_shard_library.ps1')
+if($ShardCount -lt 1 -or $ShardIndex -lt 0 -or $ShardIndex -ge $ShardCount){throw '分片索引超出分片範圍。'}
 $testRoot=Join-Path $packageRoot 'test'
 . (Join-Path $PSScriptRoot 'test_report.ps1')
 if($PSVersionTable.PSVersion.Major -ne 5){throw 'CI 必須使用 Windows PowerShell 5.1。'}
 New-Item -ItemType Directory -Path $ReportDirectory -Force|Out-Null
 $results=New-Object Collections.Generic.List[object]
 $scripts=@(Get-ChildItem (Join-Path $packageRoot 'core') -Filter '*.ps1')+@(Get-ChildItem (Join-Path $packageRoot 'modules') -Recurse -Filter '*.ps1'|Where-Object FullName -notmatch '[\\/]Win11Debloat[\\/]')+@(Get-ChildItem $testRoot -Recurse -Filter '*.ps1')+@(Get-ChildItem (Join-Path $packageRoot 'script') -Recurse -Filter '*.ps1')
+# 分片時語法檢查只在分片 0 執行一次，其他分片不重複解析。
+if($ShardIndex -ne 0){$scripts=@()}
 $parseFailures=@(foreach($file in $scripts){
  $tokens=$null;$errors=$null
  [void][Management.Automation.Language.Parser]::ParseFile($file.FullName,[ref]$tokens,[ref]$errors)
  foreach($parseIssue in $errors){$file.Name+': '+$parseIssue.Message}
 })
 $parseFailures|Out-File (Join-Path $ReportDirectory 'syntax.log') -Encoding UTF8
-$results.Add([pscustomobject]@{Name='PowerShell 5.1 語法';Layer='Static';Status=$(if($parseFailures.Count){'Failed'}else{'Passed'});Executed=$true;Passed=($parseFailures.Count -eq 0);ExitCode=[int]($parseFailures.Count -gt 0)})
+if($ShardIndex -eq 0){$results.Add([pscustomobject]@{Name='PowerShell 5.1 語法';Layer='Static';Status=$(if($parseFailures.Count){'Failed'}else{'Passed'});Executed=$true;Passed=($parseFailures.Count -eq 0);ExitCode=[int]($parseFailures.Count -gt 0)})}
 # The inventory is the roster: every owned unit/integration suite runs once for All.
 $cases=@(foreach($kind in @('Unit','Integration')){
  foreach($file in @(Get-ChildItem (Join-Path $testRoot ('powershell/'+$kind.ToLowerInvariant())) -Filter '*_tests.ps1' -File|Sort-Object Name)){
@@ -42,6 +46,10 @@ if($PSBoundParameters.ContainsKey('Suite')){
  $layers=@($cases|ForEach-Object {$_.Layer}|Select-Object -Unique)
  if($layers.Count -eq 1){$reportLayer=$layers[0]}
 }
+# 依實測耗時把清單切成互不重疊的分片；聯集等於完整清單，沒有分到 suite 的分片失敗而不是回報成功。
+if($ShardCount -gt 1 -and $cases.Count){$cases=@(Select-CISuiteShard -Cases $cases -ShardIndex $ShardIndex -ShardCount $ShardCount -Weights (Get-CISuiteWeights -Path (Join-Path $PSScriptRoot 'ci_suite_weights.json')) -DefaultWeight 10)}
+# 分片後只含單一層級時，報表層級只宣稱實際執行的層級。
+if($ShardCount -gt 1 -and $cases.Count){$shardLayers=@($cases|ForEach-Object {$_.Layer}|Select-Object -Unique);if($shardLayers.Count -eq 1){$reportLayer=$shardLayers[0]}}
 if(-not $cases.Count){throw '沒有符合所選層級的測試，不得回報成功。'}
 # Each case runs in its own Windows PowerShell child process; this block runs the serial path inline.
 $runCase={

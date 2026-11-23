@@ -87,6 +87,30 @@ try{
  }
  $failed='';try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp 'suite_failing') -Layer All -Suite @('Unit.second')}catch{$failed=$_.Exception.Message}
  Assert ($failed -like '*CI 測試未通過*') '被指定的失敗 suite 仍使整體失敗'
+ # 分片：完整清單檢查先於分片；分片互不重疊且聯集等於完整清單，語法檢查只在分片 0，沒有分到 suite 的分片不得回報成功。
+ Put 'test/powershell/unit/second_tests.ps1' $pass
+ Put 'test/powershell/unit/third_tests.ps1' $pass
+ $out=Join-Path $temp 'shard_all'
+ Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer All
+ $whole=@((Get-Content -LiteralPath (Join-Path $out 'public/summary.json') -Encoding UTF8 -Raw|ConvertFrom-Json).Checks|Where-Object {$_.Layer -ne 'Static'}|ForEach-Object {$_.Name}|Sort-Object)
+ $union=@();$syntax=0
+ foreach($index in 0..1){
+  $out=Join-Path $temp ('shard_'+$index)
+  Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer All -ShardIndex $index -ShardCount 2
+  $r=Get-Content -LiteralPath (Join-Path $out 'public/summary.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+  $union+=@($r.Checks|Where-Object {$_.Layer -ne 'Static'}|ForEach-Object {$_.Name})
+  $syntax+=@($r.Checks|Where-Object {$_.Layer -eq 'Static'}).Count
+ }
+ Assert ((($union|Sort-Object) -join ',') -ceq ($whole -join ',') -and $union.Count -eq $whole.Count) '分片互不重疊且聯集等於完整清單'
+ Assert ($syntax -eq 1) '語法檢查只在分片 0 執行一次'
+ foreach($case in @(@{Name='index_range';Index=2;Count=2;Error='分片索引'},@{Name='negative_index';Index=-1;Count=2;Error='分片索引'},@{Name='zero_count';Index=0;Count=0;Error='分片'})){
+  $failed='';try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp ('shard_'+$case.Name)) -Layer All -ShardIndex $case.Index -ShardCount $case.Count}catch{$failed=$_.Exception.Message}
+  Assert ($failed -like ('*'+$case.Error+'*')) ('分片拒絕不合法的範圍：'+$case.Name)
+ }
+ $failed='';try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp 'shard_empty') -Layer All -Suite @('Unit.first') -ShardIndex 3 -ShardCount 4}catch{$failed=$_.Exception.Message}
+ Assert ($failed -like '*沒有符合*') '沒有分到任何 suite 的分片失敗，不回報成功'
+ Put 'test/powershell/unit/second_tests.ps1' ($pass+"`nexit 7")
+ Remove-Item -LiteralPath (Join-Path $fixture 'test/powershell/unit/third_tests.ps1')
  Remove-Item -LiteralPath (Join-Path $fixture 'test/powershell/unit/second_tests.ps1')
  # 平行執行：兩個 suite 以會合檔互相等待，只有同時執行才會通過；預設仍為序列，結果順序與序列相同。
  $rendezvous=Join-Path $temp 'rendezvous'
