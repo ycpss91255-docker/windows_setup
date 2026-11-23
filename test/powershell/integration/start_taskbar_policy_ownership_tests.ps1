@@ -22,6 +22,8 @@ function Remove-ItemProperty {param($Path,$Name,$ErrorAction) if($Path -cne $sha
 function Set-Content {param($LiteralPath,$Value,$Encoding,$ErrorAction) if(-not $LiteralPath.StartsWith($temp+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'outside TEMP content write'};Microsoft.PowerShell.Management\Set-Content @PSBoundParameters}
 function Export-StartLayout {param($Path,$ErrorAction) if(-not $Path.StartsWith($temp+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'outside TEMP export'};$script:exports++;[IO.File]::WriteAllText($Path,'{"pinnedList":[]}')}
 function Invoke-SetupTaskbarNativeAutoHide {param($ModuleRoot,[bool]$Apply) $script:nativeStubCalls++;return [uint32]1}
+function Get-SetupTaskbarPersistedAutoHide {return $true}
+function Set-SetupTaskbarPersistedAutoHide {}
 function Export-SetupTaskbarBackup {param($Path) if(-not $Path.StartsWith($temp+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'outside TEMP backup'}}
 function Add-Type {throw 'Native AppBar compilation must stay isolated'}
 function Start-Sleep {param($Seconds) if($Seconds -ne 45){throw 'unexpected delay'}}
