@@ -7,9 +7,11 @@
 
 - 倉庫已移至 `ycpss91255-lab` 組織：README、Release 下載與品質報表連結改用 `https://github.com/ycpss91255-lab/windows_setup` 及 `https://ycpss91255-lab.github.io/windows_setup/`，舊網址不保證持續轉址。
 
-### Changed（變更）
-
 - 第 03 模組停用休眠並移除 `hiberfil.sys`，快速啟動一併停用，冷開機可能稍慢；`-VerifyOnly` 與重開後驗收會核對。需要時可自行執行 `powercfg /hibernate on` 重新啟用。
+
+### Fixed（修正）
+
+- 貢獻流程：已通過合併佇列的「更新分支」同步合併，合併後的 main 檢查改用與佇列相同的核對，不再因標題使 main 變紅。
 
 ## [v0.2.6] — 2026-11-21
 ### Changed（變更）

@@ -69,6 +69,25 @@ try{
  Remove-Item -LiteralPath (Join-Path $fixture '.version')
  $r=Run 'unversioned' 'Unit';Assert ($r.Version -eq 'Unknown' -and $r.SourceState -eq 'Dirty') '缺版本不假設有效版本'
 
+ # 指定 Suite：只執行清單中明確列出的 suite，未知或重複名稱拒絕；完整清單檢查仍先執行。
+ Put '.version' 'v1.2.3'
+ Put 'test/powershell/unit/first_tests.ps1' $pass
+ Put 'test/powershell/unit/second_tests.ps1' ($pass+"`nexit 7")
+ $out=Join-Path $temp 'suite_one'
+ Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer All -Suite @('Unit.first')
+ $r=Get-Content -LiteralPath (Join-Path $out 'public/summary.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+ Assert ($r.Success -and $r.Checks.Count -eq 2 -and $r.Checks[1].Name -ceq 'Unit.first') '指定 Suite 只執行被列出的 suite，其他失敗 suite 不影響'
+ $out=Join-Path $temp 'suite_two'
+ Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer All -Suite @('Integration.layout','Unit.first')
+ $r=Get-Content -LiteralPath (Join-Path $out 'public/summary.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+ Assert ($r.Checks.Count -eq 3 -and $r.Checks[1].Name -ceq 'Unit.first' -and $r.Checks[2].Name -ceq 'Integration.layout') '指定多個 Suite 時仍依完整清單順序執行'
+ foreach($case in @(@{Name='unknown';Suite=@('Unit.nope');Error='未知'},@{Name='duplicate';Suite=@('Unit.first','Unit.first');Error='重複'},@{Name='blank';Suite=@('');Error='未知'},@{Name='wrong_case';Suite=@('unit.first');Error='未知'})){
+  $failed='';try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp ('suite_'+$case.Name)) -Layer All -Suite $case.Suite}catch{$failed=$_.Exception.Message}
+  Assert ($failed -like ('*'+$case.Error+'*')) ('指定 Suite 拒絕'+$case.Name+'：'+$failed)
+ }
+ $failed='';try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp 'suite_failing') -Layer All -Suite @('Unit.second')}catch{$failed=$_.Exception.Message}
+ Assert ($failed -like '*CI 測試未通過*') '被指定的失敗 suite 仍使整體失敗'
+ Remove-Item -LiteralPath (Join-Path $fixture 'test/powershell/unit/second_tests.ps1')
  # 平行執行：兩個 suite 以會合檔互相等待，只有同時執行才會通過；預設仍為序列，結果順序與序列相同。
  $rendezvous=Join-Path $temp 'rendezvous'
  $wait='New-Item -ItemType File -Path (Join-Path $env:CI_RENDEZVOUS ([guid]::NewGuid().ToString(''N''))) | Out-Null'+"`n"+'$deadline=(Get-Date).AddSeconds(10)'+"`n"+'while((@(Get-ChildItem $env:CI_RENDEZVOUS).Count -lt 2) -and ((Get-Date) -lt $deadline)){Start-Sleep -Milliseconds 100}'+"`n"+'Write-Output (''@@ASSERT@@''+(@{Name=''peer suite started'';Passed=(@(Get-ChildItem $env:CI_RENDEZVOUS).Count -ge 2)}|ConvertTo-Json -Compress))'
