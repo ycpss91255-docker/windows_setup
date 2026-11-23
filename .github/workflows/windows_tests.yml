@@ -70,6 +70,10 @@ jobs:
       select_docker_tests: ${{ steps.classify.outputs.select_docker_tests || steps.fallback.outputs.select_docker_tests }}
       select_oobe_payload: ${{ steps.classify.outputs.select_oobe_payload || steps.fallback.outputs.select_oobe_payload }}
       select_doc_checks: ${{ steps.classify.outputs.select_doc_checks || steps.fallback.outputs.select_doc_checks }}
+      select_go_tests: ${{ steps.classify.outputs.select_go_tests || steps.fallback.outputs.select_go_tests || 'false' }}
+      shard_count: ${{ steps.classify.outputs.shard_count || steps.fallback.outputs.shard_count || '1' }}
+      shard_matrix: ${{ steps.classify.outputs.shard_matrix || steps.fallback.outputs.shard_matrix || '[0]' }}
+      pr_full: ${{ steps.classify.outputs.pr_full || steps.fallback.outputs.pr_full || 'false' }}
       test_scope: ${{ steps.classify.outputs.test_scope || steps.fallback.outputs.test_scope }}
       affected_tests: ${{ steps.classify.outputs.affected_tests }}
       doc_tests: ${{ steps.classify.outputs.doc_tests }}
@@ -99,7 +103,7 @@ jobs:
         if: steps.classify.outcome != 'success'
         shell: pwsh
         run: |
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value @('select_tests=true','select_powershell_coverage=true','select_coverage_aggregation=true','select_requirements_gate=true','select_docker_tests=true','select_oobe_payload=true','select_doc_checks=false','test_scope=full')
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value @('select_tests=true','select_powershell_coverage=true','select_coverage_aggregation=true','select_requirements_gate=true','select_docker_tests=true','select_oobe_payload=true','select_doc_checks=false','select_go_tests=false','shard_count=1','shard_matrix=[0]','pr_full=false','test_scope=full')
 
   doc-checks:
     name: 文件輕量檢查
@@ -234,6 +238,10 @@ jobs:
   isolated-tests:
     needs: [source-preflight, classify]
     if: needs.classify.outputs.select_tests == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.classify.outputs.shard_matrix) }}
     runs-on: windows-2022
     timeout-minutes: 90
     defaults:
@@ -275,8 +283,10 @@ jobs:
         if: needs.classify.outputs.test_scope == 'scoped'
         env:
           AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_COUNT: ${{ needs.classify.outputs.shard_count }}
         run: |
-          & .\script\test\run_ci.ps1 -Layer All -ReportDirectory (Join-Path $env:RUNNER_TEMP 'NUC-CI-Results') -Parallelism 2 -Suite ($env:AFFECTED_TESTS -split ',')
+          & .\script\test\run_ci.ps1 -Layer All -ReportDirectory (Join-Path $env:RUNNER_TEMP 'NUC-CI-Results') -Parallelism 2 -ShardIndex ([int]$env:SHARD_INDEX) -ShardCount ([int]$env:SHARD_COUNT) -Suite ($env:AFFECTED_TESTS -split ',')
       - name: 顯示固定失敗測試的有限診斷
         if: failure() && needs.classify.outputs.test_scope != 'scoped'
         run: |
@@ -326,6 +336,30 @@ jobs:
           path: ${{ runner.temp }}/requirements-fixture/portal/
           retention-days: 7
           if-no-files-found: error
+  go-tests:
+    name: Go 維護工具單元測試
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_go_tests == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: 取得原始碼
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 準備固定 Go 覆蓋率工具鏈
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: 執行 Go 維護工具單元測試（不含整合測試）
+        run: |
+          . .\script\test\ci_tasks.ps1
+          Invoke-CIGoUnitTests
   managed-coverage:
     name: managed 原生程式量測
     needs: [source-preflight, classify]
@@ -580,7 +614,7 @@ jobs:
   ci-rollup:
     name: ci-rollup
     if: always()
-    needs: [classify, doc-checks, isolated-tests, requirements-gate, docker-tests, oobe_payload_inspection, powershell-coverage, coverage-aggregation]
+    needs: [classify, doc-checks, isolated-tests, go-tests, requirements-gate, docker-tests, oobe_payload_inspection, powershell-coverage, coverage-aggregation]
     runs-on: windows-2022
     timeout-minutes: 5
     steps:
@@ -600,6 +634,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           CLASSIFY_RESULT: ${{ needs.classify.result }}
           DOC_CHECKS_RESULT: ${{ needs.doc-checks.result }}
+          GO_TESTS_RESULT: ${{ needs.go-tests.result }}
           SELECT_TESTS: ${{ needs.classify.outputs.select_tests }}
           SELECT_REQUIREMENTS: ${{ needs.classify.outputs.select_requirements_gate }}
           SELECT_DOCKER: ${{ needs.classify.outputs.select_docker_tests }}
@@ -607,11 +642,12 @@ jobs:
           SELECT_POWERSHELL_COVERAGE: ${{ needs.classify.outputs.select_powershell_coverage }}
           SELECT_COVERAGE: ${{ needs.classify.outputs.select_coverage_aggregation }}
           SELECT_DOC_CHECKS: ${{ needs.classify.outputs.select_doc_checks }}
+          SELECT_GO_TESTS: ${{ needs.classify.outputs.select_go_tests }}
         run: |
           . .\script\test\ci_tasks.ps1
           . .\script\test\ci_quality_summary.ps1
-          $states=@{Tests=$env:TEST_RESULT;Requirements=$env:REQUIREMENTS_RESULT;Docker=$env:DOCKER_RESULT;Payload=$env:OOBE_PAYLOAD_RESULT;PowerShellCoverage=$env:POWERSHELL_COVERAGE_RESULT;Coverage=$env:COVERAGE_RESULT;Classify=$env:CLASSIFY_RESULT;DocChecks=$env:DOC_CHECKS_RESULT}
-          $selection=@{Tests=$env:SELECT_TESTS;Requirements=$env:SELECT_REQUIREMENTS;Docker=$env:SELECT_DOCKER;Payload=$env:SELECT_PAYLOAD;PowerShellCoverage=$env:SELECT_POWERSHELL_COVERAGE;Coverage=$env:SELECT_COVERAGE;DocChecks=$env:SELECT_DOC_CHECKS}
+          $states=@{Tests=$env:TEST_RESULT;Requirements=$env:REQUIREMENTS_RESULT;Docker=$env:DOCKER_RESULT;Payload=$env:OOBE_PAYLOAD_RESULT;PowerShellCoverage=$env:POWERSHELL_COVERAGE_RESULT;Coverage=$env:COVERAGE_RESULT;Classify=$env:CLASSIFY_RESULT;DocChecks=$env:DOC_CHECKS_RESULT;GoTests=$env:GO_TESTS_RESULT}
+          $selection=@{Tests=$env:SELECT_TESTS;Requirements=$env:SELECT_REQUIREMENTS;Docker=$env:SELECT_DOCKER;Payload=$env:SELECT_PAYLOAD;PowerShellCoverage=$env:SELECT_POWERSHELL_COVERAGE;Coverage=$env:SELECT_COVERAGE;DocChecks=$env:SELECT_DOC_CHECKS;GoTests=$env:SELECT_GO_TESTS}
           $states=Resolve-CIRollupStates -Results $states -Selection $selection -EventName $env:EVENT_NAME
           Write-CIQualityFailureSummary -States $states -SummaryPath $env:GITHUB_STEP_SUMMARY
           Assert-CIResults $states

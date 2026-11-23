@@ -86,9 +86,16 @@ try{
   Assert $ok ('非 PR 事件不縮小：'+$event)
  }
  $fallback=Get-CIChangeSelection -EventName pull_request -ChangedPaths @('modules/power/orphan.ps1') -Root $fixture
- $fullOk=$fallback['test_scope'] -ceq 'full'
- foreach($key in @('tests','oobe_payload')+$heavy){if($fallback[$key] -cne 'true'){$fullOk=$false}}
- Assert $fullOk '無法判斷的 PR 選完整套件'
+ $allNames=@(Get-CIAllSuiteNames -Root $fixture)
+ $prFull=$fallback['pr_full'] -ceq 'true' -and $fallback['test_scope'] -ceq 'scoped' -and (@($fallback['affected_tests'] -split ',').Count -eq $allNames.Count) -and $fallback['tests'] -ceq 'true' -and $fallback['oobe_payload'] -ceq 'true' -and $fallback['go_tests'] -ceq 'true'
+ foreach($key in $heavy){if($fallback[$key] -cne 'false'){$prFull=$false}}
+ Assert $prFull '無法判斷的 PR 在 PR 階段改為全部 suite 分片＋Go 測試，其餘重型工作留給 merge_group'
+ Assert ([int]$fallback['shard_count'] -ge 1 -and [int]$fallback['shard_count'] -le 4 -and $fallback['shard_matrix'] -ceq ('['+((0..([int]$fallback['shard_count']-1)) -join ',')+']')) '分片數在 1 到 4 之間且分片矩陣與分片數一致'
+ Assert ($code['pr_full'] -ceq 'false' -and $code['go_tests'] -ceq 'false' -and [int]$code['shard_count'] -ge 1) '可縮小的 PR 不是 pr_full，也不另跑 Go 測試'
+ foreach($event in @('push','merge_group','workflow_dispatch','schedule','')){
+  $nonPr=Get-CIChangeSelection -EventName $event -ChangedPaths @('modules/power/orphan.ps1') -Root $fixture
+  Assert ($nonPr['pr_full'] -ceq 'false' -and $nonPr['go_tests'] -ceq 'false' -and $nonPr['shard_count'] -ceq '1' -and $nonPr['shard_matrix'] -ceq '[0]' -and $nonPr['test_scope'] -ceq 'full') ('非 PR 事件不分片、不降級：'+$event)
+ }
  $docOnly=Get-CIChangeSelection -EventName pull_request -ChangedPaths @('doc/guide.md') -Root $fixture
  Assert ($docOnly['doc_checks'] -ceq 'true' -and $docOnly['tests'] -ceq 'false' -and $docOnly['test_scope'] -ceq 'full') '純文件 PR 仍走文件輕量檢查'
  $noRoot=Get-CIChangeSelection -EventName pull_request -ChangedPaths @('modules/power/power.ps1')
@@ -123,7 +130,7 @@ function Test-ScopedWorkflow([string]$Workflow){
  $isolated=[regex]::Match($text,'(?ms)^  isolated-tests:\n(?<body>.*?)^  coverage-aggregation:').Groups['body'].Value
  $rollup=[regex]::Match($text,'(?ms)^  ci-rollup:\n(?<body>.*?)^  release:').Groups['body'].Value
  $ok=$classify.Contains('test_scope: ${{ steps.classify.outputs.test_scope || steps.fallback.outputs.test_scope }}') -and $classify.Contains('affected_tests: ${{ steps.classify.outputs.affected_tests }}')
- $ok=$ok -and $isolated.Contains("if: needs.classify.outputs.test_scope == 'scoped'") -and $isolated.Contains('-Parallelism 2 -Suite ($env:AFFECTED_TESTS -split '','')') -and $isolated.Contains('AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}')
+ $ok=$ok -and $isolated.Contains("if: needs.classify.outputs.test_scope == 'scoped'") -and $isolated.Contains('-Parallelism 2 -ShardIndex ([int]$env:SHARD_INDEX) -ShardCount ([int]$env:SHARD_COUNT) -Suite ($env:AFFECTED_TESTS -split '','')') -and $isolated.Contains('AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}')
  foreach($step in @('執行 Windows PowerShell 5.1 隔離測試','執行全部 Go 維護工具測試','驗證手機與桌面報表明細排版','封裝尚未完成 runtime 覆蓋率的原生證據','僅保留不可發布的同次原生中介證據七天')){
   $body=[regex]::Match($isolated,'(?ms)^      - name: '+[regex]::Escape($step)+'\n(?<body>.*?)(?=^      - name: |\z)').Groups['body'].Value
   $ok=$ok -and $body.Contains("needs.classify.outputs.test_scope != 'scoped'")
@@ -150,8 +157,8 @@ function Get-RollupScript([string]$Workflow){
 }
 function Invoke-RollupScenario([string]$Event,[string[]]$Paths,[hashtable]$Override){
  $sel=Get-CIChangeSelection -EventName $Event -ChangedPaths $Paths -Root $root
- $map=@{TEST_RESULT='tests';REQUIREMENTS_RESULT='requirements_gate';DOCKER_RESULT='docker_tests';OOBE_PAYLOAD_RESULT='oobe_payload';POWERSHELL_COVERAGE_RESULT='powershell_coverage';COVERAGE_RESULT='coverage_aggregation';DOC_CHECKS_RESULT='doc_checks'}
- $envs=@{EVENT_NAME=$Event;CLASSIFY_RESULT='success';SELECT_TESTS=$sel['tests'];SELECT_REQUIREMENTS=$sel['requirements_gate'];SELECT_DOCKER=$sel['docker_tests'];SELECT_PAYLOAD=$sel['oobe_payload'];SELECT_POWERSHELL_COVERAGE=$sel['powershell_coverage'];SELECT_COVERAGE=$sel['coverage_aggregation'];SELECT_DOC_CHECKS=$sel['doc_checks']}
+ $map=@{TEST_RESULT='tests';REQUIREMENTS_RESULT='requirements_gate';DOCKER_RESULT='docker_tests';OOBE_PAYLOAD_RESULT='oobe_payload';POWERSHELL_COVERAGE_RESULT='powershell_coverage';COVERAGE_RESULT='coverage_aggregation';DOC_CHECKS_RESULT='doc_checks';GO_TESTS_RESULT='go_tests'}
+ $envs=@{EVENT_NAME=$Event;CLASSIFY_RESULT='success';SELECT_TESTS=$sel['tests'];SELECT_REQUIREMENTS=$sel['requirements_gate'];SELECT_DOCKER=$sel['docker_tests'];SELECT_PAYLOAD=$sel['oobe_payload'];SELECT_POWERSHELL_COVERAGE=$sel['powershell_coverage'];SELECT_COVERAGE=$sel['coverage_aggregation'];SELECT_DOC_CHECKS=$sel['doc_checks'];SELECT_GO_TESTS=$sel['go_tests']}
  foreach($k in $map.Keys){$envs[$k]=$(if($sel[$map[$k]] -ceq 'true'){'success'}else{'skipped'})}
  if($Override){foreach($k in $Override.Keys){$envs[$k]=$Override[$k]}}
  $script=Join-Path $env:TEMP ('rollup_'+[guid]::NewGuid().ToString('N')+'.ps1');$summary=$script+'.md'
@@ -175,6 +182,13 @@ $docPr=Invoke-RollupScenario 'pull_request' @('readme.md')
 Assert ($docPr.Passed -and $docPr.Selection['doc_checks'] -ceq 'true' -and $docPr.Selection['tests'] -ceq 'false') '端到端：pull_request 純文件只跑文件檢查，rollup 通過'
 $codePr=Invoke-RollupScenario 'pull_request' @('core/paths.json')
 Assert ($codePr.Passed -and $codePr.Selection['doc_checks'] -ceq 'false' -and $codePr.Selection['tests'] -ceq 'true') '端到端：pull_request 程式變更（共用路徑，完整套件）rollup 通過'
+Assert ($codePr.Selection['pr_full'] -ceq 'true' -and $codePr.Selection['go_tests'] -ceq 'true') '端到端：共用路徑的 PR 走分片＋Go 測試，覆蓋率與容器留給 merge_group'
+$goSkipped=Invoke-RollupScenario 'pull_request' @('core/paths.json') @{GO_TESTS_RESULT='skipped'}
+Assert (-not $goSkipped.Passed) '端到端：被選取的 Go 測試工作 skipped 時 rollup 必須失敗'
+$goFailed=Invoke-RollupScenario 'pull_request' @('core/paths.json') @{GO_TESTS_RESULT='failure'}
+Assert (-not $goFailed.Passed) '端到端：Go 測試工作失敗時 rollup 必須失敗'
+$dockerSkippedPr=Invoke-RollupScenario 'pull_request' @('core/paths.json') @{DOCKER_RESULT='success'}
+Assert $dockerSkippedPr.Passed '端到端：PR 階段略過的覆蓋率與容器不影響 rollup'
 foreach($event in @('merge_group','push','workflow_dispatch','tag')){
  $r=Invoke-RollupScenario $event $null
  Assert ($r.Passed -and $r.Selection['doc_checks'] -ceq 'false' -and $r.Selection['test_scope'] -ceq 'full') ('端到端：'+$event+' 完整套件、文件檢查未選取且 skipped，rollup 通過')

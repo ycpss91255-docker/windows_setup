@@ -26,6 +26,7 @@ func TestPullRequestClassifyGatesOnlyDeclaredHeavyJobs(t *testing.T) {
 		"managed-coverage":        "select_coverage_aggregation",
 		"requirements-gate":       "select_requirements_gate",
 		"docker-tests":            "select_docker_tests",
+		"go-tests":            "select_go_tests",
 		"oobe_payload_inspection": "select_oobe_payload",
 	}
 	for job, key := range gated {
@@ -95,7 +96,7 @@ func TestScopedPullRequestKeepsFullGateForOtherEvents(t *testing.T) {
 		}
 	}
 	isolated := coverageJob(text, "isolated-tests")
-	for _, required := range []string{"needs.classify.outputs.test_scope == 'scoped'", "-Parallelism 2 -Suite ($env:AFFECTED_TESTS -split ',')", "AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}"} {
+	for _, required := range []string{"needs.classify.outputs.test_scope == 'scoped'", "-Parallelism 2 -ShardIndex ([int]$env:SHARD_INDEX) -ShardCount ([int]$env:SHARD_COUNT) -Suite ($env:AFFECTED_TESTS -split ',')", "AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}"} {
 		if !strings.Contains(isolated, required) {
 			t.Fatalf("isolated-tests missing %s", required)
 		}
@@ -151,6 +152,51 @@ func TestClassifyRunsBaseVersionRulesAndFallsBackWithoutScript(t *testing.T) {
 	for _, required := range []string{"select_tests=true", "select_docker_tests=true", "select_powershell_coverage=true", "select_coverage_aggregation=true", "select_requirements_gate=true", "select_oobe_payload=true", "select_doc_checks=false", "test_scope=full"} {
 		if !strings.Contains(fallback, required) {
 			t.Fatalf("fallback missing %s", required)
+		}
+	}
+}
+
+func TestPullRequestShardsIsolatedTestsAndRunsGoTestsSeparately(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("../../..", ".github/workflows/windows_tests.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	classify := coverageJob(text, "classify")
+	for _, required := range []string{
+		"select_go_tests: ${{ steps.classify.outputs.select_go_tests || steps.fallback.outputs.select_go_tests || 'false' }}",
+		"shard_count: ${{ steps.classify.outputs.shard_count || steps.fallback.outputs.shard_count || '1' }}",
+		"shard_matrix: ${{ steps.classify.outputs.shard_matrix || steps.fallback.outputs.shard_matrix || '[0]' }}",
+	} {
+		if !strings.Contains(classify, required) {
+			t.Fatalf("classify missing %s; an older base classifier without these outputs must still produce one full shard", required)
+		}
+	}
+	fallback := classify[strings.Index(classify, "id: fallback"):]
+	for _, required := range []string{"select_go_tests=false", "shard_count=1", "shard_matrix=[0]", "pr_full=false"} {
+		if !strings.Contains(fallback, required) {
+			t.Fatalf("fallback missing %s", required)
+		}
+	}
+	isolated := coverageJob(text, "isolated-tests")
+	for _, required := range []string{"fail-fast: false", "shard: ${{ fromJSON(needs.classify.outputs.shard_matrix) }}", "SHARD_INDEX: ${{ matrix.shard }}", "SHARD_COUNT: ${{ needs.classify.outputs.shard_count }}"} {
+		if !strings.Contains(isolated, required) {
+			t.Fatalf("isolated-tests missing %s", required)
+		}
+	}
+	goJob := coverageJob(text, "go-tests")
+	for _, required := range []string{"Invoke-CIGoUnitTests", "needs: [source-preflight, classify]"} {
+		if !strings.Contains(goJob, required) {
+			t.Fatalf("go-tests missing %s", required)
+		}
+	}
+	if strings.Contains(goJob, "test/go/integration") || strings.Contains(goJob, "go.exe") {
+		t.Fatal("go-tests must call the shared helper, not inline go commands or the integration package")
+	}
+	rollup := coverageJob(text, "ci-rollup")
+	for _, required := range []string{"go-tests", "GO_TESTS_RESULT: ${{ needs.go-tests.result }}", "SELECT_GO_TESTS: ${{ needs.classify.outputs.select_go_tests }}", "GoTests="} {
+		if !strings.Contains(rollup, required) {
+			t.Fatalf("ci-rollup missing %s", required)
 		}
 	}
 }
