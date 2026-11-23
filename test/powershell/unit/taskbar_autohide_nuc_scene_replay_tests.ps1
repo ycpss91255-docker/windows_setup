@@ -5,8 +5,8 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $fx=Join-Path $root 'test/powershell/fixtures/nuc_scene_taskbar_autohide'
 function Assert([bool]$Condition,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Condition}|ConvertTo-Json -Compress));if(-not $Condition){throw $Name}}
 . (Join-Path $root 'modules/taskbar/taskbar_settings_library.ps1')
-$applyScene=Get-Content -LiteralPath (Join-Path $fx 'Taskbar-Apply-Result.json') -Raw -Encoding UTF8|ConvertFrom-Json
-$verifyScene=Get-Content -LiteralPath (Join-Path $fx 'Taskbar-Verify-Result.json') -Raw -Encoding UTF8|ConvertFrom-Json
+$applyScene=Get-Content -LiteralPath (Join-Path $fx 'taskbar_apply_scene.json') -Raw -Encoding UTF8|ConvertFrom-Json
+$verifyScene=Get-Content -LiteralPath (Join-Path $fx 'taskbar_verify_scene.json') -Raw -Encoding UTF8|ConvertFrom-Json
 $hex=([regex]::Match((Get-Content -LiteralPath (Join-Path $fx 'StuckRects3.reg.txt') -Raw),'REG_BINARY\s+([0-9A-Fa-f]+)')).Groups[1].Value
 [byte[]]$sceneBytes=for($i=0;$i -lt $hex.Length;$i+=2){[Convert]::ToByte($hex.Substring($i,2),16)}
 Assert ($sceneBytes.Count -eq 48 -and $sceneBytes[8] -eq 2) 'fixture StuckRects3 byte 9 is 0x02 (auto-hide bit absent), as captured'

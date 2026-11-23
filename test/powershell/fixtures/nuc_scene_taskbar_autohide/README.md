@@ -6,11 +6,11 @@
 
 | fixture | 來源（快照內相對路徑） | 來源 SHA256 | 擷取時間 |
 |---|---|---|---|
-| `Taskbar-Apply-Result.json` | `files/programdata/windows_setup_gui/taskbar/<RunId>/data/Taskbar-Result.json` | `7A4D1BB89AB1E1CC0051A902BCECCDC2A27CC9DD739F27C02E1324EEBF3839B8` | 檔內 CheckedAt 2026-11-22 17:02:40（+08:00） |
-| `Taskbar-Verify-Result.json` | `gui3/files/taskbar/<RunId>/data/Taskbar-Verification.json` | `1C36A9AB14E41747A0DA8DE198EFFA8208ADBABAF0E1DB592AB6FB219C1B0962` | 檔內 CheckedAt 2026-11-22 21:12:57（+08:00） |
+| `taskbar_apply_scene.json` | `files/programdata/windows_setup_gui/taskbar/<RunId>/data/Taskbar-Result.json` | `7A4D1BB89AB1E1CC0051A902BCECCDC2A27CC9DD739F27C02E1324EEBF3839B8` | 檔內 CheckedAt 2026-11-22 17:02:40（+08:00） |
+| `taskbar_verify_scene.json` | `gui3/files/taskbar/<RunId>/data/Taskbar-Verification.json` | `1C36A9AB14E41747A0DA8DE198EFFA8208ADBABAF0E1DB592AB6FB219C1B0962` | 檔內 CheckedAt 2026-11-22 21:12:57（+08:00） |
 | `StuckRects3.reg.txt` | `registry/taskbar_shell.txt` 內 `HKCU\...\Explorer\StuckRects3` 的 Settings | 整檔 `ACF2484694B1F7831C60576E9B7AB7EF119C7D3A49BF0129FB27067B10A7707B` | 檔案時間 2026-11-22 20:27:12（+08:00） |
 
-JSON 保留原 BOM、CRLF、欄位順序、型別與空值（例如 `TaskbarDa` 為 null）。`StuckRects3.reg.txt` 的十六進位字串與原擷取逐字相同，只刪掉其他機碼輸出，第 9 位元組為 `02`（未含自動隱藏位元）。
+兩個 JSON 因 `.gitignore` 的 `*-Result.json` 規則（每機結果檔不進倉庫）而改名；內容未變，只做去識別。JSON 保留原 BOM、CRLF、欄位順序、型別與空值（例如 `TaskbarDa` 為 null）。`StuckRects3.reg.txt` 的十六進位字串與原擷取逐字相同，只刪掉其他機碼輸出，第 9 位元組為 `02`（未含自動隱藏位元）。
 
 ## 去識別
 
@@ -33,3 +33,5 @@ JSON 保留原 BOM、CRLF、欄位順序、型別與空值（例如 `TaskbarDa` 
 5. 第一階段測試結束時是否有還原自動隱藏的動作與時間。
 6. Apply 之後以不同延遲（立即、數秒後）讀 StuckRects3，確認 Windows 11 26200 上 `ABM_SETSTATE` 是否由 Explorer 自行持久化。
 7. 全新使用者設定檔上 StuckRects3 是否存在，以及 `Settings` 值長度。
+8. 全新使用者首次登入後立即讀 StuckRects3 是否存在及 `Settings` 長度（Apply 在找不到時只回報未持久化，不建立）。
+9. 在沒有 StuckRects3 的狀態下 `ABM_SETSTATE` 是否讓 Explorer 建立該機碼。
