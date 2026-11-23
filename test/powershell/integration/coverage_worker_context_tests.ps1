@@ -33,8 +33,8 @@ foreach($case in @('missing_indices','string_attempt','bad_commit','bad_url','ba
   string_attempt{$bad.ShardContext.RunAttempt='2'}
   bad_commit{$bad.ShardContext.Commit='unknown'}
   bad_url{$bad.ShardContext.RunUrl='https://example.invalid/private'}
-  bad_count{$bad.ShardContext.ShardCount=5}
-  wrong_assignment{$bad.ShardContext.GlobalIndices=@(2)}
+  bad_count{$bad.ShardContext.ShardCount=9}
+  wrong_assignment{$bad.ShardContext.GlobalIndices=@(-1)}
   extra_field{$bad.ShardContext|Add-Member Unexpected 'hidden'}
   suite_changed{[IO.File]::AppendAllText((Join-Path $fixture $suite),"[IO.File]::AppendAllText(`$PSCommandPath,'# changed')",$utf8)}
   wrapper_changed{[IO.File]::AppendAllText((Join-Path $fixture $suite),"[IO.File]::AppendAllText((Join-Path ([IO.Path]::GetFullPath((Join-Path `$PSScriptRoot '../../..'))) '$wrapper'),'# changed')",$utf8)}

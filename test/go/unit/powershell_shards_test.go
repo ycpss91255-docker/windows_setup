@@ -263,7 +263,7 @@ func TestPowerShellShardsRejectInvalidTrustedPlan(t *testing.T) {
 			case "zero count":
 				f.identity.ShardCount = 0
 			case "too many shards":
-				f.identity.ShardCount = 5
+				f.identity.ShardCount = 9
 			case "invalid commit":
 				f.identity.Commit = "dirty"
 			case "invalid run":

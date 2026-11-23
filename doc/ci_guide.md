@@ -13,12 +13,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File script/test/verify_clien
 
 ### 平行測試與完整證據聚合
 
-原生完整測試、Go 維護工具測試與四片 PowerShell 量測平行執行。聚合核對本次提交、執行 ID、attempt 與來源雜湊後，結合 C# 量測，產生 runtime 覆蓋率及正式報告。
+原生完整測試、Go 維護工具測試與八片 PowerShell 量測平行執行。聚合核對本次提交、執行 ID、attempt 與來源雜湊後，結合 C# 量測，產生 runtime 覆蓋率及正式報告。
 
 ```mermaid
 flowchart LR
   native["原生 All ＋全部 Go 測試"] --> aggregate["同次證據聚合＋C#／PowerShell runtime 八成"]
-  powershell["PowerShell 完整四片"] --> aggregate
+  powershell["PowerShell 完整八片"] --> aggregate
   aggregate --> gate["需求驗收與 ci-rollup"]
   docker["Windows Docker 完整測試與負例"] --> gate
   payload["設定包來源與內容核對"] --> gate
@@ -121,6 +121,6 @@ CI 的 `docker-tests` 使用真正的 `windows-2022` runner 執行 Docker build/
 
 每次 CI 將去識別的 HTML／JSON／Markdown／JUnit 與徽章上傳為 windows-test-reports artifact，保留 7 天；原始套件 log 不上傳。 完成的 PowerShell collector 另匯出 powershell-raw-evidence 附件保留 7 天，即使後續 runtime 彙整失敗也可重播原始命令計數；附件只含核對過的相對路徑 JSON／XML，不包含 stdout、Pester 原始 XML 或帶絕對路徑的收集清單。這是分項原始證據，不表示 runtime 覆蓋率門檻通過。另有 requirements-fixture artifact，只含程式明確建立的合成首頁樣本，固定假 SHA、示例執行網址及 Synthetic 環境標記，不含帳密或實機資料，同樣保留 7 天供需求門檻驗證。這份樣本不是正式測試證據，不混入 windows-test-reports、Release 或 Pages。其他測試副本、帳號 answer XML、每機 Reports 與秘密均不上傳。Actions 本身執行 log 的保留天數另由儲存庫設定控制，不是 YAML artifact 保留期。
 
-完整 PowerShell 量測由四個 Windows 工作平行執行，原生完整測試與 Go 測試另行同時執行；每片保留 runtime PowerShell 來源分母，聚合重新核對同一提交、執行 ID、attempt、原生測試及 wrapper 雜湊後才完成。重新量測時，在 Actions 選擇「重新執行所有工作」（Re-run all jobs），讓四片、原生 producer 與聚合使用新的同一次 attempt；只重跑失敗工作而混用舊片會被拒絕，不會沿用先前的計數補成通過。
+完整 PowerShell 量測預設由八個 Windows 工作平行執行；片數由 repo 變數 `CI_SHARDS` 控制（未設或非數字為 8，夾在 1–8，由 `compute-shards` 工作產生 matrix 與片數並傳給分片與聚合）；各片依 Actions 計時附件的實測秒數（`script/test/repo_coverage/powershell_shard_weights.go`）以最長優先法分配，未列入的新 suite 使用預設權重，分配為可重現的純函式，規劃、打包與聚合共用，原生完整測試與 Go 測試另行同時執行；每片保留 runtime PowerShell 來源分母，聚合重新核對同一提交、執行 ID、attempt、原生測試及 wrapper 雜湊後才完成。重新量測時，在 Actions 選擇「重新執行所有工作」（Re-run all jobs），讓八片、原生 producer 與聚合使用新的同一次 attempt；只重跑失敗工作而混用舊片會被拒絕，不會沿用先前的計數補成通過。
 
 實機 Setup-Result.json、Setup-Progress.json、Acceptance-Result.json 與驗證結果是續跑或排錯資料，原有 Git 忽略規則保留；CI 不清理這些檔案。設定未完成時不要刪除 Setup-Result.json。
