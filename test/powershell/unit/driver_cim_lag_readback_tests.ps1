@@ -2,7 +2,7 @@
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot '../../../modules/drivers/driver_plan_library.ps1')
 function Assert([bool]$Value,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Value}|ConvertTo-Json -Compress));if(-not $Value){throw $Name}}
-# 重放 2026-11-23 NUC 現場：安裝後 DEVPKEY 立即正確，CIM 列到 t+120 才出現；移除後 CIM 留幽靈列。資料見 fixtures/nuc_driver_cim_lag_20261123/README.md
+# 重放 2026-11-23 NUC 現場：安裝後 DEVPKEY 立即正確，CIM 列到 t+120 才出現；移除後 CIM 留幽靈列。資料見 fixtures/nuc_driver_cim_lag_20261123/readme.md
 $fx=Get-Content -LiteralPath (Join-Path $PSScriptRoot '../fixtures/nuc_driver_cim_lag_20261123/cim_lag_timeseries.json') -Raw -Encoding UTF8|ConvertFrom-Json
 $id=[string]$fx.InstanceId
 $script:clock=0;$script:mode='install';$script:signer=[string]$fx.SignerName;$script:sleeps=@();$script:enumCalls=0
