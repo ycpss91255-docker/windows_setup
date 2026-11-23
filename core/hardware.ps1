@@ -25,8 +25,14 @@ function Get-SetupDriverProfile {
  return $null
 }
 function Get-SetupHardwareProfile {
- param([string]$BoardProduct,[string]$UICulture=(Get-UICulture).Name,[string]$DriverPackagePath='',
+ param([string]$BoardProduct,[string]$UICulture,[string]$UICultureSource='呼叫端指定',[string]$UICultureReason='',[string]$DriverPackagePath='',
   [ValidateSet('','NUC8i7HVB','NUC8i7HNB')][string]$ConfirmedBoard='', [string]$ConfirmationComputer='', [string]$ProfilesRoot='')
+ if(-not $PSBoundParameters.ContainsKey('UICulture')){
+  $boundary=Join-Path $PSScriptRoot 'entry_os_boundary.ps1'
+  if(-not (Get-Command Get-SetupEntryUserUILanguage -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath $boundary -PathType Leaf)){. $boundary}
+  $language=if(Get-Command Get-SetupEntryUserUILanguage -ErrorAction SilentlyContinue){Get-SetupEntryUserUILanguage}else{[pscustomobject]@{Name='';Source='目標使用者登錄';Reason='缺少 entry_os_boundary.ps1，無法判斷目標使用者語言'}}
+  $UICulture=[string]$language.Name;$UICultureSource=[string]$language.Source;$UICultureReason=[string]$language.Reason
+ }
  $detectionError='';$ambiguous=$false
  if(-not $PSBoundParameters.ContainsKey('BoardProduct')){
   try{
@@ -47,7 +53,7 @@ function Get-SetupHardwareProfile {
  $profileBoard=if($ConfirmedBoard){$ConfirmedBoard}else{$value}
  $profile=Get-SetupDriverProfile -BoardProduct $profileBoard -ProfilesRoot $ProfilesRoot
  $driverBoard=if($profile){$profileBoard}else{''}
- [pscustomobject]@{Name=$(if($profile){$profile.ProfileId}else{'Generic'});DriverProfileId=$(if($profile){$profile.ProfileId}else{''});DriverProfileData=$profile;BoardProduct=$BoardProduct;DriverBoard=$driverBoard;IsNuc8=($driverBoard -in @('NUC8i7HVB','NUC8i7HNB'));IsDetectedNuc8=$detected;DetectionStatus=$status;DetectionError=$detectionError;ConfirmedBoard=$ConfirmedBoard;ConfirmationComputer=$ConfirmationComputer;UICulture=$UICulture;DriverPackagePath=$DriverPackagePath}
+ [pscustomobject]@{Name=$(if($profile){$profile.ProfileId}else{'Generic'});DriverProfileId=$(if($profile){$profile.ProfileId}else{''});DriverProfileData=$profile;BoardProduct=$BoardProduct;DriverBoard=$driverBoard;IsNuc8=($driverBoard -in @('NUC8i7HVB','NUC8i7HNB'));IsDetectedNuc8=$detected;DetectionStatus=$status;DetectionError=$detectionError;ConfirmedBoard=$ConfirmedBoard;ConfirmationComputer=$ConfirmationComputer;UICulture=$UICulture;UICultureSource=$UICultureSource;UICultureReason=$UICultureReason;DriverPackagePath=$DriverPackagePath}
 }
 function Get-SetupModuleDecision {
  param([Parameter(Mandatory=$true)][string]$Module,[Parameter(Mandatory=$true)]$Hardware)
@@ -56,8 +62,12 @@ function Get-SetupModuleDecision {
  if($Module -eq 'apply_amd_privacy_settings.ps1' -and $Hardware.ConfirmedBoard -and -not $Hardware.IsDetectedNuc8){$skip=$true}
  $reason='非 NUC8i7HV/HN：略過 NUC 專屬驅動／AMD 設定'
  if($Module -eq 'install_drivers.ps1' -and $hasProfile -and -not $Hardware.DriverPackagePath){$skip=$true;$reason='未選擇獨立驅動包，略過驅動安裝'}
- if($Module -eq 'desktop_icon_layout.ps1' -and $Hardware.UICulture -ne 'zh-TW'){$skip=$true;$reason='目前排列範本使用繁體中文圖示名稱，略過其他語系的座標套用'}
- [pscustomobject]@{Module=$Module;Applicable=(-not $skip);Status=$(if($skip){'Skipped'}else{'Applicable'});Reason=$(if($skip){$reason}else{'適用目前硬體設定檔'})}
+ $unknown=$false
+ if($Module -eq 'desktop_icon_layout.ps1'){
+  if([string]::IsNullOrWhiteSpace([string]$Hardware.UICulture)){$skip=$true;$unknown=$true;$reason='無法判斷目標使用者語言（Unknown），未套用圖示座標：'+$Hardware.UICultureReason}
+  elseif($Hardware.UICulture -ne 'zh-TW'){$skip=$true;$reason='目前排列範本使用繁體中文圖示名稱，略過其他語系的座標套用；目標使用者語言為 '+$Hardware.UICulture+'（來源：'+$Hardware.UICultureSource+'）'}
+ }
+ [pscustomobject]@{Module=$Module;Applicable=(-not $skip);Status=$(if($unknown){'Unknown'}elseif($skip){'Skipped'}else{'Applicable'});Reason=$(if($skip){$reason}else{'適用目前硬體設定檔'})}
 }
 function Get-SetupDriverManifestEntries {
  param([Parameter(Mandatory=$true)]$Manifest)
