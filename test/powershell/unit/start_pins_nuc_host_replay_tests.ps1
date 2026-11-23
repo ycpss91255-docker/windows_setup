@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 . (Join-Path $root 'modules/start_menu/start_pins_policy_library.ps1')
 function Assert([bool]$Value,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Value}|ConvertTo-Json -Compress));if(-not $Value){throw $Name}}
-# 現場重放：fixture 取自 NUC8 實機（來源、去識別與缺漏見 fixtures/nuc_start_host/README.md）。狀態機只依紀錄行為。
+# 現場重放：fixture 取自 NUC8 實機（來源、去識別與缺漏見 fixtures/nuc_start_host/readme.md）。狀態機只依紀錄行為。
 $lines=[IO.File]::ReadAllLines((Join-Path $root 'test/powershell/fixtures/nuc_start_host/product_path_rehearsal.out'),[Text.Encoding]::UTF8)
 function Pick([string]$Pattern,[int]$Index=0){@($lines|Where-Object {$_ -match $Pattern})[$Index]}
 $absentExport=Pick '^export\(before activation\): FAIL (0x[0-9a-f]+)' 0

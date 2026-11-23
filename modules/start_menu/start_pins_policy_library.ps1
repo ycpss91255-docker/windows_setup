@@ -58,17 +58,17 @@ function Invoke-StartPinsNativeExport {
 function Invoke-StartPinsHostActivation {
  # 以系統的 AppX 啟動介面啟用 Start Host：Host 不存在時由系統建立，被暫停時恢復（實機證據見 fixtures/nuc_start_host）。
  param([string]$Aumid='Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy!FullTrustApp')
- if(-not ('StartPinsAppxActivator' -as [type])){
+ if(-not ('StartPinsAppActivationManager' -as [type])){
   Add-Type -TypeDefinition @'
-using System;using System.Runtime.InteropServices;
+using System;using System.Runtime.CompilerServices;using System.Runtime.InteropServices;
 [ComImport,Guid("2e941141-7f97-4756-ba1d-9decde894a3d"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 public interface IStartPinsAppActivationManager{int ActivateApplication([MarshalAs(UnmanagedType.LPWStr)]string appUserModelId,[MarshalAs(UnmanagedType.LPWStr)]string arguments,int options,out uint processId);int ActivateForFile(IntPtr a,IntPtr b,IntPtr c,out uint d);int ActivateForProtocol(IntPtr a,IntPtr b,out uint c);}
-[ComImport,Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]public class StartPinsAppActivationManager{}
-public static class StartPinsAppxActivator{public static int Activate(string aumid,out uint pid){var m=(IStartPinsAppActivationManager)new StartPinsAppActivationManager();return m.ActivateApplication(aumid,null,0,out pid);}}
+[ComImport,Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]public class StartPinsAppActivationManager : IStartPinsAppActivationManager{[MethodImpl(MethodImplOptions.InternalCall,MethodCodeType=MethodCodeType.Runtime)]public extern int ActivateApplication([MarshalAs(UnmanagedType.LPWStr)]string appUserModelId,[MarshalAs(UnmanagedType.LPWStr)]string arguments,int options,out uint processId);[MethodImpl(MethodImplOptions.InternalCall,MethodCodeType=MethodCodeType.Runtime)]public extern int ActivateForFile(IntPtr a,IntPtr b,IntPtr c,out uint d);[MethodImpl(MethodImplOptions.InternalCall,MethodCodeType=MethodCodeType.Runtime)]public extern int ActivateForProtocol(IntPtr a,IntPtr b,out uint c);}
 '@
  }
  [uint32]$procId=0
- $hr=[StartPinsAppxActivator]::Activate($Aumid,[ref]$procId)
+ $manager=[IStartPinsAppActivationManager](New-Object StartPinsAppActivationManager)
+ $hr=$manager.ActivateApplication($Aumid,$null,0,[ref]$procId)
  if($hr -ne 0){throw ('Start Host 啟用失敗，HRESULT 0x{0:x8}' -f $hr)}
  return [pscustomobject]@{ProcessId=[int]$procId}
 }
