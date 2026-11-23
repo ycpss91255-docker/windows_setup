@@ -1,6 +1,6 @@
 ﻿#Requires -Version 5.1
 function Invoke-SetupCI {
- param([Parameter(Mandatory=$true)][string]$PackageRoot,[Parameter(Mandatory=$true)][string]$ReportDirectory,[ValidateSet('All','Unit','Integration')][string]$Layer='All',[ValidateRange(1,4)][int]$Parallelism=1)
+ param([Parameter(Mandatory=$true)][string]$PackageRoot,[Parameter(Mandatory=$true)][string]$ReportDirectory,[ValidateSet('All','Unit','Integration')][string]$Layer='All',[ValidateRange(1,4)][int]$Parallelism=1,[string[]]$Suite=@())
 $ErrorActionPreference='Stop'
 $testRoot=Join-Path $packageRoot 'test'
 . (Join-Path $PSScriptRoot 'test_report.ps1')
@@ -27,7 +27,21 @@ foreach($kind in @('unit','integration')){
  if(-not $all.Count -or @($all|Where-Object {$_.Name -cnotmatch '^[a-z0-9_]+_tests\.ps1$'}).Count){throw ('Invalid or empty test inventory: '+$kind)}
  if(@($cases|Where-Object {$_.Layer -eq $kind}).Count -ne $all.Count){throw ('Incomplete test discovery: '+$kind)}
 }
+$reportLayer=$Layer
 $cases=@($cases|Where-Object {$Layer -eq 'All' -or $_.Layer -eq $Layer})
+# 指定 Suite 只縮小執行範圍；完整清單檢查已先完成，未知、重複或空白名稱一律拒絕。
+if($PSBoundParameters.ContainsKey('Suite')){
+ if(-not @($Suite).Count){throw '指定的 Suite 清單不得為空。'}
+ $selectedNames=New-Object 'Collections.Generic.HashSet[string]' ([StringComparer]::Ordinal)
+ foreach($requested in @($Suite)){
+  if([string]::IsNullOrWhiteSpace($requested) -or -not @($cases|Where-Object {$_.Name -ceq $requested}).Count){throw ('未知的測試名稱：'+$requested)}
+  if(-not $selectedNames.Add($requested)){throw ('指定的測試名稱重複：'+$requested)}
+ }
+ $cases=@($cases|Where-Object {$selectedNames.Contains($_.Name)})
+ # 報表層級只能宣稱實際執行的層級；跨兩層的子集仍以 All 呈現並要求兩層各有已執行項目。
+ $layers=@($cases|ForEach-Object {$_.Layer}|Select-Object -Unique)
+ if($layers.Count -eq 1){$reportLayer=$layers[0]}
+}
 if(-not $cases.Count){throw '沒有符合所選層級的測試，不得回報成功。'}
 # Each case runs in its own Windows PowerShell child process; this block runs the serial path inline.
 $runCase={
@@ -127,7 +141,7 @@ if(Test-Path $changelogPath){
  }else{$section=([regex]::Match($changelog,'(?ms)^## \[Unreleased\].*?(?=^## \[|\z)')).Value}
  $changes=@($section -split '\r?\n'|Where-Object {$_ -match '^\s*-\s+\S'}|ForEach-Object {$_ -replace '^\s*-\s+',''})
 }
-$null=Write-TestReports -Version $version -Environment $environment -RefType $refType -RefName $refName -Changes $changes -Commit $commit -SourceState $sourceState -Checks @($results.ToArray()) -OutputDirectory $publicDirectory -Layer $Layer -RunUrl $runUrl
+$null=Write-TestReports -Version $version -Environment $environment -RefType $refType -RefName $refName -Changes $changes -Commit $commit -SourceState $sourceState -Checks @($results.ToArray()) -OutputDirectory $publicDirectory -Layer $reportLayer -RunUrl $runUrl
 if($env:GITHUB_STEP_SUMMARY){Get-Content (Join-Path $publicDirectory 'summary.md') -Encoding UTF8|Out-File $env:GITHUB_STEP_SUMMARY -Append -Encoding UTF8}
 if(-not $success){throw 'CI 測試未通過；請查看短期保留的測試報告。'}
 Write-Host '所選單元與隔離整合測試通過。'

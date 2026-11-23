@@ -22,7 +22,7 @@
 
 ## 合併與歷史
 
-- 日常變更走工作分支與 Pull Request，最終 PR HEAD 的全部必要 CI 及 `ci-rollup` 通過後才合併，不以直接推送 main 繞過門檻。
+- 日常變更走工作分支與 Pull Request，最終 PR HEAD 須通過 `classify` 依變更選出的必要檢查及 `ci-rollup` 後才合併，不以直接推送 main 繞過門檻。純文件 PR（根目錄 `*.md`、`license`、`doc/**/*.md`、`.github/pull_request_template.md`）只需跑輕量文件檢查，不跑 PowerShell 全源量測、isolated-tests、docker-tests；含程式碼的 PR 只跑受影響的 suite（由測試與程式內容的引用鏈推導）、合併標題核對與設定包唯讀驗證，不跑全來源覆蓋率、聚合、需求驗收與容器測試；共用或全域路徑（workflow、Go、依賴、容器、測試輔助）、無任何測試引用的路徑、受影響範圍過大、分類失敗或無法判斷時，一律跑完整套件。push 到 main、merge_group 與 tag 一律跑完整套件，並強制全來源覆蓋率與容器測試，且不接受任何分類略過；`ci-rollup` 只在對應 `select_*` 明確為 `false` 時接受該工作被略過。
 - 建立 PR 時在描述記錄相關範圍與初始測試證據；建立後所有補充資訊（包括新增 TDD 紅／綠燈證據、重測、CI 與獨立審查）使用 `gh pr comment` 新增留言，不修改原描述補充資訊。
 - 只使用 merge commit；禁止 squash、rebase merge、fixup 及任何改寫已推送歷史的做法。合併提交標題使用「合併：」加中文結果。既有提交與 SHA 保留。
 - `git log --first-parent` 顯示主線合併總覽，`git log` 顯示完整提交歷史。合併佇列若啟用，仍須保留 merge commit 方式及必要檢查。
