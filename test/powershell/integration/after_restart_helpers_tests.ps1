@@ -42,8 +42,8 @@ function Get-SetupModuleDecision {param($Module,$Hardware) $unknown=($Module -eq
 function Get-ItemProperty {param($Path,$ErrorAction) $global:restartFixture.PolicyReads++;[pscustomobject]@{StartLayoutFile=$(if($global:restartFixture.PolicyReads -eq 1){'fixture'}else{''})}}
 function Start-Sleep {param($Seconds) $global:restartFixture.SleepCalls++}
 try{
- foreach($mode in @('success','retry_failure','skip','stale','wrong_user','no_result','failed_check','foreign_previous','unknown_module','update_required','driver_failure','unverified_driver','unknown_layout')){
-  $global:restartFixture=@{Mode=$mode;Unknown=$(if($mode -eq 'unknown_layout'){'desktop_icon_layout.ps1'}else{''});Calls=[Collections.Generic.List[string]]::new();Fail=$(if($mode -eq 'retry_failure'){'apply_power_settings.ps1'}elseif($mode -eq 'driver_failure'){'install_drivers.ps1'}else{''});Skip=$(if($mode -eq 'skip'){'install_drivers.ps1'}else{''});PolicyReads=0;SleepCalls=0}
+ foreach($mode in @('success','retry_failure','skip','stale','wrong_user','no_result','failed_check','foreign_previous','unknown_module','update_required','driver_failure','unverified_driver','unknown_layout','unknown_layout_final')){
+  $global:restartFixture=@{Mode=$mode;Unknown=$(if($mode -in @('unknown_layout','unknown_layout_final')){'desktop_icon_layout.ps1'}else{''});Calls=[Collections.Generic.List[string]]::new();Fail=$(if($mode -eq 'retry_failure'){'apply_power_settings.ps1'}elseif($mode -eq 'driver_failure'){'install_drivers.ps1'}else{''});Skip=$(if($mode -eq 'skip'){'install_drivers.ps1'}else{''});PolicyReads=0;SleepCalls=0}
   $prior=@{Computer=$env:COMPUTERNAME;UserSID=$sid;FailedModules=@('Apply-PowerSettings.ps1','install_drivers.ps1','apply_start_menu_settings.ps1','install_windows_updates.ps1');StageErrors=@();Success=$false;PendingModules=@(@{Module='apply_start_menu_settings.ps1';Status='PendingSignIn'})}
   if($mode -eq 'foreign_previous'){$prior.UserSID='foreign'}
   if($mode -eq 'unknown_layout'){$prior.FailedModules=@($prior.FailedModules)+'desktop_icon_layout.ps1'}
@@ -66,6 +66,7 @@ try{
   $saved=Get-Content -LiteralPath $result -Raw|ConvertFrom-Json
   if($mode -eq 'success'){Assert ($saved.PendingModules.Count -eq 0 -and $saved.Success -and $global:restartFixture.SnapshotPath -eq 'fixture drivers' -and $global:restartFixture.PayloadChecked -and -not $global:restartFixture.Calls.Contains('install_drivers.ps1')) '目前官方目標已核即不重解壓安裝，仍清除Start pending'}
   if($mode -eq 'unknown_layout'){Assert (-not $global:restartFixture.Calls.Contains('desktop_icon_layout.ps1') -and $saved.FailedModules -contains 'desktop_icon_layout.ps1' -and ((@($saved.StageErrors) -join ' ') -match 'Unknown|未知')) '續跑圖示語言 Unknown 不執行、保留待續跑並列為錯誤'}
+  if($mode -eq 'unknown_layout_final'){Assert (-not $global:restartFixture.Calls.Contains('desktop_icon_layout.ps1') -and -not $r.Success -and ((@($r.Errors) -join ' ') -match 'desktop_icon_layout\.ps1.*Unknown') -and $caught) '續跑最後一步圖示語言 Unknown 不執行並使驗收失敗，而非略過'}
   if($mode -eq 'retry_failure'){Assert ($saved.FailedModules -contains 'apply_power_settings.ps1') '失敗模組仍留可續跑'}
   if($mode -eq 'foreign_previous'){Assert ($saved.UserSID -eq 'foreign' -and -not $global:restartFixture.Calls.Contains('apply_start_menu_settings.ps1')) '不同帳號舊紀錄不重試也不改寫'}
  }
