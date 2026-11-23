@@ -12,7 +12,8 @@ public class Icon{public int Index;public string Name;public int X;public int Y;
 public class Layout{public int Width;public int Height;public bool AutoArrange;public Icon[] Icons;}
 public static class Desktop{
  public static Queue<Layout> Frames=new Queue<Layout>();public static Layout Last;public static int Moves;
- public static Layout Capture(){if(Frames.Count>0)Last=Frames.Dequeue();return Last;}
+ public static bool Scene;public static Layout Initial,AfterFirst,AfterRetry;
+ public static Layout Capture(){if(Scene)return Moves==0?Initial:(Moves<=4?AfterFirst:AfterRetry);if(Frames.Count>0)Last=Frames.Dequeue();return Last;}
  public static void Position(int index,int x,int y){Moves++;}
 }}
 '@
@@ -34,3 +35,12 @@ $before=Get-Fixture 'stage_before_verify_result.json'
 [NUC8Icons.Desktop]::Moves=0;[NUC8Icons.Desktop]::Frames.Enqueue((New-Frame $before.Actual))
 $r=Invoke-SetupIconsSettings -ModuleRoot (Join-Path $root 'modules/desktop') -Mode Verify -Reference $reference
 Assert (-not $r.Success -and ($r.Differences -join ',') -eq (($before.Differences) -join ',') -and [NUC8Icons.Desktop]::Moves -eq 0) '現場 Verify 畫面 (14,202) 如實回報位置不符且不移動'
+# 目標格被佔用的現場重放（occupied_target_cell_scene.json）：Capture 依已送出的 Position 次數回傳實機觀察到的畫面。
+# 起始畫面 → 第一輪四次 Position 後為「未修版 Load 後」→ 之後再有 Position（補套用）為「含補套用 Load 後」。
+$scene=Get-Fixture 'occupied_target_cell_scene.json'
+[NUC8Icons.Desktop]::Scene=$true;[NUC8Icons.Desktop]::Moves=0
+[NUC8Icons.Desktop]::Initial=New-Frame $scene.Initial;[NUC8Icons.Desktop]::AfterFirst=New-Frame $scene.AfterUnfixedLoad;[NUC8Icons.Desktop]::AfterRetry=New-Frame $scene.AfterFixedLoad
+$r=Invoke-SetupIconsSettings -ModuleRoot (Join-Path $root 'modules/desktop') -Mode Load -Reference $reference
+Assert ($r.Success -and $r.Differences.Count -eq 0) '現場「目標格被佔用」：Load 後須讀回四個圖示全部符合範本'
+$mine=@($r.Actual|Where-Object Name -eq '本機')[0]
+Assert ($mine.X -eq 14 -and $mine.Y -eq 100) '現場「目標格被佔用」：本機最終位於 (14,100)'
