@@ -5,6 +5,7 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 function Assert([bool]$Value,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Value}|ConvertTo-Json -Compress));if(-not $Value){throw $Name}}
 Assert ([bool](Get-Command Get-StartPinsExportState -ErrorAction SilentlyContinue)) 'actual export determines confirmed or sign-in pending state'
 $fixture=Join-Path $env:TEMP ('start_export_'+[guid]::NewGuid().ToString('N')+'.json');$script:json='{"pinnedList":[{"desktopAppId":"MSEdge"}]}'
+$global:StartPinsExportInProcess=$true
 function Export-StartLayout {param($Path,$ErrorAction);[IO.File]::WriteAllText($Path,$script:json)}
 $r=Get-StartPinsExportState $fixture ([pscustomobject]@{Status='PendingSignIn';PolicyInstalled=$true})
 Assert (-not $r.Success -and $r.Status -eq 'PendingSignIn' -and $r.PinCount -eq 1) 'native policy installation alone cannot imply pin removal'
