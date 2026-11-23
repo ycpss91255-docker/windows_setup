@@ -55,6 +55,7 @@ func TestMergeGroupStrictChecks(t *testing.T) {
 		baseSHA, headSHA string
 		nodes            []map[string]any
 		nullQueue        bool
+		repoHead         string
 	}
 	cases := []struct {
 		name string
@@ -74,6 +75,10 @@ func TestMergeGroupStrictChecks(t *testing.T) {
 			i.nodes[0]["headCommit"] = map[string]string{"oid": f.groupHead}
 		}, false},
 		{"same name but flagged cross repository", func(f mgFixture, i *in) { i.nodes[0]["pullRequest"].(map[string]any)["isCrossRepository"] = true }, false},
+		{"fork name without the cross repository flag", func(f mgFixture, i *in) {
+			i.nodes[0]["pullRequest"].(map[string]any)["headRepository"] = fork
+		}, false},
+		{"actual HEAD differs from the event head", func(f mgFixture, i *in) { i.repoHead = f.base }, false},
 		{"deleted head repository", func(f mgFixture, i *in) { i.nodes[0]["pullRequest"].(map[string]any)["headRepository"] = nil }, false},
 		{"head ref names another pull request", func(f mgFixture, i *in) {
 			i.headRef = "refs/heads/gh-readonly-queue/main/pr-99-" + strings.Repeat("a", 40)
@@ -92,6 +97,13 @@ func TestMergeGroupStrictChecks(t *testing.T) {
 			node["headCommit"] = map[string]string{"oid": f.groupHead}
 			i := in{baseRef: "refs/heads/main", headRef: "refs/heads/gh-readonly-queue/main/pr-7-" + strings.Repeat("a", 40), checkout: f.groupHead, runSHA: f.groupHead, baseSHA: f.base, headSHA: f.groupHead, nodes: []map[string]any{node}}
 			tc.mut(f, &i)
+			if i.repoHead != "" {
+				c := exec.Command("git", "checkout", "--detach", "-q", i.repoHead)
+				c.Dir = f.dir
+				if b, e := c.CombinedOutput(); e != nil {
+					t.Fatalf("git checkout: %s: %v", b, e)
+				}
+			}
 			event := filepath.Join(f.dir, "event.json")
 			queue := filepath.Join(f.dir, "queue.json")
 			ev, _ := json.Marshal(map[string]any{"merge_group": map[string]string{"base_ref": i.baseRef, "base_sha": i.baseSHA, "head_ref": i.headRef, "head_sha": i.headSHA}})
