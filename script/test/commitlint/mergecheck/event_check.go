@@ -228,7 +228,7 @@ func checkEventInRepository(repo, kind, ref, sha, main string, raw []byte, ancho
 		return err
 	}
 	excluded = append(excluded, roots...)
-	sync := syncContext{Ref: v.HeadRef, Base: v.Base, Main: v.Main}
+	sync := syncContext{Ref: v.HeadRef, Base: v.Base}
 	if v.Kind == "push_main" {
 		sync.Base = v.Before
 	}
