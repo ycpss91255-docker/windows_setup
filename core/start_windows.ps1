@@ -7,7 +7,10 @@ if($AfterRestart -or $VerifyOnly){
  if($DriverPackagePath -or $ConfirmedBoard -or $ConfirmationComputer){throw '重開後／只驗證使用同機紀錄的驅動選擇；如要重新選擇請執行一般 Windows 入口。'}
  & (Join-Path $PSScriptRoot $entry)
 }else{
+ . (Join-Path $PSScriptRoot 'network_preflight_library.ps1')
  . (Join-Path $PSScriptRoot 'hardware.ps1')
- $request=Select-SetupDriverRequest -PackageRoot (Split-Path -Parent $PSScriptRoot) -DriverPackagePath $DriverPackagePath -PathSpecified:$PSBoundParameters.ContainsKey('DriverPackagePath') -ConfirmedBoard $ConfirmedBoard -ConfirmationComputer $ConfirmationComputer -Interactive:((Test-SetupInteractiveHost) -and -not $NonInteractive)
+ $interactive=(-not $NonInteractive) -and (Test-SetupInteractiveHost)
+ Show-SetupNetworkPreflight -Interactive:$interactive
+ $request=Select-SetupDriverRequest -PackageRoot (Split-Path -Parent $PSScriptRoot) -DriverPackagePath $DriverPackagePath -PathSpecified:$PSBoundParameters.ContainsKey('DriverPackagePath') -ConfirmedBoard $ConfirmedBoard -ConfirmationComputer $ConfirmationComputer -Interactive:$interactive
  & (Join-Path $PSScriptRoot $entry) -DriverPackagePath $request.DriverPackagePath -ConfirmedBoard $request.ConfirmedBoard -ConfirmationComputer $request.ConfirmationComputer -NonInteractive:$NonInteractive
 }

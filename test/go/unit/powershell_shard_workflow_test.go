@@ -20,7 +20,7 @@ func TestPowerShellCoverageUsesCompleteFourShardMatrix(t *testing.T) {
 		}
 	}
 	host := coverageJob(text, "coverage-aggregation")
-	for _, required := range []string{"needs: [isolated-tests, powershell-coverage]", "actions/download-artifact@", "powershell-shard-", "-PowerShellShardDirectory", "run_repo_coverage.ps1", "managed_coverage.ps1", "native-stage-restore"} {
+	for _, required := range []string{"needs: [classify, isolated-tests, powershell-coverage, managed-coverage]", "actions/download-artifact@", "powershell-shard-", "-PowerShellShardDirectory", "run_repo_coverage.ps1", "native-stage-restore"} {
 		if !strings.Contains(host, required) {
 			t.Fatalf("host cannot verify all shards without losing original producers: %s", required)
 		}

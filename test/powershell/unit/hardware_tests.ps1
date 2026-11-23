@@ -17,6 +17,23 @@ foreach($module in @('install_drivers.ps1','apply_amd_privacy_settings.ps1')){
 Assert ((Get-SetupModuleDecision 'apply_input_method_settings.ps1' $generic).Applicable) '通用模組不受機型限制'
 Assert (-not (Get-SetupModuleDecision 'desktop_icon_layout.ps1' $generic).Applicable) '非繁體中文僅略過圖示座標'
 Assert ((Get-SetupModuleDecision 'desktop_icon_layout.ps1' $hv).Applicable) '繁體中文圖示座標可套用'
+# Target-user language (not the caller process culture) drives the icon decision
+function Get-UICulture {[pscustomobject]@{Name='en-US'}}
+function Get-SetupEntryUserUILanguage {param([string]$UserSid) [pscustomobject]@{Name=$script:fakeTargetLanguage;Source='fake-target-user';Reason=$script:fakeTargetReason}}
+$script:fakeTargetLanguage='zh-TW';$script:fakeTargetReason=''
+$callerEn=Get-SetupHardwareProfile -BoardProduct 'NUC8i7HVB' -DriverPackagePath 'selected_package'
+Assert ($callerEn.UICulture -ceq 'zh-TW' -and (Get-SetupModuleDecision 'desktop_icon_layout.ps1' $callerEn).Applicable) '呼叫端非繁中但目標使用者為繁中時可套用圖示座標'
+$script:fakeTargetLanguage='en-US'
+function Get-UICulture {[pscustomobject]@{Name='zh-TW'}}
+$callerZh=Get-SetupHardwareProfile -BoardProduct 'NUC8i7HVB' -DriverPackagePath 'selected_package';$decisionZh=Get-SetupModuleDecision 'desktop_icon_layout.ps1' $callerZh
+Assert ($callerZh.UICulture -ceq 'en-US' -and -not $decisionZh.Applicable -and $decisionZh.Status -ceq 'Skipped' -and $decisionZh.Reason -match 'fake-target-user') '呼叫端為繁中但目標使用者非繁中時略過並說明來源'
+$script:fakeTargetLanguage='';$script:fakeTargetReason='fake cannot read'
+$unknownProfile=Get-SetupHardwareProfile -BoardProduct 'NUC8i7HVB' -DriverPackagePath 'selected_package';$unknownDecision=Get-SetupModuleDecision 'desktop_icon_layout.ps1' $unknownProfile
+Assert (-not $unknownDecision.Applicable -and $unknownDecision.Status -ceq 'Unknown' -and $unknownDecision.Reason -match 'fake cannot read') '無法判斷目標使用者語言時回報 Unknown 與原因而非靜默略過'
+foreach($blank in @('',$null)){
+ $explicit=Get-SetupHardwareProfile -BoardProduct 'NUC8i7HVB' -UICulture $blank -DriverPackagePath 'selected_package';$explicitDecision=Get-SetupModuleDecision 'desktop_icon_layout.ps1' $explicit
+ Assert ($explicitDecision.Status -ceq 'Unknown' -and $explicit.UICultureReason -and $explicitDecision.Reason -match '呼叫端明確指定空白語言') '明確傳入空白語言時仍有 Unknown 原因'
+}
 $skip=New-SetupSkippedCheck 'AMD' '不適用'
 Assert ($skip.Status -eq 'Skipped' -and $null -eq $skip.Passed) '略過不偽裝為通過'
 Assert (Test-SetupChecksPassed @($skip,[pscustomobject]@{Status='Passed';Passed=$true})) '驗收忽略不適用檢查'

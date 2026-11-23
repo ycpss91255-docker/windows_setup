@@ -103,7 +103,7 @@ try{
  $fresh=Invoke-SetupGuiFreshVerification -PackageRoot $script:NucPackageRoot -Role Icons
  Add-Check '四個圖示的實際排列座標' ([bool]$fresh.Success) ('本輪即時結果：'+($fresh|ConvertTo-Json -Compress -Depth 5))
 }catch{Add-Check '四個圖示的實際排列座標' $false $_.Exception.Message}
-}else{$checks.Add((New-SetupSkippedCheck -Name '四個圖示的實際排列座標' -Reason $layoutDecision.Reason));Write-Host ('[略過] '+$layoutDecision.Reason)}
+}elseif($layoutDecision.Status -ceq 'Unknown'){Add-Check '四個圖示的實際排列座標' $false $layoutDecision.Reason}else{$checks.Add((New-SetupSkippedCheck -Name '四個圖示的實際排列座標' -Reason $layoutDecision.Reason));Write-Host ('[略過] '+$layoutDecision.Reason)}
 try{
  $commonData=[Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)
  $updates=Read-SetupUpdateResult -CommonDataRoot $commonData -LegacyRoot (Join-Path $commonData 'NUC8-Setup/WindowsUpdate') -UserSid ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value) -Computer $env:COMPUTERNAME
