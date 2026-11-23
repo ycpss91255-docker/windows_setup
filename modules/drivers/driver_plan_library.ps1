@@ -262,6 +262,16 @@ function Register-SetupDriverExtractionLease {
  if($script:SetupDriverExtractionLeases.ContainsKey($full)){throw '解壓租約重複。'}
  $script:SetupDriverExtractionLeases[$full]=[pscustomobject]@{NativeActive=$false;Token=[guid]::NewGuid().ToString('N')}
 }
+function Assert-SetupDriverExtractionChildAcl {
+ # Children inherit from the protected lease root; they are accepted only when no non-trusted rule exists.
+ param([Parameter(Mandatory=$true)]$Acl,[switch]$Directory)
+ if($Acl.AreAccessRulesProtected){Assert-SetupUpdateAcl -Acl $Acl -Directory:$Directory;return}
+ $trusted=@('S-1-5-18','S-1-5-32-544')
+ if($Acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trusted){throw 'SYSTEM更新路徑擁有者不可信，保留原資料並拒絕接管。'}
+ foreach($rule in @($Acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))){
+  if($rule.AccessControlType -ne 'Allow' -or $rule.IdentityReference.Value -notin $trusted){throw '驅動解壓子項目ACL含非預期存取規則，保留資料。'}
+ }
+}
 function Remove-SetupDriverExtractionRoot {
  param([Parameter(Mandatory=$true)][string]$Path)
  $full=[IO.Path]::GetFullPath($Path);$parent=[IO.Path]::GetFullPath((Get-SetupDriverCacheParent))
@@ -274,7 +284,7 @@ function Remove-SetupDriverExtractionRoot {
  while($directories.Count){
   foreach($item in @(Get-ChildItem -LiteralPath $directories.Pop() -Force -ErrorAction Stop)){
    if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw '解壓清理拒絕重新解析點；保留資料。'}
-   Assert-SetupUpdateAcl -Acl (Get-Acl -LiteralPath $item.FullName -ErrorAction Stop) -Directory:$item.PSIsContainer
+   Assert-SetupDriverExtractionChildAcl -Acl (Get-Acl -LiteralPath $item.FullName -ErrorAction Stop) -Directory:$item.PSIsContainer
    if($item.PSIsContainer){$directories.Push($item.FullName)}
   }
  }
