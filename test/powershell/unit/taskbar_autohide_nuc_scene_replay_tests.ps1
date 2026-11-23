@@ -1,5 +1,5 @@
 ﻿#Requires -Version 5.1
-# NUC8 現場重放（#353）：fixture 取自實機擷取，說明見 fixtures/nuc_scene_taskbar_autohide/README.md。
+# NUC8 現場重放（#353）：fixture 取自實機擷取，說明見 fixtures/nuc_scene_taskbar_autohide/readme.md。
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $fx=Join-Path $root 'test/powershell/fixtures/nuc_scene_taskbar_autohide'
@@ -7,7 +7,7 @@ function Assert([bool]$Condition,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name
 . (Join-Path $root 'modules/taskbar/taskbar_settings_library.ps1')
 $applyScene=Get-Content -LiteralPath (Join-Path $fx 'taskbar_apply_scene.json') -Raw -Encoding UTF8|ConvertFrom-Json
 $verifyScene=Get-Content -LiteralPath (Join-Path $fx 'taskbar_verify_scene.json') -Raw -Encoding UTF8|ConvertFrom-Json
-$hex=([regex]::Match((Get-Content -LiteralPath (Join-Path $fx 'StuckRects3.reg.txt') -Raw),'REG_BINARY\s+([0-9A-Fa-f]+)')).Groups[1].Value
+$hex=([regex]::Match((Get-Content -LiteralPath (Join-Path $fx 'stuckrects3_snapshot_reg.txt') -Raw),'REG_BINARY\s+([0-9A-Fa-f]+)')).Groups[1].Value
 [byte[]]$sceneBytes=for($i=0;$i -lt $hex.Length;$i+=2){[Convert]::ToByte($hex.Substring($i,2),16)}
 Assert ($sceneBytes.Count -eq 48 -and $sceneBytes[8] -eq 2) 'fixture StuckRects3 byte 9 is 0x02 (auto-hide bit absent), as captured'
 Assert ($applyScene.Status -ceq 'Applied' -and $applyScene.AutoHide -eq $true -and $applyScene.AppBarState -eq 1) 'fixture records the Apply report: Applied, AutoHide=true, AppBarState=1'

@@ -8,9 +8,9 @@
 |---|---|---|---|
 | `taskbar_apply_scene.json` | `files/programdata/windows_setup_gui/taskbar/<RunId>/data/Taskbar-Result.json` | `7A4D1BB89AB1E1CC0051A902BCECCDC2A27CC9DD739F27C02E1324EEBF3839B8` | 檔內 CheckedAt 2026-11-22 17:02:40（+08:00） |
 | `taskbar_verify_scene.json` | `gui3/files/taskbar/<RunId>/data/Taskbar-Verification.json` | `1C36A9AB14E41747A0DA8DE198EFFA8208ADBABAF0E1DB592AB6FB219C1B0962` | 檔內 CheckedAt 2026-11-22 21:12:57（+08:00） |
-| `StuckRects3.reg.txt` | `registry/taskbar_shell.txt` 內 `HKCU\...\Explorer\StuckRects3` 的 Settings | 整檔 `ACF2484694B1F7831C60576E9B7AB7EF119C7D3A49BF0129FB27067B10A7707B` | 檔案時間 2026-11-22 20:27:12（+08:00） |
+| `stuckrects3_snapshot_reg.txt` | `registry/taskbar_shell.txt` 內 `HKCU\...\Explorer\StuckRects3` 的 Settings | 整檔 `ACF2484694B1F7831C60576E9B7AB7EF119C7D3A49BF0129FB27067B10A7707B` | 檔案時間 2026-11-22 20:27:12（+08:00） |
 
-兩個 JSON 因 `.gitignore` 的 `*-Result.json` 規則（每機結果檔不進倉庫）而改名；內容未變，只做去識別。JSON 保留原 BOM、CRLF、欄位順序、型別與空值（例如 `TaskbarDa` 為 null）。`StuckRects3.reg.txt` 的十六進位字串與原擷取逐字相同，只刪掉其他機碼輸出，第 9 位元組為 `02`（未含自動隱藏位元）。
+兩個 JSON 因 `.gitignore` 的 `*-Result.json` 規則（每機結果檔不進倉庫）而改名；內容未變，只做去識別。JSON 保留原 BOM、CRLF、欄位順序、型別與空值（例如 `TaskbarDa` 為 null）。`stuckrects3_snapshot_reg.txt` 的十六進位字串與原擷取逐字相同，只刪掉其他機碼輸出，第 9 位元組為 `02`（未含自動隱藏位元）。
 
 ## 實機對照（NUC8，2026-11-23）
 
