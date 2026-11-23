@@ -17,6 +17,10 @@ Assert ((Plan -Owners @())[0].Status -eq 'Unverified') '沒有其他目標可作
 Assert ((Plan -Owners @($naming))[0].Status -eq 'Unverified') '宣告式目標不可以自己當擁有者'
 $other=$owner.PSObject.Copy();$other.HardwareIds=@('PCI\VEN_8086&DEV_A161')
 Assert ((Plan -Owners @($other,$naming))[0].Status -eq 'Unverified') '擁有者未宣告該裝置的硬體ID時不可通過'
+$disjoint=$owner.PSObject.Copy();$disjoint.HardwareIds=@('PCI\VEN_8086&DEV_FFFF')
+$multi=$device.PSObject.Copy();$multi.HardwareIds=@('PCI\VEN_8086&DEV_A160','PCI\VEN_8086&DEV_FFFF')
+Assert ((Plan -Devices @($multi) -Owners @($disjoint,$naming))[0].Status -eq 'Unverified') '擁有者只經裝置的另一個硬體ID相符、與命名INF沒有共同硬體ID時不可通過'
+Assert ((Plan -Devices @($multi) -Owners @($owner,$naming))[0].Status -eq 'Current') '擁有者與命名INF共用硬體ID時同一多ID裝置仍可通過'
 $device.DriverProvider='Microsoft'
 Assert ((Plan)[0].Status -eq 'Unverified') '裝置仍綁定Windows內建驅動時維持Unverified'
 $device.DriverProvider='Unknown Vendor'
