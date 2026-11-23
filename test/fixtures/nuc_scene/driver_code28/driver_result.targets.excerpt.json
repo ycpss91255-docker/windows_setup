@@ -1,0 +1,72 @@
+[
+                    {
+                        "InstanceId":  "PCI\\VEN_8086\u0026DEV_1911\u0026SUBSYS_20738086\u0026REV_00\\3\u002600000000\u00260\u002640",
+                        "InfPath":  "DriverFiles/production/Windows10-x64/SkylakeSystemGMM.inf",
+                        "Status":  "Unverified",
+                        "Reason":  "目標驅動狀態屬性讀取失敗",
+                        "CurrentVersion":  "",
+                        "CurrentProvider":  "",
+                        "DriverSigned":  false,
+                        "TargetVersion":  "10.1.7.4",
+                        "TargetProvider":  "INTEL",
+                        "ProviderAliases":  [
+
+                                            ]
+                    },
+                    {
+                        "InstanceId":  "PCI\\VEN_8086\u0026DEV_A127\u0026SUBSYS_20738086\u0026REV_31\\3\u002600000000\u00260\u0026F0",
+                        "InfPath":  "DriverFiles/production/Windows10-x64/SunrisePoint-HSystemLPSS.inf",
+                        "Status":  "Unverified",
+                        "Reason":  "目標驅動狀態屬性讀取失敗",
+                        "CurrentVersion":  "",
+                        "CurrentProvider":  "",
+                        "DriverSigned":  false,
+                        "TargetVersion":  "10.1.6.2",
+                        "TargetProvider":  "INTEL",
+                        "ProviderAliases":  [
+
+                                            ]
+                    },
+                    {
+                        "InstanceId":  "PCI\\VEN_8086\u0026DEV_A131\u0026SUBSYS_20738086\u0026REV_31\\3\u002600000000\u00260\u0026A2",
+                        "InfPath":  "DriverFiles/production/Windows10-x64/SunrisePoint-HSystemThermal.inf",
+                        "Status":  "Unverified",
+                        "Reason":  "目標驅動狀態屬性讀取失敗",
+                        "CurrentVersion":  "",
+                        "CurrentProvider":  "",
+                        "DriverSigned":  false,
+                        "TargetVersion":  "10.1.6.2",
+                        "TargetProvider":  "INTEL",
+                        "ProviderAliases":  [
+
+                                            ]
+                    },
+                    {
+                        "InstanceId":  "PCI\\VEN_8086\u0026DEV_A127\u0026SUBSYS_20738086\u0026REV_31\\3\u002600000000\u00260\u0026F0",
+                        "InfPath":  "SerialIO-WIn10_Win11-30.100.1914.3 (1)/INF/iaLPSS2_UART2_SKL.inf",
+                        "Status":  "Unverified",
+                        "Reason":  "目標驅動狀態屬性讀取失敗",
+                        "CurrentVersion":  "",
+                        "CurrentProvider":  "",
+                        "DriverSigned":  false,
+                        "TargetVersion":  "30.100.1914.3",
+                        "TargetProvider":  "Intel Corporation",
+                        "ProviderAliases":  [
+
+                                            ]
+                    },
+                    {
+                        "InstanceId":  "ACPI\\INT3515\\0",
+                        "InfPath":  "TPS659xx.inf",
+                        "Status":  "Unverified",
+                        "Reason":  "目標驅動狀態屬性讀取失敗",
+                        "CurrentVersion":  "",
+                        "CurrentProvider":  "",
+                        "DriverSigned":  false,
+                        "TargetVersion":  "1.0.10.3",
+                        "TargetProvider":  "Texas Instruments",
+                        "ProviderAliases":  [
+
+                                            ]
+                    }
+]

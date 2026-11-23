@@ -1,0 +1,77 @@
+InstanceId : PCI\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\3&00000000&0&40
+KeyName    : DEVPKEY_Device_HardwareIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00, PCI\VEN_8086&DEV_1911&SUBSYS_20738086, PCI\VEN_8086&DEV_191
+             1&CC_088000, PCI\VEN_8086&DEV_1911&CC_0880}
+
+InstanceId : PCI\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\3&00000000&0&40
+KeyName    : DEVPKEY_Device_CompatibleIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_1911&REV_00, PCI\VEN_8086&DEV_1911, PCI\VEN_8086&CC_088000, PCI\VEN_8086&CC_0880...}
+
+InstanceId : PCI\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\3&00000000&0&40
+KeyName    : DEVPKEY_Device_ProblemCode
+Type       : UInt32
+Data       : 28
+
+InstanceId : PCI\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\3&00000000&0&40
+KeyName    : DEVPKEY_Device_DriverInfPath
+Type       : Empty
+
+InstanceId : ACPI\INT3515\0
+KeyName    : DEVPKEY_Device_HardwareIds
+Type       : StringList
+Data       : {ACPI\VEN_INT&DEV_3515, ACPI\INT3515, *INT3515}
+
+InstanceId : ACPI\INT3515\0
+KeyName    : DEVPKEY_Device_CompatibleIds
+Type       : Empty
+
+InstanceId : ACPI\INT3515\0
+KeyName    : DEVPKEY_Device_ProblemCode
+Type       : UInt32
+Data       : 28
+
+InstanceId : ACPI\INT3515\0
+KeyName    : DEVPKEY_Device_DriverInfPath
+Type       : Empty
+
+InstanceId : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+KeyName    : DEVPKEY_Device_HardwareIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A127&SUBSYS_20738086, PCI\VEN_8086&DEV_A12
+             7&CC_118000, PCI\VEN_8086&DEV_A127&CC_1180}
+
+InstanceId : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+KeyName    : DEVPKEY_Device_CompatibleIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A127&REV_31, PCI\VEN_8086&DEV_A127, PCI\VEN_8086&CC_118000, PCI\VEN_8086&CC_1180...}
+
+InstanceId : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+KeyName    : DEVPKEY_Device_ProblemCode
+Type       : UInt32
+Data       : 28
+
+InstanceId : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+KeyName    : DEVPKEY_Device_DriverInfPath
+Type       : Empty
+
+InstanceId : PCI\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\3&00000000&0&A2
+KeyName    : DEVPKEY_Device_HardwareIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31, PCI\VEN_8086&DEV_A131&SUBSYS_20738086, PCI\VEN_8086&DEV_A13
+             1&CC_118000, PCI\VEN_8086&DEV_A131&CC_1180}
+
+InstanceId : PCI\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\3&00000000&0&A2
+KeyName    : DEVPKEY_Device_CompatibleIds
+Type       : StringList
+Data       : {PCI\VEN_8086&DEV_A131&REV_31, PCI\VEN_8086&DEV_A131, PCI\VEN_8086&CC_118000, PCI\VEN_8086&CC_1180...}
+
+InstanceId : PCI\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\3&00000000&0&A2
+KeyName    : DEVPKEY_Device_ProblemCode
+Type       : UInt32
+Data       : 28
+
+InstanceId : PCI\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\3&00000000&0&A2
+KeyName    : DEVPKEY_Device_DriverInfPath
+Type       : Empty
