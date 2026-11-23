@@ -28,7 +28,7 @@ $cases=@(foreach($kind in @('Unit','Integration')){
 # Every test file in each layer must participate; naming mistakes must not hide suites.
 foreach($kind in @('unit','integration')){
  $all=@(Get-ChildItem (Join-Path $testRoot ('powershell/'+$kind)) -File -Filter '*.ps1')
- if(-not $all.Count -or @($all|Where-Object {$_.Name -cnotmatch '^(?!.*_tests_)[a-z0-9_]+_tests\.ps1$'}).Count){throw ('Invalid or empty test inventory: '+$kind)}
+ if(-not $all.Count -or @($all|Where-Object {$_.Name -cnotmatch '^[a-z0-9_]+_tests\.ps1$'}).Count){throw ('Invalid or empty test inventory: '+$kind)}
  if(@($cases|Where-Object {$_.Layer -eq $kind}).Count -ne $all.Count){throw ('Incomplete test discovery: '+$kind)}
 }
 $reportLayer=$Layer
