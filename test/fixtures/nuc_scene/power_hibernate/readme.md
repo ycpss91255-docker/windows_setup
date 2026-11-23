@@ -24,7 +24,7 @@
 - 登錄值型別（`GetValueKind`）與機碼值名稱清單（`GetValueNames`）：測試依 `Get-ItemProperty` 輸出推定，空白視為該值不存在；套用前的值型別未知，測試沒有讀取它。
 - 套用後 `HibernateEnabled` 的型別：測試中的假 `powercfg /hibernate off` 把它設為 `DWord`，依據是實機執行後 `Power-Result.json` 回報 `Success=true`，而判定式要求 `DWord`；這是推定，不是擷取。
 - `powercfg /hibernate off` 的原始輸出與退出碼：實機只有整體 Apply 退出碼，假指令因此不輸出文字、退出碼為 0。
-- `hiberfil.sys` 是否存在：實機以 Windows PowerShell 5.1 的 `Test-Path` 擷取到 False，但 5.1 的 `Test-Path`／`Get-Item` 對系統鎖定的檔案一律回報不存在，這個值不能當成檔案不存在的證據。測試因此不斷言休眠檔，並以空的暫存目錄代替系統磁碟。須改用 `[IO.File]::Exists` 或目錄列舉補擷取。
-- 休眠檔移除：套用前後的檔案狀態都未知，因此這份固件不能證明休眠檔已移除。
+- `hiberfil.sys` 是否存在：實機以 Windows PowerShell 5.1 的 `Test-Path` 擷取到 False，但 5.1 的 `Test-Path`／`Get-Item` 對系統鎖定的檔案一律回報不存在，這個值不能當成檔案不存在的證據。測試因此不斷言休眠檔，並以空的暫存目錄代替系統磁碟。以一般檔案替代的離線測試重現不了 5.1 看不到系統鎖定檔案的行為，因此不加休眠檔斷言。
+- 休眠檔移除：套用前後的檔案狀態都未知，因此這份固件不能證明休眠檔已移除；休眠檔的判斷與移除以 2026-11-24 的實機對照（`[IO.File]::Exists` 與目錄列舉）為證，對照紀錄不納入固件。
 
 以上缺口列入「要從 NUC 唯讀補擷取」清單，補上實際資料前不得手編。
