@@ -82,6 +82,13 @@ jobs:
           name: exp-shard-${{ matrix.shard }}
           path: ${{ runner.temp }}/results/public/summary.json
           retention-days: 3
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: failure()
+        with:
+          name: exp-logs-${{ matrix.shard }}
+          path: ${{ runner.temp }}/results/*.log
+          retention-days: 3
+          if-no-files-found: ignore
   gotests:
     needs: [plan]
     runs-on: windows-2022
