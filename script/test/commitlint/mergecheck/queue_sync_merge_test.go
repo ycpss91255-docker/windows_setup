@@ -10,15 +10,17 @@ import (
 
 // checkMainlineEvent 以指定事件核對 base 之後、以 head 為頂端的主線範圍，讓同一張案例表
 // 對佇列與 main push 得到相同結論。呼叫端須已切換至 head。
-func checkMainlineEvent(repo, kind, base, head, anchor string) error {
+// frozen 為固定清單中的其他 head，與 anchor 一樣排除在檢查範圍外。
+func checkMainlineEvent(repo, kind, base, head, anchor string, frozen ...string) error {
+	roots := append([]string{anchor}, frozen...)
 	switch kind {
 	case "merge_group":
 		ref := "refs/heads/gh-readonly-queue/main/pr-7-" + head
 		raw := fmt.Sprintf(`{"repository":{"full_name":"%s"},"merge_group":{"base_ref":"refs/heads/main","base_sha":"%s","head_ref":"%s","head_sha":"%s"}}`, fixedRepository, base, ref, head)
-		return checkEventInRepository(repo, "merge_group", ref, head, "", []byte(raw), anchor, []string{anchor})
+		return checkEventInRepository(repo, "merge_group", ref, head, "", []byte(raw), anchor, roots)
 	case "push_main":
 		raw := fmt.Sprintf(`{"repository":{"full_name":"%s"},"ref":"refs/heads/main","before":"%s","after":"%s"}`, fixedRepository, base, head)
-		return checkEventInRepository(repo, "push", "refs/heads/main", head, "", []byte(raw), anchor, []string{anchor})
+		return checkEventInRepository(repo, "push", "refs/heads/main", head, "", []byte(raw), anchor, roots)
 	default:
 		return fmt.Errorf("unsupported fixture event: %s", kind)
 	}
@@ -92,7 +94,7 @@ func TestMergeGroupSyncMainMerge(t *testing.T) {
 	defer func() { prHeadLookup = oldLookup }()
 
 	// head 為 PR 分支最後一筆提交（同步合併或其後代）；queueRef 為佇列提交標題中的分支。
-	runCase := func(kind, syncCommit, queueRef, headRepo string, queueMerge bool) error {
+	runCase := func(kind, syncCommit, queueRef, headRepo string, queueMerge bool, frozen ...string) error {
 		prHeadLookup = func(number int) (prHead_, error) {
 			if number != 7 {
 				return prHead_{}, fmt.Errorf("unknown PR")
@@ -106,7 +108,7 @@ func TestMergeGroupSyncMainMerge(t *testing.T) {
 			head = merge(treeOf(base, syncCommit), []string{base, syncCommit}, "合併：手動合併")
 		}
 		git("switch", "--quiet", "--detach", head)
-		return checkMainlineEvent(repo, kind, base, head, root)
+		return checkMainlineEvent(repo, kind, base, head, root, frozen...)
 	}
 	for _, tc := range []struct {
 		name       string
@@ -134,6 +136,16 @@ func TestMergeGroupSyncMainMerge(t *testing.T) {
 				}
 			})
 		}
+	}
+	// 固定清單的 head 一律排除在範圍外，卻不一定在主線；只看「不在範圍內」會把它誤當主線提交。
+	frozenSecond := merge(treeOf(prOld, future), []string{prOld, future}, syncTitle)
+	for _, kind := range mainlineEvents {
+		t.Run(kind+"/second parent is a frozen head outside main", func(t *testing.T) {
+			err := runCase(kind, frozenSecond, "feature/x", fixedRepository, true, future)
+			if err == nil || !strings.Contains(err.Error(), "sync merge commit parents") {
+				t.Fatalf("want rejected parents: %v", err)
+			}
+		})
 	}
 	// 未經佇列、直接以同步合併快轉 main：結構本身合法，但沒有佇列合併提交背書。
 	direct := merge(treeOf(prOld, base), []string{prOld, base}, syncTitle)
