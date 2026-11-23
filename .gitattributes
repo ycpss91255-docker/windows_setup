@@ -1,2 +1,3 @@
 # 保留腳本實際部署的編碼與換行，不在兩份工具包間自動轉換。
 * -text
+test/powershell/fixtures/nuc_scene_lpss/* -whitespace
