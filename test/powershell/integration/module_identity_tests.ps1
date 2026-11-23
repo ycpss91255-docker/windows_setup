@@ -201,6 +201,11 @@ Remove-Item Env:DESKTOP_FIXTURE_CAPTURE,Env:DESKTOP_FIXTURE_SID_MARKER,Env:DESKT
   $cached=Get-SetupEntryUserUILanguage -UserSid $sid -RegistryRoot $synthetic
   Assert ($cached.Name -ceq 'zh-TW' -and $cached.Source -match 'MachinePreferredUILanguages') 'target language lookup falls back to cached machine language'
   New-ItemProperty -Path $desktopKey -Name PreferredUILanguages -PropertyType MultiString -Value @('en-US','zh-TW') | Out-Null
+  foreach($systemSid in @('S-1-5-18','S-1-5-19','S-1-5-20')){
+   $systemKey=$synthetic+'\'+$systemSid+'\Control Panel\Desktop';[void](New-Item -Path $systemKey -Force);New-ItemProperty -Path $systemKey -Name PreferredUILanguages -PropertyType MultiString -Value @('zh-TW') | Out-Null
+   $system=Get-SetupEntryUserUILanguage -UserSid $systemSid -RegistryRoot $synthetic
+   Assert ($system.Name -ceq '' -and $system.Reason -match $systemSid) ('system identity '+$systemSid+' never reads default language and reports Unknown')
+  }
   $preferred=Get-SetupEntryUserUILanguage -UserSid $sid -RegistryRoot $synthetic
   Assert ($preferred.Name -ceq 'en-US' -and $preferred.Source -match 'PreferredUILanguages' -and $preferred.Source -notmatch 'Machine') 'target language lookup prefers first user preferred language'
  }finally{if(Test-Path -LiteralPath $synthetic){Remove-Item -LiteralPath $synthetic -Recurse -Force}}

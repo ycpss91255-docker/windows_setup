@@ -30,6 +30,10 @@ Assert ($callerZh.UICulture -ceq 'en-US' -and -not $decisionZh.Applicable -and $
 $script:fakeTargetLanguage='';$script:fakeTargetReason='fake cannot read'
 $unknownProfile=Get-SetupHardwareProfile -BoardProduct 'NUC8i7HVB' -DriverPackagePath 'selected_package';$unknownDecision=Get-SetupModuleDecision 'desktop_icon_layout.ps1' $unknownProfile
 Assert (-not $unknownDecision.Applicable -and $unknownDecision.Status -ceq 'Unknown' -and $unknownDecision.Reason -match 'fake cannot read') '無法判斷目標使用者語言時回報 Unknown 與原因而非靜默略過'
+foreach($blank in @('',$null)){
+ $explicit=Get-SetupHardwareProfile -BoardProduct 'NUC8i7HVB' -UICulture $blank -DriverPackagePath 'selected_package';$explicitDecision=Get-SetupModuleDecision 'desktop_icon_layout.ps1' $explicit
+ Assert ($explicitDecision.Status -ceq 'Unknown' -and $explicit.UICultureReason -and $explicitDecision.Reason -match '呼叫端明確指定空白語言') '明確傳入空白語言時仍有 Unknown 原因'
+}
 $skip=New-SetupSkippedCheck 'AMD' '不適用'
 Assert ($skip.Status -eq 'Skipped' -and $null -eq $skip.Passed) '略過不偽裝為通過'
 Assert (Test-SetupChecksPassed @($skip,[pscustomobject]@{Status='Passed';Passed=$true})) '驗收忽略不適用檢查'

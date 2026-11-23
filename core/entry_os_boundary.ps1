@@ -14,6 +14,7 @@ function Get-SetupEntryUserUILanguage {
  param([string]$UserSid=(Get-SetupEntryIdentity),[string]$RegistryRoot='Registry::HKEY_USERS')
  $desktop=$RegistryRoot+'\'+$UserSid+'\Control Panel\Desktop'
  $sources=@(@{Path=$desktop;Name='PreferredUILanguages'},@{Path=$desktop+'\MuiCached';Name='MachinePreferredUILanguages'})
+ if($UserSid -in @('S-1-5-18','S-1-5-19','S-1-5-20')){return [pscustomobject]@{Name='';Source='目標使用者登錄';Reason=('目前身分為系統帳號 '+$UserSid+'，沒有明確目標使用者 SID，無法判斷其語言')}}
  $reasons=@()
  foreach($source in $sources){
   try{

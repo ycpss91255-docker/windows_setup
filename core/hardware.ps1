@@ -33,6 +33,7 @@ function Get-SetupHardwareProfile {
   $language=if(Get-Command Get-SetupEntryUserUILanguage -ErrorAction SilentlyContinue){Get-SetupEntryUserUILanguage}else{[pscustomobject]@{Name='';Source='目標使用者登錄';Reason='缺少 entry_os_boundary.ps1，無法判斷目標使用者語言'}}
   $UICulture=[string]$language.Name;$UICultureSource=[string]$language.Source;$UICultureReason=[string]$language.Reason
  }
+ if([string]::IsNullOrWhiteSpace($UICulture) -and -not $UICultureReason){$UICultureReason='呼叫端明確指定空白語言，無法判斷目標使用者語言'}
  $detectionError='';$ambiguous=$false
  if(-not $PSBoundParameters.ContainsKey('BoardProduct')){
   try{

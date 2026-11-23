@@ -65,6 +65,7 @@ foreach($file in $retryFiles){
    if($file -eq 'install_drivers.ps1'){continue}
    if(-not $driverReady -and $file -in $guiModules){$remaining+=$file;Write-Warning ('驅動未完成，保留畫面設定待續跑：'+$file);continue}
    $decision=Get-SetupModuleDecision -Module $file -Hardware $hardware
+   if($decision.Status -ceq 'Unknown'){$errors+=($file+'：未知（Unknown）：'+$decision.Reason);$remaining+=$file;Write-Warning ('[未知] '+$errors[-1]);continue}
    if(-not $decision.Applicable){Write-Host ('[略過] '+$decision.Reason);continue}
    Write-Host ('重試未完成模組：'+$file) -ForegroundColor Cyan
    try{ Invoke-SetupAfterRestartRetryDispatch -File $file -DriverPackagePath $DriverPackagePath -Confirmation $confirmation }catch{$errors+=($file+'：'+$_.Exception.Message);$remaining+=$file;Write-Warning $errors[-1]}
@@ -85,6 +86,6 @@ for($i=0;$i -lt 12;$i++){
  Write-Host '等待登入後的工作列配置收尾…';Start-Sleep -Seconds 5
 }
 $layoutDecision=Get-SetupModuleDecision -Module 'desktop_icon_layout.ps1' -Hardware $hardware
-if($layoutDecision.Applicable -and $driverReady){try{ & (Resolve-NucPath 'desktop_icon_layout.ps1') -Mode Load }catch{$errors+=$_.Exception.Message}}else{Write-Host ('[略過] 桌面排列：'+$layoutDecision.Reason)}
+if($layoutDecision.Status -ceq 'Unknown'){$errors+=('desktop_icon_layout.ps1：未知（Unknown）：'+$layoutDecision.Reason);Write-Warning ('[未知] 桌面排列：'+$layoutDecision.Reason)}elseif($layoutDecision.Applicable -and $driverReady){try{ & (Resolve-NucPath 'desktop_icon_layout.ps1') -Mode Load }catch{$errors+=$_.Exception.Message}}else{Write-Host ('[略過] 桌面排列：'+$layoutDecision.Reason)}
 Complete-SetupAfterRestartAcceptance -Hardware $hardware -Errors $errors -Previous $previous -ResultPath $resultPath -Sid $sid
 }
