@@ -75,3 +75,33 @@ foreach($state in @('failure','cancelled','skipped','')){
 }
 $missingClassify=$docOnlyResults.Clone();[void]$missingClassify.Remove('Classify')
 Reject {Assert-CIResults (Resolve-CIRollupStates -Results $missingClassify -Selection $noneSelected)} '缺少分類結果不採信任何跳過'
+# 程式碼 PR 只選受影響測試：覆蓋率、聚合、需求驗收與容器依分類略過。
+$scopedSelection=$allSelected.Clone()
+foreach($name in @('Requirements','Docker','PowerShellCoverage','Coverage')){$scopedSelection[$name]='false'}
+$scopedResults=$allSuccess.Clone()
+foreach($name in @('Requirements','Docker','PowerShellCoverage','Coverage')){$scopedResults[$name]='skipped'}
+$scopedResults['DocChecks']='skipped'
+Assert-CIResults (Resolve-CIRollupStates -Results $scopedResults -Selection $scopedSelection -EventName pull_request)
+Assert $true '程式碼 PR 縮小範圍時，依分類略過的重型工作計為通過'
+foreach($state in @('failure','cancelled','skipped')){
+ $badTests=$scopedResults.Clone();$badTests['Tests']=$state
+ Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badTests -Selection $scopedSelection -EventName pull_request)} ('縮小範圍時被選中的受影響測試 '+$state+' 不得通過')
+ $badPayload=$scopedResults.Clone();$badPayload['Payload']=$state
+ Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badPayload -Selection $scopedSelection -EventName pull_request)} ('縮小範圍時被選中的設定包驗證 '+$state+' 不得通過')
+}
+foreach($name in @('Requirements','Docker','PowerShellCoverage','Coverage')){
+ foreach($state in @('failure','cancelled')){
+  $bad=$scopedResults.Clone();$bad[$name]=$state
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $bad -Selection $scopedSelection -EventName pull_request)} ($name+' 已執行卻 '+$state+'，即使分類略過也不得通過')
+ }
+}
+# 非 PR 事件不接受任何分類略過，即使分類輸出被竄改為 false。
+foreach($event in @('push','merge_group','workflow_dispatch','schedule','release','')){
+ foreach($name in $required){
+  $results=$allSuccess.Clone();$results[$name]='skipped'
+  $selection=$allSelected.Clone();$selection[$name]='false'
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $results -Selection $selection -EventName $event)} ('非 PR 事件（'+$event+'）的 '+$name+' 略過不得通過')
+ }
+ Assert-CIResults (Resolve-CIRollupStates -Results $allSuccess -Selection $allSelected -EventName $event)
+ Assert $true ('非 PR 事件（'+$event+'）全部成功仍通過')
+}

@@ -25,8 +25,10 @@ function Export-CIPowerShellRawEvidence {
 }
 function Resolve-CIRollupStates {
  # PR 分類只有在分類工作成功、對應選擇值明確為 false 且該工作確實 skipped 時，才把 skipped 視為通過。
- param([Parameter(Mandatory=$true)][hashtable]$Results,[Parameter(Mandatory=$true)][hashtable]$Selection)
+ param([Parameter(Mandatory=$true)][hashtable]$Results,[Parameter(Mandatory=$true)][hashtable]$Selection,[string]$EventName='pull_request')
  $resolved=$Results.Clone()
+ # 分類略過只存在於 pull_request；main、merge_group、tag 與手動執行任何一項略過都要失敗。
+ if($EventName -cne 'pull_request'){return $resolved}
  if(-not $Results.ContainsKey('Classify') -or $Results['Classify'] -cne 'success'){return $resolved}
  foreach($name in @('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage','DocChecks')){
   if($Results.ContainsKey($name) -and $Results[$name] -ceq 'skipped' -and $Selection.ContainsKey($name) -and $Selection[$name] -ceq 'false'){$resolved[$name]='success'}

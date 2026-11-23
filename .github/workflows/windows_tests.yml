@@ -70,6 +70,8 @@ jobs:
       select_docker_tests: ${{ steps.classify.outputs.select_docker_tests || steps.fallback.outputs.select_docker_tests }}
       select_oobe_payload: ${{ steps.classify.outputs.select_oobe_payload || steps.fallback.outputs.select_oobe_payload }}
       select_doc_checks: ${{ steps.classify.outputs.select_doc_checks || steps.fallback.outputs.select_doc_checks }}
+      test_scope: ${{ steps.classify.outputs.test_scope || steps.fallback.outputs.test_scope }}
+      affected_tests: ${{ steps.classify.outputs.affected_tests }}
       doc_tests: ${{ steps.classify.outputs.doc_tests }}
     steps:
       - name: 取得完整歷史以計算 PR 變更
@@ -260,15 +262,22 @@ jobs:
           Install-ContainerToolArtifact -Artifact $artifact -Destination $directory -ArchiveDirectory (Join-Path $env:RUNNER_TEMP 'actionlint-download')
           "WINDOWS_SETUP_ACTIONLINT=$(Join-Path $directory 'actionlint.exe')" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
       - name: 執行 Windows PowerShell 5.1 隔離測試
+        if: needs.classify.outputs.test_scope != 'scoped'
         run: |
           & .\script\test\run_ci.ps1 -ReportDirectory (Join-Path $env:RUNNER_TEMP 'NUC-CI-Results')
+      - name: 只執行受影響的 Windows PowerShell 5.1 隔離測試
+        if: needs.classify.outputs.test_scope == 'scoped'
+        env:
+          AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}
+        run: |
+          & .\script\test\run_ci.ps1 -Layer All -ReportDirectory (Join-Path $env:RUNNER_TEMP 'NUC-CI-Results') -Suite ($env:AFFECTED_TESTS -split ',')
       - name: 顯示固定失敗測試的有限診斷
-        if: failure()
+        if: failure() && needs.classify.outputs.test_scope != 'scoped'
         run: |
           . .\script\test\ci_tasks.ps1
           Write-CIFailureDiagnostics -ReportDirectory (Join-Path $env:RUNNER_TEMP 'NUC-CI-Results') -SuiteNames @('Unit.uac_helpers','Integration.managed_catalog','Unit.driver_cache_cleanup','Integration.init_runtime','Integration.driver_full_source_coverage','Integration.report_bundle_publication','Integration.ci_runner_coverage')
       - name: 產生明確標示的合成首頁驗收樣本
-        if: always()
+        if: always() && needs.classify.outputs.test_scope != 'scoped'
         run: |
           & .\script\test\create_portal_fixture.ps1 -OutputDirectory (Join-Path $env:RUNNER_TEMP 'requirements-fixture')
       - name: 核對本次新增合併提交標題
@@ -276,6 +285,7 @@ jobs:
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('run','./script/test/commitlint/mergecheck')
       - name: 執行全部 Go 維護工具測試
+        if: needs.classify.outputs.test_scope != 'scoped'
         env:
           WINDOWS_SETUP_ARTIFACT_DIR: ${{ runner.temp }}/NUC-CI-Results/public
           WINDOWS_SETUP_PORTAL_FIXTURE_DIR: ${{ runner.temp }}/requirements-fixture/portal
@@ -283,14 +293,17 @@ jobs:
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('test','-mod=vendor','-count=1','./...')
       - name: 驗證手機與桌面報表明細排版
+        if: needs.classify.outputs.test_scope != 'scoped'
         run: |
           . .\script\test\ci_tasks.ps1
           Invoke-CIReportLayout
       - name: 封裝尚未完成 runtime 覆蓋率的原生證據
+        if: needs.classify.outputs.test_scope != 'scoped'
         run: |
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('run','./script/test/repo_coverage_tool','native-stage-pack','--runtime','--source-root',$PWD.Path,'--report-dir',(Join-Path $env:RUNNER_TEMP 'NUC-CI-Results/public'),'--output-dir',(Join-Path $env:RUNNER_TEMP 'native-stage'),'--expected-sha',$env:GITHUB_SHA,'--expected-run-url',("https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"),'--run-attempt',$env:GITHUB_RUN_ATTEMPT)
       - name: 僅保留不可發布的同次原生中介證據七天
+        if: needs.classify.outputs.test_scope != 'scoped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: native-stage-${{ github.run_id }}-${{ github.run_attempt }}
@@ -298,7 +311,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
       - name: 保留合成驗收樣本七天
-        if: always()
+        if: always() && needs.classify.outputs.test_scope != 'scoped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: requirements-fixture-${{ github.run_id }}-${{ github.run_attempt }}
@@ -541,6 +554,7 @@ jobs:
           OOBE_PAYLOAD_RESULT: ${{ needs.oobe_payload_inspection.result }}
           POWERSHELL_COVERAGE_RESULT: ${{ needs.powershell-coverage.result }}
           COVERAGE_RESULT: ${{ needs.coverage-aggregation.result }}
+          EVENT_NAME: ${{ github.event_name }}
           CLASSIFY_RESULT: ${{ needs.classify.result }}
           DOC_CHECKS_RESULT: ${{ needs.doc-checks.result }}
           SELECT_TESTS: ${{ needs.classify.outputs.select_tests }}
@@ -555,7 +569,7 @@ jobs:
           . .\script\test\ci_quality_summary.ps1
           $states=@{Tests=$env:TEST_RESULT;Requirements=$env:REQUIREMENTS_RESULT;Docker=$env:DOCKER_RESULT;Payload=$env:OOBE_PAYLOAD_RESULT;PowerShellCoverage=$env:POWERSHELL_COVERAGE_RESULT;Coverage=$env:COVERAGE_RESULT;Classify=$env:CLASSIFY_RESULT;DocChecks=$env:DOC_CHECKS_RESULT}
           $selection=@{Tests=$env:SELECT_TESTS;Requirements=$env:SELECT_REQUIREMENTS;Docker=$env:SELECT_DOCKER;Payload=$env:SELECT_PAYLOAD;PowerShellCoverage=$env:SELECT_POWERSHELL_COVERAGE;Coverage=$env:SELECT_COVERAGE;DocChecks=$env:SELECT_DOC_CHECKS}
-          $states=Resolve-CIRollupStates -Results $states -Selection $selection
+          $states=Resolve-CIRollupStates -Results $states -Selection $selection -EventName $env:EVENT_NAME
           Write-CIQualityFailureSummary -States $states -SummaryPath $env:GITHUB_STEP_SUMMARY
           Assert-CIResults $states
 

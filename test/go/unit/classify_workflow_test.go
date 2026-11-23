@@ -80,3 +80,52 @@ func TestClassifyScriptPrefixesStayInWorkflowOutputs(t *testing.T) {
 		}
 	}
 }
+
+func TestScopedPullRequestKeepsFullGateForOtherEvents(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("../../..", ".github/workflows/windows_tests.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	classify := coverageJob(text, "classify")
+	for _, required := range []string{"test_scope: ${{ steps.classify.outputs.test_scope || steps.fallback.outputs.test_scope }}", "affected_tests: ${{ steps.classify.outputs.affected_tests }}"} {
+		if !strings.Contains(classify, required) {
+			t.Fatalf("classify missing %s", required)
+		}
+	}
+	isolated := coverageJob(text, "isolated-tests")
+	for _, required := range []string{"needs.classify.outputs.test_scope == 'scoped'", "-Suite ($env:AFFECTED_TESTS -split ',')", "AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}"} {
+		if !strings.Contains(isolated, required) {
+			t.Fatalf("isolated-tests missing %s", required)
+		}
+	}
+	fullOnly := []string{"執行 Windows PowerShell 5.1 隔離測試", "執行全部 Go 維護工具測試", "驗證手機與桌面報表明細排版", "封裝尚未完成 runtime 覆蓋率的原生證據", "僅保留不可發布的同次原生中介證據七天"}
+	for _, name := range fullOnly {
+		start := strings.Index(isolated, "- name: "+name)
+		if start < 0 {
+			t.Fatalf("isolated-tests lost step %s", name)
+		}
+		rest := isolated[start+1:]
+		end := strings.Index(rest, "\n      - name: ")
+		if end < 0 {
+			end = len(rest)
+		}
+		if !strings.Contains(rest[:end], "needs.classify.outputs.test_scope != 'scoped'") {
+			t.Fatalf("step %s must run unless the PR is explicitly scoped", name)
+		}
+	}
+	mergecheck := strings.Index(isolated, "mergecheck")
+	if mergecheck < 0 {
+		t.Fatal("merge title check must stay in isolated-tests")
+	}
+	stepStart := strings.LastIndex(isolated[:mergecheck], "- name: ")
+	if strings.Contains(isolated[stepStart:mergecheck], "test_scope") {
+		t.Fatal("merge title check must run for every scope")
+	}
+	rollup := coverageJob(text, "ci-rollup")
+	for _, required := range []string{"EVENT_NAME: ${{ github.event_name }}", "-EventName $env:EVENT_NAME"} {
+		if !strings.Contains(rollup, required) {
+			t.Fatalf("ci-rollup missing %s", required)
+		}
+	}
+}

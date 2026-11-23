@@ -17,13 +17,17 @@ Windows 測試依事件分成三個階段，必要檢查名稱 `ci-rollup` 不�
 
 | 階段 | 事件 | 內容 |
 | --- | --- | --- |
-| push-to-branch（PR） | `pull_request` | `classify` 比對 PR 與 base 的 diff 輸出 `select_*`；只改文件時僅跑 `doc-checks`，其他情況跑完整套件 |
+| push-to-branch（PR） | `pull_request` | `classify` 比對 PR 與 base 的 diff 輸出 `select_*`；只改文件時僅跑 `doc-checks`；程式碼 PR 只跑受影響的 suite、合併標題核對與設定包唯讀驗證；共用路徑或無法判斷時跑完整套件 |
 | push-to-main | `push`（main）、`merge_group` | 一律完整套件，包含 isolated-tests、全源量測、docker-tests、覆蓋率聚合、requirements-gate 與部署 |
 | release | `push` tag | 完整套件加既有發布流程 |
 
 純文件 PR 指所有變更路徑都是根目錄 `*.md`、`license`、`doc/**/*.md` 或 `.github/pull_request_template.md`。第三方內容中的 `LICENSE`、含上層路徑或反斜線的路徑、非 Markdown 檔一律不算文件。文件檢查清單由 `script/test/ci_classify.ps1` 讀取現有 PowerShell 測試推導：列入引用被改文件路徑的測試，以及名稱屬於全域契約（architecture、layout、Markdown 換行）的測試，不在 workflow 內手寫路徑表，並以 `run_ci.ps1 -Suite` 在完整清單檢查之後只執行這些 suite。
 
-分類以 `git diff --no-renames` 取得變更，改名會同時列出舊路徑與新路徑，因此把程式碼改名成 Markdown 不會被當成文件。分類失敗、取不到 diff、路徑無法判斷或 PR 含任何程式碼時，一律選完整套件（fail open）；依變更範圍選測屬後續階段。文件檢查清單只由 PowerShell 測試內容推導，讀取 Markdown 的 Go 測試與 requirements-gate 在純文件 PR 不執行，改由 main、merge_group 與 tag 的完整套件補上，此為已知取捨。`ci-rollup` 只有在分類工作成功、對應 `select_*` 明確為 `false` 且該工作確實 skipped 時，才把略過視為通過；被選中的工作失敗、取消或略過都使整體失敗。這是政策語意變更：純文件 PR 不再於 PR 階段執行全來源量測與容器測試，完整驗證改由 main、merge_group 與 tag 強制。
+分類以 `git diff --no-renames` 取得變更，改名會同時列出舊路徑與新路徑，因此把程式碼改名成 Markdown 不會被當成文件。分類失敗、取不到 diff 或路徑無法判斷時，一律選完整套件（fail open）。
+
+程式碼 PR 的受影響 suite 由 `Get-CIScopedTests` 推導，不手寫路徑表：從每個變更路徑出發，找出文字內容引用它的檔案（完整相對路徑或獨立的檔名），再沿引用鏈往上追，直到碰到 `test/powershell/unit` 或 `integration` 的 suite；被改的測試檔自己一定執行，文件與 `architecture`、`layout`、`markdown_line_ending` 這類全域契約測試一併列入。刪除的檔案以測試中仍存在的引用判斷，改名視為舊路徑刪除加新路徑新增。下列情況一律完整套件：路徑含上層、反斜線或空段；`.github/`、`go.mod`、`go.sum`、`vendor/`、`.version`、容器與 `script/docker/`、`script/test/` 的 CI 與覆蓋率工具、`test/powershell/` 的 helpers／support／coverage／fixtures、`core/paths.*`；任何 Go 變更（Go 整合測試依賴完整 PowerShell 報告）；任一路徑沒有測試引用；引用鏈超過 300 個檔案，或受影響 suite 超過全部 suite 的一半（縮小收益有限）。登錄表或總入口（對外引用超過 30 個檔案，例如 `core/paths.json`）不當作引用鏈的中繼點，因為它只是列出檔案，不代表依賴。以最近 60 筆合併回放，約七分之一只改文件、近三成可縮小，其餘因 workflow、`core/paths.*`、Go 或共用輔助變動而維持完整套件。縮小範圍時 `isolated-tests` 只執行 `-Suite` 清單與 mergecheck，略過 Go 測試、報表排版、原生證據封裝與合成樣本；`powershell-coverage`、`coverage-aggregation`、`requirements-gate`、`docker-tests` 計為依分類略過。`ci-rollup` 帶入事件名稱，只在 `pull_request` 接受分類略過；`push`、`merge_group`、tag 與手動執行的任何略過都使整體失敗。
+
+已知取捨：縮小範圍的 PR 不執行 Go 測試與全源覆蓋率，可能被引用鏈漏掉的跨檔影響由合併佇列的 merge_group 完整套件在進入 main 之前擋下（必要檢查 `ci-rollup`，無繞過），main 與 tag 再完整執行一次。文件檢查清單只由 PowerShell 測試內容推導，讀取 Markdown 的 Go 測試與 requirements-gate 在純文件 PR 不執行，改由 main、merge_group 與 tag 的完整套件補上，此為已知取捨。`ci-rollup` 只有在分類工作成功、對應 `select_*` 明確為 `false` 且該工作確實 skipped 時，才把略過視為通過；被選中的工作失敗、取消或略過都使整體失敗。這是政策語意變更：純文件 PR 不再於 PR 階段執行全來源量測與容器測試，完整驗證改由 main、merge_group 與 tag 強制。
 
 ### 平行測試與完整證據聚合
 

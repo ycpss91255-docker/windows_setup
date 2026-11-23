@@ -14,7 +14,7 @@ func TestNativeProducerAndStrictCoverageAggregatorAreParallel(t *testing.T) {
 	}
 	text := string(data)
 	native := coverageJob(text, "isolated-tests")
-	if !strings.Contains(native, "needs: [source-preflight]") || strings.Contains(native, "run_repo_coverage.ps1") {
+	if !strings.Contains(native, "needs: [source-preflight, classify]") || strings.Contains(native, "run_repo_coverage.ps1") {
 		t.Fatal("native producer still waits for PowerShell or claims whole coverage")
 	}
 	for _, required := range []string{"run_ci.ps1", "'test','-mod=vendor','-count=1','./...'", "native-stage-pack", "--run-attempt", "native-stage-${{ github.run_id }}-${{ github.run_attempt }}"} {
@@ -26,7 +26,7 @@ func TestNativeProducerAndStrictCoverageAggregatorAreParallel(t *testing.T) {
 		t.Fatal("partial native stage must not publish final report artifact")
 	}
 	aggregate := coverageJob(text, "coverage-aggregation")
-	for _, required := range []string{"needs: [isolated-tests, powershell-coverage]", "native-stage-restore", "native-stage-${{ github.run_id }}-${{ github.run_attempt }}", "managed_coverage.ps1", "run_repo_coverage.ps1", "-PowerShellShardDirectory", "-RunAttempt", "'--runtime'", "name: windows-test-reports-"} {
+	for _, required := range []string{"needs: [classify, isolated-tests, powershell-coverage]", "native-stage-restore", "native-stage-${{ github.run_id }}-${{ github.run_attempt }}", "managed_coverage.ps1", "run_repo_coverage.ps1", "-PowerShellShardDirectory", "-RunAttempt", "'--runtime'", "name: windows-test-reports-"} {
 		if !strings.Contains(aggregate, required) {
 			t.Fatalf("strict aggregator missing %s", required)
 		}
