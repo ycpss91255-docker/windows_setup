@@ -59,6 +59,10 @@ try{
  Put 'test/powershell/unit/ignored.ps1' '# invalid suite name'
  $null=Run 'invalid' 'All' 'Invalid or empty test inventory'
  Remove-Item -LiteralPath (Join-Path $fixture 'test/powershell/unit/ignored.ps1')
+ # 檔名中間再含 _tests 時，執行器（Replace 全部取代）與原生證據封裝（只去掉後綴）推導的 suite 名稱不一致，必須在清單檢查就拒絕。
+ Put 'test/powershell/unit/doubled_tests_tests.ps1' $pass
+ $null=Run 'invalid_doubled' 'All' 'Invalid or empty test inventory'
+ Remove-Item -LiteralPath (Join-Path $fixture 'test/powershell/unit/doubled_tests_tests.ps1')
  # Release metadata is fixture data, backed by a real clean local commit and the real parser.
  Put 'script/release/release.ps1' ([IO.File]::ReadAllText((Join-Path $root 'script/release/release.ps1')))
  Invoke-FixtureGit @('add','.')|Out-Null;Invoke-FixtureGit @('-c','user.name=CI Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','release fixture')|Out-Null
