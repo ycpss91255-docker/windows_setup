@@ -1,0 +1,7 @@
+[略過] 目前桌面排列範本僅適用繁體中文，未套用座標。
+
+Status  Module                  Reason          
+------  ------                  ------          
+Skipped desktop_icon_layout.ps1 目前排列範本使用繁體中文圖示名稱
+
+

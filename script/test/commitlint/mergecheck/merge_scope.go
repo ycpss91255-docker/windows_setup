@@ -44,7 +44,8 @@ func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind stri
 	return validateMergeTitlesSync(repo, tips, excluded, kind, syncContext{})
 }
 
-// syncContext 讓 PR 階段核對 GitHub「更新分支」產生的同步主線合併提交；空值表示不接受。
+// syncContext 供核對 GitHub「更新分支」產生的同步主線合併提交；空值表示不接受。
+// Ref 為 PR head 分支（僅 PR 階段）；Base 為 PR／佇列事件的 base，main push 則為 before。
 type syncContext struct{ Ref, Base string }
 
 func validateMergeTitlesSync(repo string, tips, excluded []string, kind string, sync syncContext) error {
@@ -105,7 +106,7 @@ func validateMergeTitlesSync(repo string, tips, excluded []string, kind string, 
 				}
 				continue
 			}
-			if kind == "merge_group" && sync.Base != "" {
+			if (kind == "merge_group" || kind == "push_main") && sync.Base != "" {
 				if ref, ok := queueSyncBranch(title); ok {
 					if e := queueSyncMergeValid(repo, listing, fields[0], fields[1], fields[2], ref, sync.Base, inRange); e != nil {
 						return e
