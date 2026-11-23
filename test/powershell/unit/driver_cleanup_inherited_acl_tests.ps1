@@ -12,7 +12,7 @@ $ErrorActionPreference='Stop'
 function Assert([bool]$Value,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Value}|ConvertTo-Json -Compress));if(-not $Value){throw $Name}}
 $parent=Join-Path ([IO.Path]::GetFullPath($FixtureRoot)) 'cache';[void][IO.Directory]::CreateDirectory($parent);$parent=[IO.Path]::GetFullPath($parent)
 function Get-SetupDriverCacheParent {$parent}
-$script:SetupDriverExtractionLeases=@{};$script:extra=@{}
+$script:SetupDriverExtractionLeases=@{};$script:extra=@{};$script:whole=@{}
 function Get-Acl {
  param($LiteralPath,$ErrorAction)
  $full=[IO.Path]::GetFullPath($LiteralPath)
@@ -25,6 +25,7 @@ function Get-Acl {
   $flags=if($directory){'OICIID'}else{'ID'}
   $sddl='O:BAG:S-1-5-21-1-2-3-513D:AI(A;'+$flags+';FA;;;SY)(A;'+$flags+';FA;;;BA)'
   $leaf=[IO.Path]::GetFileName($full)
+  if($script:whole.ContainsKey($leaf)){$sddl=$script:whole[$leaf]}
   if($script:extra.ContainsKey($leaf)){$sddl+=$script:extra[$leaf]}
   $acl.SetSecurityDescriptorSddlForm($sddl)
  }
@@ -55,6 +56,18 @@ foreach($lease in @($rows|Where-Object Depth -eq 1)){
  $script:SetupDriverExtractionLeases[$path]=[pscustomobject]@{NativeActive=$false;Token=[guid]::NewGuid().ToString('N')}
  $err=$null;$ok=$false;try{$ok=Remove-SetupDriverExtractionRoot $path}catch{$err=$_.Exception.Message;Write-Host ('@@REASON@@'+$err)}
  Assert ($null -eq $err -and $ok -and -not(Test-Path $path)) ('現場擷取目錄結構重放可清理：'+$lease.Path)
+}
+# 兩個變異防護：子項目擁有者必須可信；已受保護的子項目仍須通過原本的嚴格檢查。
+$wholeCases=@(
+ @{Name='未受保護子目錄擁有者不可信';Leaf='c';Sddl='O:BUG:S-1-5-21-1-2-3-513D:AI(A;OICIID;FA;;;SY)(A;OICIID;FA;;;BA)';Reason='擁有者'},
+ @{Name='已受保護子目錄缺少子檔繼承旗標仍走嚴格檢查';Leaf='c';Sddl='O:BAG:S-1-5-21-1-2-3-513D:P(A;;FA;;;SY)(A;;FA;;;BA)';Reason='繼承保護'},
+ @{Name='已受保護子目錄含非可信規則仍走嚴格檢查';Leaf='c';Sddl='O:BAG:S-1-5-21-1-2-3-513D:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)(A;OICI;FA;;;BU)';Reason='非預期存取規則'}
+)
+foreach($case in $wholeCases){
+ $script:whole=@{$case.Leaf=$case.Sddl}
+ $tree=NewTree;$msg='';try{Remove-SetupDriverExtractionRoot $tree|Out-Null}catch{$msg=$_.Exception.Message}
+ Assert ($msg.Contains($case.Reason) -and (Test-Path (Join-Path $tree 'a\b\c\deep.inf'))) ('拒絕並保留資料：'+$case.Name)
+ $script:whole=@{}
 }
 foreach($case in $cases){
  $script:extra=@{$case.Leaf=$case.Sddl}
