@@ -40,8 +40,8 @@ func queueSyncBranch(title string) (string, bool) {
 	return m[1], true
 }
 
-// queueSyncMergeValid 核對合併佇列範圍內的同步主線合併提交。merge_group 事件的 ref 是
-// gh-readonly-queue/…，無法對應 PR 分支，且一組佇列可含多個 PR；因此分支名稱改由範圍內的
+// queueSyncMergeValid 核對合併佇列與 main push 範圍內的同步主線合併提交。這兩種事件的 ref 是
+// gh-readonly-queue/… 或 main，無法對應 PR 分支，且範圍可含多個 PR；因此分支名稱改由範圍內的
 // 佇列合併提交背書：其標題 `Merge pull request #<n> from <owner>/<分支>` 已由
 // queueMergeCommitValid 以 GitHub API 核對 PR head 倉庫為本倉庫、分支與第二父提交一致。
 // 同步合併須可由該佇列合併提交的第二父提交（PR head）到達，再套用與 PR 階段相同的結構核對。
