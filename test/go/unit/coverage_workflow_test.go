@@ -67,10 +67,22 @@ func TestCIWholeCoverageHasProducerAndStrictConsumers(t *testing.T) {
 	}
 	text := string(b)
 	producer := coverageJob(text, "coverage-aggregation")
-	for _, required := range []string{"actions/setup-dotnet@", "dotnet-version: '10.0.300'", "DOTNET_INSTALL_DIR:", "managed_coverage.ps1", "run_repo_coverage.ps1", "-ManagedEvidencePath", "repo-coverage-evidence", "Export-CIPowerShellRawEvidence", "powershell-raw-evidence", "retention-days: 7"} {
+	for _, required := range []string{"managed-coverage-${{ github.run_id }}-${{ github.run_attempt }}", "run_repo_coverage.ps1", "-ManagedEvidencePath", "repo-coverage-evidence", "Export-CIPowerShellRawEvidence", "powershell-raw-evidence", "retention-days: 7"} {
 		if !strings.Contains(producer, required) {
 			t.Fatalf("producer missing %s", required)
 		}
+	}
+	if strings.Contains(producer, "managed_coverage.ps1") || strings.Contains(producer, "actions/setup-dotnet@") {
+		t.Fatal("serial aggregation must consume parallel managed evidence, not rebuild it")
+	}
+	managed := coverageJob(text, "managed-coverage")
+	for _, required := range []string{"needs: [source-preflight]", "actions/setup-dotnet@", "dotnet-version: '10.0.300'", "DOTNET_INSTALL_DIR:", "managed_coverage.ps1", "-Runtime", "actions/upload-artifact@", "managed-coverage-${{ github.run_id }}-${{ github.run_attempt }}", "evidence.json", "merged.xml", "retention-days: 7", "if-no-files-found: error"} {
+		if !strings.Contains(managed, required) {
+			t.Fatalf("parallel managed producer missing %s", required)
+		}
+	}
+	if strings.Contains(managed, "needs: [source-preflight, ") || strings.Contains(managed, "isolated-tests") || strings.Contains(managed, "powershell-coverage") {
+		t.Fatal("managed producer must not wait for tests or shards")
 	}
 	gate := coverageJob(text, "requirements-gate")
 	for _, required := range []string{"repo_coverage_tool verify", "--require-complete", "--minimum-percent 80", "--expected-sha", "--expected-run-url"} {
