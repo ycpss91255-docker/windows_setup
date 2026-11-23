@@ -1,6 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"regexp"
+	"strings"
+)
 
 // syncMergeValid 核對 GitHub「更新分支」在 PR 分支上產生的同步主線合併提交。
 // 標題已由呼叫端比對為 `Merge branch 'main' into <PR head 分支>`；此處再要求：
@@ -24,4 +28,38 @@ func syncMergeValid(repo, id, first, second, base string, inRange map[string]boo
 		return fmt.Errorf("sync merge commit tree differs from a clean merge of its parents: %s", id)
 	}
 	return nil
+}
+
+var syncTitleRe = regexp.MustCompile(`^Merge branch 'main' into (\S+)$`)
+
+func queueSyncBranch(title string) (string, bool) {
+	m := syncTitleRe.FindStringSubmatch(title)
+	if m == nil {
+		return "", false
+	}
+	return m[1], true
+}
+
+// queueSyncMergeValid 核對合併佇列範圍內的同步主線合併提交。merge_group 事件的 ref 是
+// gh-readonly-queue/…，無法對應 PR 分支，且一組佇列可含多個 PR；因此分支名稱改由範圍內的
+// 佇列合併提交背書：其標題 `Merge pull request #<n> from <owner>/<分支>` 已由
+// queueMergeCommitValid 以 GitHub API 核對 PR head 倉庫為本倉庫、分支與第二父提交一致。
+// 同步合併須可由該佇列合併提交的第二父提交（PR head）到達，再套用與 PR 階段相同的結構核對。
+func queueSyncMergeValid(repo, listing, id, first, second, ref, base string, inRange map[string]bool) error {
+	for _, line := range strings.Split(listing, "\n") {
+		f := strings.Fields(line)
+		if len(f) != 3 {
+			continue
+		}
+		title, err := mergeTitle(repo, f[0])
+		if err != nil {
+			return err
+		}
+		m := queueTitle.FindStringSubmatch(title)
+		if m == nil || m[3] != ref || !isAncestor(repo, id, f[2]) {
+			continue
+		}
+		return syncMergeValid(repo, id, first, second, base, inRange)
+	}
+	return fmt.Errorf("sync merge commit branch is not backed by a queue pull request merge: %s", id)
 }
