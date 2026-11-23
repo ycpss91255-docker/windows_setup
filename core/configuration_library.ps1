@@ -40,6 +40,7 @@ try {
         Write-Progress -Id 1 -Activity 'Windows 一鍵設定' -Status ('['+$stageIndex+'/19] '+$stage.Name) -PercentComplete ([int](100*($stageIndex-1)/19))
         @{Step=$stageIndex;Total=19;Stage=$stage.Name;UpdatedAt=(Get-Date).ToString('o')}|ConvertTo-Json|Set-Content (Resolve-NucPath 'Setup-Progress.json') -Encoding UTF8
         $decision=Get-SetupModuleDecision -Module $stage.File -Hardware $hardware
+        if($decision.Status -ceq 'Unknown'){$skippedModules+=$decision;$failedModules+=$stage.File;$stageErrors+=($stage.Name+'：未知（Unknown）：'+$decision.Reason);Write-Host ('[未知] '+$stage.Name+'：'+$decision.Reason) -ForegroundColor Red;continue}
         if(-not $decision.Applicable){$skippedModules+=$decision;Write-Host ('[略過] '+$stage.Name+'：'+$decision.Reason) -ForegroundColor Yellow;continue}
         try { if($stage.File -eq 'install_drivers.ps1'){& (Resolve-NucPath $stage.File) -NonInteractive -DriverPackagePath $DriverPackagePath -ConfirmedBoard $ConfirmedBoard -ConfirmationComputer $ConfirmationComputer}elseif($stage.File -eq 'apply_start_menu_settings.ps1'){$startResult=& (Resolve-NucPath $stage.File) -NonInteractive}else{& (Resolve-NucPath $stage.File)} }
         catch { $failedModules+=$stage.File;$stageErrors+=($stage.Name+'：'+$_.Exception.Message);Write-Warning $stageErrors[-1] }
