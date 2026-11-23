@@ -41,6 +41,13 @@ func validateMergeTitles(repo string, tips, excluded []string) error {
 }
 
 func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind string) error {
+	return validateMergeTitlesSync(repo, tips, excluded, kind, syncContext{})
+}
+
+// syncContext 讓 PR 階段核對 GitHub「更新分支」產生的同步主線合併提交；空值表示不接受。
+type syncContext struct{ Ref, Base string }
+
+func validateMergeTitlesSync(repo string, tips, excluded []string, kind string, sync syncContext) error {
 	if len(tips) == 0 || len(excluded) == 0 {
 		return fmt.Errorf("missing graph boundary")
 	}
@@ -64,6 +71,12 @@ func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind stri
 	if e != nil {
 		return e
 	}
+	inRange := map[string]bool{}
+	for _, line := range strings.Split(listing, "\n") {
+		if f := strings.Fields(line); len(f) > 0 {
+			inRange[f[0]] = true
+		}
+	}
 	for _, line := range strings.Split(listing, "\n") {
 		if line == "" {
 			continue
@@ -80,6 +93,26 @@ func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind stri
 			if e != nil {
 				return e
 			}
+			if strings.HasPrefix(title, "Merge pull request #") {
+				if e := queueMergeCommitValid(repo, fields[0], title, fields[2]); e != nil {
+					return e
+				}
+				continue
+			}
+			if kind == "pull_request" && sync.Ref != "" && title == "Merge branch 'main' into "+sync.Ref {
+				if e := syncMergeValid(repo, fields[0], fields[1], fields[2], sync.Base, inRange); e != nil {
+					return e
+				}
+				continue
+			}
+			if kind == "merge_group" && sync.Base != "" {
+				if ref, ok := queueSyncBranch(title); ok {
+					if e := queueSyncMergeValid(repo, listing, fields[0], fields[1], fields[2], ref, sync.Base, inRange); e != nil {
+						return e
+					}
+					continue
+				}
+			}
 			if !strings.HasPrefix(title, "合併：") || !strings.ContainsFunc(strings.TrimPrefix(title, "合併："), func(r rune) bool { return unicode.Is(unicode.Han, r) }) {
 				return fmt.Errorf("new merge commit has invalid title: %s", fields[0])
 			}
@@ -88,7 +121,7 @@ func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind stri
 	return nil
 }
 
-type sourceEvent struct{ Kind, Checkout, RunSHA, Base, Head, Before, After, Main string }
+type sourceEvent struct{ Kind, Checkout, RunSHA, Base, Head, Before, After, Main, HeadRef string }
 
 func isAncestor(repo, ancestor, descendant string) bool {
 	if !commitOID.MatchString(ancestor) || !commitOID.MatchString(descendant) {
@@ -120,6 +153,13 @@ func deriveEventScope(repo string, event sourceEvent, anchor string) ([]string, 
 		expected, err := graphGit(repo, "merge-tree", "--write-tree", event.Base, event.Head)
 		if err != nil || tree != expected {
 			return nil, nil, fmt.Errorf("PR checkout tree mismatch")
+		}
+		return []string{event.Head}, []string{event.Base}, nil
+	case "merge_group":
+		// 佇列分組：group head 必須由 base（main 當下）合成，範圍為 base 之後新增的提交，
+		// 其中的合併提交須符合佇列合併標題規則（標題格式、中文 PR 標題、第二個父提交為 PR head）。
+		if event.Head != event.Checkout || !commitOID.MatchString(event.Base) || !isAncestor(repo, anchor, event.Base) || !isAncestor(repo, event.Base, event.Head) {
+			return nil, nil, fmt.Errorf("invalid merge group ancestry")
 		}
 		return []string{event.Head}, []string{event.Base}, nil
 	case "push_main":
