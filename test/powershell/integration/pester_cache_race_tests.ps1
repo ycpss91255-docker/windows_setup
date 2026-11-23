@@ -43,6 +43,16 @@ try{
  [IO.File]::WriteAllBytes($cacheZip,[byte[]](1,2,3))
  $rejected=$false;try{[void](Get-PinnedPester)}catch{$rejected=$_.Exception.Message -like '*SHA512*'}
  Assert $rejected '快取雜湊不符時仍拒絕載入'
+ # 目標不存在、卻因別的原因無法發布（下載暫存檔被鎖住）時，仍要中止，不可假裝成功。
+ Remove-Item -LiteralPath $cacheZip -Force
+ $script:lockedDownload=$null
+ function Invoke-WebRequest{param($Uri,$OutFile,[switch]$UseBasicParsing)
+  [IO.File]::WriteAllBytes($OutFile,$bytes)
+  $script:lockedDownload=[IO.File]::Open($OutFile,'Open','Read','None')
+ }
+ $aborted='';try{[void](Get-PinnedPester)}catch{$aborted=$_.Exception.Message}
+ if($script:lockedDownload){$script:lockedDownload.Dispose()}
+ Assert ($aborted -ne '' -and -not (Test-Path -LiteralPath $cacheZip)) '目標不存在且發布失敗時仍中止，不產生快取檔'
 }finally{
  if($script:holder){$script:holder.Dispose()}
  $env:TEMP=$savedTemp;$env:TMP=$savedTmp
