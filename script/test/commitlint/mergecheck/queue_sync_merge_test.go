@@ -8,7 +8,25 @@ import (
 	"testing"
 )
 
-// TestMergeGroupSyncMainMerge 驗證合併佇列範圍內的 `Merge branch 'main' into <分支>`：
+// checkMainlineEvent 以指定事件核對 base 之後、以 head 為頂端的主線範圍，讓同一張案例表
+// 對佇列與 main push 得到相同結論。呼叫端須已切換至 head。
+func checkMainlineEvent(repo, kind, base, head, anchor string) error {
+	switch kind {
+	case "merge_group":
+		ref := "refs/heads/gh-readonly-queue/main/pr-7-" + head
+		raw := fmt.Sprintf(`{"repository":{"full_name":"%s"},"merge_group":{"base_ref":"refs/heads/main","base_sha":"%s","head_ref":"%s","head_sha":"%s"}}`, fixedRepository, base, ref, head)
+		return checkEventInRepository(repo, "merge_group", ref, head, "", []byte(raw), anchor, []string{anchor})
+	case "push_main":
+		raw := fmt.Sprintf(`{"repository":{"full_name":"%s"},"ref":"refs/heads/main","before":"%s","after":"%s"}`, fixedRepository, base, head)
+		return checkEventInRepository(repo, "push", "refs/heads/main", head, "", []byte(raw), anchor, []string{anchor})
+	default:
+		return fmt.Errorf("unsupported fixture event: %s", kind)
+	}
+}
+
+var mainlineEvents = []string{"merge_group", "push_main"}
+
+// TestMergeGroupSyncMainMerge 驗證合併佇列與 main push 範圍內的 `Merge branch 'main' into <分支>`：
 // 分支名稱須由佇列合併提交（其 PR head 已由 API 核對為本倉庫）背書，並套用與 PR 階段相同的結構核對。
 func TestMergeGroupSyncMainMerge(t *testing.T) {
 	repo := t.TempDir()
@@ -74,7 +92,7 @@ func TestMergeGroupSyncMainMerge(t *testing.T) {
 	defer func() { prHeadLookup = oldLookup }()
 
 	// head 為 PR 分支最後一筆提交（同步合併或其後代）；queueRef 為佇列提交標題中的分支。
-	runCase := func(syncCommit, queueRef, headRepo string, queueMerge bool) error {
+	runCase := func(kind, syncCommit, queueRef, headRepo string, queueMerge bool) error {
 		prHeadLookup = func(number int) (prHead_, error) {
 			if number != 7 {
 				return prHead_{}, fmt.Errorf("unknown PR")
@@ -88,9 +106,7 @@ func TestMergeGroupSyncMainMerge(t *testing.T) {
 			head = merge(treeOf(base, syncCommit), []string{base, syncCommit}, "合併：手動合併")
 		}
 		git("switch", "--quiet", "--detach", head)
-		ref := "refs/heads/gh-readonly-queue/main/pr-7-" + syncCommit
-		raw := fmt.Sprintf(`{"repository":{"full_name":"%s"},"merge_group":{"base_ref":"refs/heads/main","base_sha":"%s","head_ref":"%s","head_sha":"%s"}}`, fixedRepository, base, ref, head)
-		return checkEventInRepository(repo, "merge_group", ref, head, "", []byte(raw), root, []string{root})
+		return checkMainlineEvent(repo, kind, base, head, root)
 	}
 	for _, tc := range []struct {
 		name       string
@@ -110,10 +126,23 @@ func TestMergeGroupSyncMainMerge(t *testing.T) {
 		{"merge brings extra content", merge(extraTree, []string{prOld, main1}, syncTitle), "feature/x", fixedRepository, true, false},
 		{"other English title", merge(treeOf(prOld, main1), []string{prOld, main1}, "Merge branch 'dev' into feature/x"), "feature/x", fixedRepository, true, false},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			err := runCase(tc.sync, tc.queueRef, tc.headRepo, tc.queueMerge)
-			if (err == nil) != tc.want {
-				t.Fatalf("want accepted=%v: %v", tc.want, err)
+		for _, kind := range mainlineEvents {
+			t.Run(kind+"/"+tc.name, func(t *testing.T) {
+				err := runCase(kind, tc.sync, tc.queueRef, tc.headRepo, tc.queueMerge)
+				if (err == nil) != tc.want {
+					t.Fatalf("want accepted=%v: %v", tc.want, err)
+				}
+			})
+		}
+	}
+	// 未經佇列、直接以同步合併快轉 main：結構本身合法，但沒有佇列合併提交背書。
+	direct := merge(treeOf(prOld, base), []string{prOld, base}, syncTitle)
+	for _, kind := range mainlineEvents {
+		t.Run(kind+"/sync merge pushed directly to main", func(t *testing.T) {
+			git("switch", "--quiet", "--detach", direct)
+			err := checkMainlineEvent(repo, kind, base, direct, root)
+			if err == nil || !strings.Contains(err.Error(), "not backed by a queue pull request merge") {
+				t.Fatalf("want missing queue backing: %v", err)
 			}
 		})
 	}
@@ -174,7 +203,7 @@ func TestMergeGroupTwoQueuedPRs(t *testing.T) {
 	syncInto := func(branch string) string { return "Merge branch 'main' into " + branch }
 	oldLookup := prHeadLookup
 	defer func() { prHeadLookup = oldLookup }()
-	run := func(headA, headB string) error {
+	run := func(kind, headA, headB string) error {
 		heads := map[int]prHead_{7: {SHA: headA, Ref: "feature/a", Repo: fixedRepository}, 8: {SHA: headB, Ref: "feature/b", Repo: fixedRepository}}
 		prHeadLookup = func(number int) (prHead_, error) {
 			h, ok := heads[number]
@@ -186,9 +215,7 @@ func TestMergeGroupTwoQueuedPRs(t *testing.T) {
 		queueA := commit([]string{base, headA}, fmt.Sprintf("Merge pull request #7 from %s/feature/a", owner), "功能：新增 a")
 		queueB := commit([]string{queueA, headB}, fmt.Sprintf("Merge pull request #8 from %s/feature/b", owner), "功能：新增 b")
 		git("switch", "--quiet", "--detach", queueB)
-		ref := "refs/heads/gh-readonly-queue/main/pr-8-" + headB
-		raw := fmt.Sprintf(`{"repository":{"full_name":"%s"},"merge_group":{"base_ref":"refs/heads/main","base_sha":"%s","head_ref":"%s","head_sha":"%s"}}`, fixedRepository, base, ref, queueB)
-		return checkEventInRepository(repo, "merge_group", ref, queueB, "", []byte(raw), root, []string{root})
+		return checkMainlineEvent(repo, kind, base, queueB, root)
 	}
 	for _, tc := range []struct {
 		name         string
@@ -200,10 +227,12 @@ func TestMergeGroupTwoQueuedPRs(t *testing.T) {
 		{"sync merge titled for B smuggled into A history", commit([]string{prA, main1}, syncInto("feature/b")), prB, false},
 		{"sync merge titled for A smuggled into B history", prA, commit([]string{prB, main1}, syncInto("feature/a")), false},
 	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if err := run(tc.headA, tc.headB); (err == nil) != tc.want {
-				t.Fatalf("want accepted=%v: %v", tc.want, err)
-			}
-		})
+		for _, kind := range mainlineEvents {
+			t.Run(kind+"/"+tc.name, func(t *testing.T) {
+				if err := run(kind, tc.headA, tc.headB); (err == nil) != tc.want {
+					t.Fatalf("want accepted=%v: %v", tc.want, err)
+				}
+			})
+		}
 	}
 }
