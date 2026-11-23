@@ -26,7 +26,7 @@ func TestNativeProducerAndStrictCoverageAggregatorAreParallel(t *testing.T) {
 		t.Fatal("partial native stage must not publish final report artifact")
 	}
 	aggregate := coverageJob(text, "coverage-aggregation")
-	for _, required := range []string{"needs: [classify, isolated-tests, powershell-coverage]", "native-stage-restore", "native-stage-${{ github.run_id }}-${{ github.run_attempt }}", "managed_coverage.ps1", "run_repo_coverage.ps1", "-PowerShellShardDirectory", "-RunAttempt", "'--runtime'", "name: windows-test-reports-"} {
+	for _, required := range []string{"needs: [classify, isolated-tests, powershell-coverage, managed-coverage]", "native-stage-restore", "native-stage-${{ github.run_id }}-${{ github.run_attempt }}", "run_repo_coverage.ps1", "-PowerShellShardDirectory", "-RunAttempt", "'--runtime'", "name: windows-test-reports-"} {
 		if !strings.Contains(aggregate, required) {
 			t.Fatalf("strict aggregator missing %s", required)
 		}
