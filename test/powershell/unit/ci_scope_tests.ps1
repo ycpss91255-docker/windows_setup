@@ -100,6 +100,14 @@ try{
  Assert ($docOnly['doc_checks'] -ceq 'true' -and $docOnly['tests'] -ceq 'false' -and $docOnly['test_scope'] -ceq 'full') '純文件 PR 仍走文件輕量檢查'
  $noRoot=Get-CIChangeSelection -EventName pull_request -ChangedPaths @('modules/power/power.ps1')
  Assert ($noRoot['test_scope'] -ceq 'full' -and $noRoot['tests'] -ceq 'true') '沒有可讀取的根目錄時選完整套件'
+ # 判斷範圍本身丟出例外時，無法確認變更內容，維持完整套件（fail open），不降級為只跑分片。
+ function Get-CIScopedTests{param($Root,$ChangedPaths,$MaxSuites=0) throw '模擬分類器內部錯誤'}
+ $broken=Get-CIChangeSelection -EventName pull_request -ChangedPaths @('modules/power/power.ps1') -Root $fixture
+ $brokenOk=$broken['test_scope'] -ceq 'full' -and $broken['pr_full'] -ceq 'false' -and $broken['go_tests'] -ceq 'false' -and $broken['shard_count'] -ceq '1'
+ foreach($key in @('tests','oobe_payload')+$heavy){if($broken[$key] -cne 'true'){$brokenOk=$false}}
+ Assert $brokenOk '範圍判斷丟出例外時維持完整套件，不降級'
+ Remove-Item Function:\Get-CIScopedTests
+ . (Join-Path $root 'script/test/ci_classify.ps1')
 
  # 真 Git diff 經腳本輸出。
  function Invoke-FixtureGit([string[]]$Arguments){$o=& git.exe -c core.autocrlf=false -C $fixture @Arguments 2>&1;if($LASTEXITCODE -ne 0){throw ($o|Out-String)};$o}

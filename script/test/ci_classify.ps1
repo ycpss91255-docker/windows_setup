@@ -203,10 +203,12 @@ function Get-CIChangeSelection {
   $documentOnly=$true
   foreach($path in @($ChangedPaths)){if(-not(Test-CIDocumentPath $path)){$documentOnly=$false;break}}
   if(-not $documentOnly -and $Root){
-   try{$scope=Get-CIScopedTests -Root $Root -ChangedPaths $ChangedPaths}catch{$scope=$null}
+   $scopeFailed=$false
+   try{$scope=Get-CIScopedTests -Root $Root -ChangedPaths $ChangedPaths}catch{$scope=$null;$scopeFailed=$true}
    # 無法縮小的 PR 在 PR 階段改跑全部 suite 的分片與 Go 測試；覆蓋率、聚合、需求驗收與容器留給 merge_group、main 與 tag。
    # 取不到變更清單時無法確認這是什麼變更，維持完整套件（fail open）。
-   if(($null -eq $scope -or $scope.Scope -cne 'scoped') -and @($ChangedPaths|Where-Object {-not [string]::IsNullOrWhiteSpace($_)}).Count -eq @($ChangedPaths).Count){
+   # 範圍判斷本身丟出例外時同樣無法確認，維持完整套件。
+   if(-not $scopeFailed -and ($null -eq $scope -or $scope.Scope -cne 'scoped') -and @($ChangedPaths|Where-Object {-not [string]::IsNullOrWhiteSpace($_)}).Count -eq @($ChangedPaths).Count){
     try{$every=@(Get-CIAllSuiteNames -Root $Root)}catch{$every=@()}
     if($every.Count -gt 0){$scope=[pscustomobject]@{Scope='scoped';Tests=$every;Reason='pr_full'};$prFull=$true}
    }
