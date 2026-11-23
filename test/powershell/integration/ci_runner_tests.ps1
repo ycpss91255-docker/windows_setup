@@ -15,9 +15,9 @@ $keys=@('GITHUB_SHA','GITHUB_REF_TYPE','GITHUB_HEAD_REF','GITHUB_REF_NAME','GITH
 $saved=@{};foreach($key in $keys){$saved[$key]=[Environment]::GetEnvironmentVariable($key,'Process');[Environment]::SetEnvironmentVariable($key,$null,'Process')}
 function Put([string]$Relative,[string]$Content){$path=Join-Path $fixture $Relative;[void][IO.Directory]::CreateDirectory((Split-Path $path));[IO.File]::WriteAllText($path,$Content,$encoding)}
 function Invoke-FixtureGit([string[]]$Arguments){$output=& git.exe -c core.autocrlf=false -C $fixture @Arguments 2>&1;if($LASTEXITCODE -ne 0){throw ($output|Out-String)};return $output}
-function Run([string]$Name,[string]$Layer='All',[string]$ExpectedError=''){
+function Run([string]$Name,[string]$Layer='All',[string]$ExpectedError='',[hashtable]$Extra=@{}){
  $out=Join-Path $temp $Name;$actual=''
- try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer $Layer}catch{$actual=$_.Exception.Message}
+ try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer $Layer @Extra}catch{$actual=$_.Exception.Message}
  if($ExpectedError){Assert ($actual -like ('*'+$ExpectedError+'*')) ($Name+' 拒絕正確原因：'+$actual)}else{Assert (-not $actual) ($Name+' 真實執行成功：'+$actual)}
  $summary=Join-Path $out 'public/summary.json';if(Test-Path $summary){return (Get-Content -LiteralPath $summary -Encoding UTF8 -Raw|ConvertFrom-Json)}
 }
@@ -59,6 +59,31 @@ try{
  Put 'test/powershell/unit/ignored.ps1' '# invalid suite name'
  $null=Run 'invalid' 'All' 'Invalid or empty test inventory'
  Remove-Item -LiteralPath (Join-Path $fixture 'test/powershell/unit/ignored.ps1')
+ # PR 階段分片與並行：完整清單先驗證，分片互不重疊且聯集完整，並行不改變失敗判定與繁體中文斷言名稱。
+ Put 'test/powershell/unit/second_tests.ps1' $pass
+ Put 'test/powershell/unit/third_tests.ps1' 'Write-Output ''@@ASSERT@@{"Name":"繁體中文斷言名稱","Passed":true}'''
+ Put 'test/powershell/integration/fourth_tests.ps1' $pass
+ $serial=Run 'shard_serial'
+ $serialNames=@($serial.Checks|Where-Object Layer -ne 'Static'|ForEach-Object Name|Sort-Object)
+ $shardNames=@();$syntaxCount=0
+ foreach($index in 0..1){
+  $r=Run ('shard_'+$index) 'All' '' @{ShardIndex=$index;ShardCount=2}
+  $shardNames+=@($r.Checks|Where-Object Layer -ne 'Static'|ForEach-Object Name)
+  $syntaxCount+=@($r.Checks|Where-Object Layer -eq 'Static').Count
+ }
+ Assert (($shardNames|Sort-Object) -join ',' -ceq ($serialNames -join ',') -and $shardNames.Count -eq $serialNames.Count) '分片互不重疊且聯集等於完整清單'
+ Assert ($syntaxCount -eq 1) '語法檢查只在分片 0 執行一次'
+ $parallel=Run 'parallel' 'All' '' @{Parallel=3}
+ Assert ($parallel.Success -and (@($parallel.Checks|Where-Object Layer -ne 'Static'|ForEach-Object Name|Sort-Object) -join ',') -ceq ($serialNames -join ',')) '並行執行與序列執行得到同一組已執行 suite'
+ $names=@($parallel.Checks|ForEach-Object {$_.Assertions}|ForEach-Object Name)
+ Assert ('繁體中文斷言名稱' -cin $names) '並行執行保留繁體中文斷言名稱'
+ Put 'test/powershell/unit/second_tests.ps1' ($pass+"`nexit 7")
+ $r=Run 'parallel_fail' 'All' 'CI 測試未通過' @{Parallel=3}
+ Assert (-not $r.Success -and (@($r.Checks|Where-Object {$_.Name -ceq 'Unit.second'})[0].ExitCode -eq 7)) '並行執行不吞掉子程序非零退出碼'
+ Put 'test/powershell/unit/second_tests.ps1' $pass
+ $null=Run 'shard_bad_index' 'All' '分片索引' @{ShardIndex=2;ShardCount=2}
+ $null=Run 'shard_bad_parallel' 'All' '並行度' @{Parallel=0}
+ foreach($extra in @('test/powershell/unit/second_tests.ps1','test/powershell/unit/third_tests.ps1','test/powershell/integration/fourth_tests.ps1')){Remove-Item -LiteralPath (Join-Path $fixture $extra)}
  # Release metadata is fixture data, backed by a real clean local commit and the real parser.
  Put 'script/release/release.ps1' ([IO.File]::ReadAllText((Join-Path $root 'script/release/release.ps1')))
  Invoke-FixtureGit @('add','.')|Out-Null;Invoke-FixtureGit @('-c','user.name=CI Fixture','-c','user.email=fixture@example.invalid','commit','--quiet','-m','release fixture')|Out-Null
