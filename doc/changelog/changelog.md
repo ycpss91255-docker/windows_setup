@@ -3,6 +3,9 @@
 本文件記錄使用者可見的行為、相容性及遷移要求。詳細實作與驗證紀錄見中文 Git 提交；發布版本與來源提交以 GitHub Release 為準。
 
 ## [Unreleased]
+### Changed（變更）
+
+- 倉庫已移至 `ycpss91255-lab` 組織：README、Release 下載與品質報表連結改用 `https://github.com/ycpss91255-lab/windows_setup` 及 `https://ycpss91255-lab.github.io/windows_setup/`，舊網址不保證持續轉址。
 
 ### Changed（變更）
 
