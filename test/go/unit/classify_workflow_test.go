@@ -95,7 +95,7 @@ func TestScopedPullRequestKeepsFullGateForOtherEvents(t *testing.T) {
 		}
 	}
 	isolated := coverageJob(text, "isolated-tests")
-	for _, required := range []string{"needs.classify.outputs.test_scope == 'scoped'", "-Suite ($env:AFFECTED_TESTS -split ',')", "AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}"} {
+	for _, required := range []string{"needs.classify.outputs.test_scope == 'scoped'", "-Parallelism 2 -Suite ($env:AFFECTED_TESTS -split ',')", "AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}"} {
 		if !strings.Contains(isolated, required) {
 			t.Fatalf("isolated-tests missing %s", required)
 		}

@@ -123,7 +123,7 @@ function Test-ScopedWorkflow([string]$Workflow){
  $isolated=[regex]::Match($text,'(?ms)^  isolated-tests:\n(?<body>.*?)^  coverage-aggregation:').Groups['body'].Value
  $rollup=[regex]::Match($text,'(?ms)^  ci-rollup:\n(?<body>.*?)^  release:').Groups['body'].Value
  $ok=$classify.Contains('test_scope: ${{ steps.classify.outputs.test_scope || steps.fallback.outputs.test_scope }}') -and $classify.Contains('affected_tests: ${{ steps.classify.outputs.affected_tests }}')
- $ok=$ok -and $isolated.Contains("if: needs.classify.outputs.test_scope == 'scoped'") -and $isolated.Contains('-Suite ($env:AFFECTED_TESTS -split '','')') -and $isolated.Contains('AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}')
+ $ok=$ok -and $isolated.Contains("if: needs.classify.outputs.test_scope == 'scoped'") -and $isolated.Contains('-Parallelism 2 -Suite ($env:AFFECTED_TESTS -split '','')') -and $isolated.Contains('AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}')
  foreach($step in @('執行 Windows PowerShell 5.1 隔離測試','執行全部 Go 維護工具測試','驗證手機與桌面報表明細排版','封裝尚未完成 runtime 覆蓋率的原生證據','僅保留不可發布的同次原生中介證據七天')){
   $body=[regex]::Match($isolated,'(?ms)^      - name: '+[regex]::Escape($step)+'\n(?<body>.*?)(?=^      - name: |\z)').Groups['body'].Value
   $ok=$ok -and $body.Contains("needs.classify.outputs.test_scope != 'scoped'")
