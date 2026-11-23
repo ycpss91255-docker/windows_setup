@@ -4,7 +4,7 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 function Assert([bool]$Condition,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Condition}|ConvertTo-Json -Compress));if(-not $Condition){throw $Name}}
 . (Join-Path $root 'modules/desktop/icons_settings_library.ps1')
 function Get-SetupSystemIconNames {@('本機','網路','資源回收筒','控制台')}
-# 重放 NUC8 現場擷取（去識別，來源與缺漏見 fixtures/nuc_icons_scene/README.md）。Capture 依序回傳「套用前」與「套用後」畫面；Position 為記錄用空操作。
+# 重放 NUC8 現場擷取（去識別，來源與缺漏見 fixtures/nuc_icons_scene/readme.md）。Capture 依序回傳「套用前」與「套用後」畫面；Position 為記錄用空操作。
 Add-Type -TypeDefinition @'
 using System;using System.Collections.Generic;using System.Linq;
 namespace NUC8Icons{

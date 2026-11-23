@@ -28,7 +28,7 @@ function Start-Sleep {param($Milliseconds)}
 $reference=[pscustomobject]@{Width=1920;Height=1080;Icons=@(
  [pscustomobject]@{Name='本機';X=14;Y=102},[pscustomobject]@{Name='網路';X=90;Y=102},
  [pscustomobject]@{Name='資源回收筒';X=14;Y=2},[pscustomobject]@{Name='控制台';X=90;Y=2})}
-# 初始排列與實機「目標格被佔用」情境一致（網路 (14,100) 佔用本機目標格，本機在 (14,198)；見 fixtures/nuc_icons_scene/README.md）。此為合成替身，無法證明就是 #351 當次 Setup 的原因，現場重放見 icons_scene_replay_tests.ps1。
+# 初始排列與實機「目標格被佔用」情境一致（網路 (14,100) 佔用本機目標格，本機在 (14,198)；見 fixtures/nuc_icons_scene/readme.md）。此為合成替身，無法證明就是 #351 當次 Setup 的原因，現場重放見 icons_scene_replay_tests.ps1。
 Set-Initial ([ordered]@{'本機'=@(14,198);'網路'=@(14,100);'資源回收筒'=@(14,2);'控制台'=@(90,2)})
 $r=Invoke-SetupIconsSettings -ModuleRoot (Join-Path $root 'modules/desktop') -Mode Load -Reference $reference
 Assert ($r.Success -and $r.Differences.Count -eq 0) 'Load 目標格先被其他圖示佔用時，補套用後仍須讀回全部符合'
