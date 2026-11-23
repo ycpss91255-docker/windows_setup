@@ -4,7 +4,7 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 function Assert([bool]$Condition,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Condition}|ConvertTo-Json -Compress));if(-not $Condition){throw $Name}}
 . (Join-Path $root 'modules/desktop/icons_settings_library.ps1')
 function Get-SetupSystemIconNames {@('本機','網路','資源回收筒','控制台')}
-# 合成替身：貼齊格線（欄 x=14,90；列 y=2,100,198,...），目標格被其他圖示佔用時推到同欄下一個空格。
+# 合成替身（未經現場驗證）：貼齊格線（欄 x=14,90；列 y=2,100,198,...，間距 98 取自 Setup 當次讀回），目標格被其他圖示佔用時推到同欄下一個空格。
 Add-Type -TypeDefinition @'
 using System;using System.Collections.Generic;using System.Linq;
 namespace NUC8Icons{
@@ -28,7 +28,7 @@ function Start-Sleep {param($Milliseconds)}
 $reference=[pscustomobject]@{Width=1920;Height=1080;Icons=@(
  [pscustomobject]@{Name='本機';X=14;Y=102},[pscustomobject]@{Name='網路';X=90;Y=102},
  [pscustomobject]@{Name='資源回收筒';X=14;Y=2},[pscustomobject]@{Name='控制台';X=90;Y=2})}
-# 實機初始：資源回收筒 (14,2)、網路 (14,100)、本機 (14,198)、控制台 (90,2)
+# 純合成替身，不是現場資料：初始排列為推論（現場只擷取到套用後 (14,198)，套用前座標與當時格線設定未留存；後續擷取的列間距為 100 而非 98）。現場資料見 icons_scene_replay_tests.ps1。
 Set-Initial ([ordered]@{'本機'=@(14,198);'網路'=@(14,100);'資源回收筒'=@(14,2);'控制台'=@(90,2)})
 $r=Invoke-SetupIconsSettings -ModuleRoot (Join-Path $root 'modules/desktop') -Mode Load -Reference $reference
 Assert ($r.Success -and $r.Differences.Count -eq 0) 'Load 目標格先被其他圖示佔用時，補套用後仍須讀回全部符合'
