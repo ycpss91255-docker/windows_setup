@@ -41,6 +41,14 @@ func validateMergeTitles(repo string, tips, excluded []string) error {
 }
 
 func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind string) error {
+	return validateMergeTitlesSync(repo, tips, excluded, kind, syncContext{})
+}
+
+// syncContext 供核對 GitHub「更新分支」產生的同步主線合併提交；空值表示不接受。
+// Ref 為 PR head 分支（僅 PR 階段）；Base 為 PR／佇列事件的 base，main push 則為 before。
+type syncContext struct{ Ref, Base string }
+
+func validateMergeTitlesSync(repo string, tips, excluded []string, kind string, sync syncContext) error {
 	if len(tips) == 0 || len(excluded) == 0 {
 		return fmt.Errorf("missing graph boundary")
 	}
@@ -64,6 +72,12 @@ func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind stri
 	if e != nil {
 		return e
 	}
+	inRange := map[string]bool{}
+	for _, line := range strings.Split(listing, "\n") {
+		if f := strings.Fields(line); len(f) > 0 {
+			inRange[f[0]] = true
+		}
+	}
 	for _, line := range strings.Split(listing, "\n") {
 		if line == "" {
 			continue
@@ -86,6 +100,20 @@ func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind stri
 				}
 				continue
 			}
+			if kind == "pull_request" && sync.Ref != "" && title == "Merge branch 'main' into "+sync.Ref {
+				if e := syncMergeValid(repo, fields[0], fields[1], fields[2], sync.Base, inRange); e != nil {
+					return e
+				}
+				continue
+			}
+			if (kind == "merge_group" || kind == "push_main") && sync.Base != "" {
+				if ref, ok := queueSyncBranch(title); ok {
+					if e := queueSyncMergeValid(repo, listing, fields[0], fields[1], fields[2], ref, sync.Base, inRange); e != nil {
+						return e
+					}
+					continue
+				}
+			}
 			if !strings.HasPrefix(title, "合併：") || !strings.ContainsFunc(strings.TrimPrefix(title, "合併："), func(r rune) bool { return unicode.Is(unicode.Han, r) }) {
 				return fmt.Errorf("new merge commit has invalid title: %s", fields[0])
 			}
@@ -94,7 +122,7 @@ func validateMergeTitlesForEvent(repo string, tips, excluded []string, kind stri
 	return nil
 }
 
-type sourceEvent struct{ Kind, Checkout, RunSHA, Base, Head, Before, After, Main string }
+type sourceEvent struct{ Kind, Checkout, RunSHA, Base, Head, Before, After, Main, HeadRef string }
 
 func isAncestor(repo, ancestor, descendant string) bool {
 	if !commitOID.MatchString(ancestor) || !commitOID.MatchString(descendant) {
