@@ -1,0 +1,105 @@
+name: CI 量測（非合併用）
+on:
+  push:
+    branches: [perf/ci-exp-matrix]
+permissions:
+  contents: read
+env:
+  GOTOOLCHAIN: local
+  GOPROXY: "off"
+  GOFLAGS: "-mod=vendor"
+  CGO_ENABLED: "0"
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.p.outputs.matrix }}
+      shards: ${{ steps.p.outputs.shards }}
+      parallel: ${{ steps.p.outputs.parallel }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - id: p
+        shell: bash
+        run: |
+          shards=$(jq -r .shards .github/ci_exp_config.json)
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
+          echo "parallel=$(jq -r .parallel .github/ci_exp_config.json)" >> "$GITHUB_OUTPUT"
+          echo "matrix=$(jq -c "{shard: [range(0;$shards)]}" .github/ci_exp_config.json)" >> "$GITHUB_OUTPUT"
+  shard:
+    needs: [plan]
+    name: shard-${{ matrix.shard }}
+    runs-on: windows-2022
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: dotnet
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: '10.0.300'
+          cache: false
+      - name: actionlint
+        run: |
+          . .\script\docker\install_managed_tools.ps1
+          $artifact = Get-ContainerWorkflowLintArtifact
+          $directory = Join-Path $env:RUNNER_TEMP 'actionlint-1.7.12'
+          Install-ContainerToolArtifact -Artifact $artifact -Destination $directory -ArchiveDirectory (Join-Path $env:RUNNER_TEMP 'actionlint-download')
+          "WINDOWS_SETUP_ACTIONLINT=$(Join-Path $directory 'actionlint.exe')" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+      - name: suites
+        env:
+          SHARDS: ${{ needs.plan.outputs.shards }}
+          PARALLEL: ${{ needs.plan.outputs.parallel }}
+          SHARD: ${{ matrix.shard }}
+        run: |
+          & .\script\test\run_ci.ps1 -ReportDirectory (Join-Path $env:RUNNER_TEMP 'results') -ShardIndex ([int]$env:SHARD) -ShardCount ([int]$env:SHARDS) -Parallel ([int]$env:PARALLEL)
+      - name: report
+        if: always()
+        run: |
+          $s = Get-Content (Join-Path $env:RUNNER_TEMP 'results/public/summary.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+          $s.Checks | Where-Object { $null -ne $_.DurationSeconds } | Sort-Object DurationSeconds -Descending | Select-Object -First 12 Name,DurationSeconds,Passed | Format-Table | Out-String | Write-Host
+          'suites=' + @($s.Checks).Count + ' sum=' + [math]::Round((($s.Checks | Measure-Object DurationSeconds -Sum).Sum),1)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: exp-shard-${{ matrix.shard }}
+          path: ${{ runner.temp }}/results/public/summary.json
+          retention-days: 3
+  gotests:
+    needs: [plan]
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: go test excluding report-dependent integration
+        run: |
+          $pk = @(go list ./... | Where-Object { $_ -notmatch 'test/go/integration' })
+          "packages=$($pk.Count)"
+          go test -count=1 $pk
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
