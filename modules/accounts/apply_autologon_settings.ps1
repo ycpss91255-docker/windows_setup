@@ -16,12 +16,16 @@ $ErrorActionPreference='Stop'
         '"'+[regex]::Replace([regex]::Replace($Value,'(\\*)"','$1$1\"'),'(\\+)$','$1$1')+'"'
     }
     $arguments=(@('/accepteula',$UserName,$env:COMPUTERNAME,$AutoLogonPassword)|ForEach-Object {Quote-NativeArgument $_}) -join ' '
+    . (Join-Path $PSScriptRoot 'autologon_library.ps1')
+    # A new apply replaces the last restore result before Windows state can change.
+    Write-CurrentUserAutologonApply -Success $false
     $process=Start-Process -FilePath $exe -ArgumentList $arguments -Wait -PassThru
     $AutoLogonPassword=$null;$arguments=$null
     if ($process.ExitCode -ne 0) { throw ('Autologon 結束代碼：'+$process.ExitCode) }
     $key='HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
     $auto=Get-ItemProperty $key
     if ($auto.AutoAdminLogon -ne '1' -or $auto.DefaultUserName -ne $UserName) { throw '自動登入設定驗證失敗。' }
+    Write-CurrentUserAutologonApply -Success $true
     Write-Host '自動登入設定已寫入；需下次重新開機才能驗證實際登入。' -ForegroundColor Green
 
 
