@@ -9,7 +9,7 @@ import (
 )
 
 // checkMainlineEvent 以指定事件核對 base 之後、以 head 為頂端的主線範圍，讓同一張案例表
-// 對佇列與 main push 得到相同結論。呼叫端須已切換至 head。
+// 對佇列、main push 與歷史掃描（tag、main 手動執行，main 即 head）得到相同結論。呼叫端須已切換至 head。
 func checkMainlineEvent(repo, kind, base, head, anchor string) error {
 	switch kind {
 	case "merge_group":
@@ -19,14 +19,16 @@ func checkMainlineEvent(repo, kind, base, head, anchor string) error {
 	case "push_main":
 		raw := fmt.Sprintf(`{"repository":{"full_name":"%s"},"ref":"refs/heads/main","before":"%s","after":"%s"}`, fixedRepository, base, head)
 		return checkEventInRepository(repo, "push", "refs/heads/main", head, "", []byte(raw), anchor, []string{anchor})
+	case "tag", "dispatch_main":
+		return checkHistoryEvent(repo, kind, head, head, anchor)
 	default:
 		return fmt.Errorf("unsupported fixture event: %s", kind)
 	}
 }
 
-var mainlineEvents = []string{"merge_group", "push_main"}
+var mainlineEvents = []string{"merge_group", "push_main", "tag", "dispatch_main"}
 
-// TestMergeGroupSyncMainMerge 驗證合併佇列與 main push 範圍內的 `Merge branch 'main' into <分支>`：
+// TestMergeGroupSyncMainMerge 驗證合併佇列、main push 與歷史掃描範圍內的 `Merge branch 'main' into <分支>`：
 // 分支名稱須由佇列合併提交（其 PR head 已由 API 核對為本倉庫）背書，並套用與 PR 階段相同的結構核對。
 func TestMergeGroupSyncMainMerge(t *testing.T) {
 	repo := t.TempDir()

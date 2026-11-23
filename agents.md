@@ -26,7 +26,7 @@
 - 建立 PR 時在描述記錄相關範圍與初始測試證據；建立後所有補充資訊（包括新增 TDD 紅／綠燈證據、重測、CI 與獨立審查）使用 `gh pr comment` 新增留言，不修改原描述補充資訊。
 - 只使用 merge commit；禁止 squash、rebase merge、fixup 及任何改寫已推送歷史的做法。合併提交標題使用「合併：」加中文結果。既有提交與 SHA 保留。
 - `git log --first-parent` 顯示主線合併總覽，`git log` 顯示完整提交歷史。合併佇列若啟用，仍須保留 merge commit 方式及必要檢查。
-- PR 階段的合併標題檢查除「合併：」外，只另接受 GitHub「更新分支」同步主線產生的 `Merge branch 'main' into <本 PR 的 head 分支>`，且須通過結構核對：第一個父提交為 PR 分支原有提交、第二個父提交為 base 當時 main 的祖先、tree 等於兩父提交無衝突合併的結果；有衝突或帶入額外內容的同步仍須人工合併並使用「合併：」標題。此例外用於 pull_request、merge_group 與 main push 事件；合併佇列與 main push（before 之後）範圍內的同步合併，其分支名稱須由範圍內已核對的佇列合併提交（`Merge pull request #<n> from <本倉庫>/<分支>`）背書。
+- PR 階段的合併標題檢查除「合併：」外，只另接受 GitHub「更新分支」同步主線產生的 `Merge branch 'main' into <本 PR 的 head 分支>`，且須通過結構核對：第一個父提交為 PR 分支原有提交、第二個父提交為 base 當時 main 的祖先、tree 等於兩父提交無衝突合併的結果；有衝突或帶入額外內容的同步仍須人工合併並使用「合併：」標題。此例外用於 pull_request、merge_group、main push 事件，以及 tag 與 main 手動執行的歷史掃描（沿 main 第一父鏈逐步套用 main push 核對）；合併佇列與 main push（before 之後）範圍內的同步合併，其分支名稱須由範圍內已核對的佇列合併提交（`Merge pull request #<n> from <本倉庫>/<分支>`）背書。
 - 提交訊息輔助檢查依 `readme.md` 明確選用，不自動安裝或覆蓋既有 hook；工具只提供有限提示，實際 TDD、單一任務與機密排除仍須人工審查。
 
 ## 編碼與架構

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -62,4 +63,25 @@ func queueSyncMergeValid(repo, listing, id, first, second, ref, base string, inR
 		return syncMergeValid(repo, id, first, second, base, inRange)
 	}
 	return fmt.Errorf("sync merge commit branch is not backed by a queue pull request merge: %s", id)
+}
+
+// historySyncMergeValid 供 tag 與 main 手動執行的歷史掃描核對同步主線合併提交。掃描範圍自固定
+// anchor 起，同步合併的第二父提交也在範圍內，無法直接套用結構核對；因此沿 main 的第一父鏈找出
+// 引入該提交的那一步主線，以該步的第一父提交為 before，重做與 main push 相同的核對。
+// 第一父鏈只取已核對的 main，不取標籤所在提交，避免 PR 歷史內自造的合併充當主線。
+func historySyncMergeValid(repo, id, main string, excluded []string) error {
+	chain, err := graphGit(repo, append([]string{"rev-list", "--first-parent", "--reverse", main, "--not"}, excluded...)...)
+	if err != nil {
+		return err
+	}
+	steps := strings.Fields(chain)
+	i := sort.Search(len(steps), func(i int) bool { return isAncestor(repo, id, steps[i]) })
+	if i == len(steps) {
+		return fmt.Errorf("sync merge commit is not introduced by a main first-parent step: %s", id)
+	}
+	before, err := graphGit(repo, "rev-parse", "--verify", steps[i]+"^1")
+	if err != nil {
+		return err
+	}
+	return validateMergeTitlesSync(repo, steps[i:i+1], append([]string{before}, excluded...), "push_main", syncContext{Base: before})
 }
