@@ -91,6 +91,7 @@ func TestPullRequestSyncMainMerge(t *testing.T) {
 		{"title names a different branch", good, "feature/y", main2, fixedRepository, false},
 		{"second parent is newer than base", merge(syncTitle, treeOf(prOld, future), prOld, future), "feature/x", main2, fixedRepository, false},
 		{"first parent is not a PR commit", merge(syncTitle, treeOf(main1, prOld), main1, prOld), "feature/x", main2, fixedRepository, false},
+		{"first parent is outside the range", merge(syncTitle, treeOf(main1, root), main1, root), "feature/x", main2, fixedRepository, false},
 		{"merge brings extra content", merge(syncTitle, extraTree, prOld, main1), "feature/x", main2, fixedRepository, false},
 		{"other English title", merge("Merge branch 'dev' into feature/x", treeOf(prOld, main1), prOld, main1), "feature/x", main2, fixedRepository, false},
 		{"head repository is another owner (fork)", good, "feature/x", main2, "other-owner/windows_setup", false},
