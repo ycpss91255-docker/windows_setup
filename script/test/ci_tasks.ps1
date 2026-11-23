@@ -28,10 +28,12 @@ function Resolve-CIRollupStates {
  param([Parameter(Mandatory=$true)][hashtable]$Results,[Parameter(Mandatory=$true)][hashtable]$Selection,[string]$EventName)
  $resolved=$Results.Clone()
  if(-not $PSBoundParameters.ContainsKey('EventName')){throw '必須明確指定事件名稱，才能判斷是否接受分類略過。'}
- # 分類略過只存在於 pull_request；main、merge_group、tag 與手動執行任何一項略過都要失敗。
- if($EventName -cne 'pull_request'){return $resolved}
  if(-not $Results.ContainsKey('Classify') -or $Results['Classify'] -cne 'success'){return $resolved}
- foreach($name in @('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage','DocChecks')){
+ # 文件輕量檢查只在純文件 PR 選取；其他事件跑完整套件，未選取且 skipped 才合格，被選取卻 skipped 仍失敗。
+ $skippable=@('DocChecks')
+ # 其餘重型工作的分類略過只存在於 pull_request；main、merge_group、tag 與手動執行任何一項略過都要失敗。
+ if($EventName -ceq 'pull_request'){$skippable=@('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage','DocChecks')}
+ foreach($name in $skippable){
   if($Results.ContainsKey($name) -and $Results[$name] -ceq 'skipped' -and $Selection.ContainsKey($name) -and $Selection[$name] -ceq 'false'){$resolved[$name]='success'}
  }
  return $resolved

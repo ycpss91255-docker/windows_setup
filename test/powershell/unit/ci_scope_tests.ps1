@@ -140,3 +140,46 @@ $workflowText=[IO.File]::ReadAllText((Join-Path $root '.github/workflows/windows
 Assert (Test-ScopedWorkflow $workflowText) 'workflow 只在 PR 縮小範圍：完整步驟以 test_scope 排除、合併標題核對恆執行、rollup 帶入事件名稱'
 Assert (-not (Test-ScopedWorkflow $workflowText.Replace("needs.classify.outputs.test_scope != 'scoped'","true"))) '移除任一完整步驟的排除條件即被契約拒絕'
 Assert (-not (Test-ScopedWorkflow $workflowText.Replace('-EventName $env:EVENT_NAME',''))) 'rollup 不帶事件名稱即被契約拒絕'
+
+# 端到端：以分類器的實際輸出決定各工作結果，再執行 workflow 內 ci-rollup 步驟的實際腳本，逐事件核對判定。
+function Get-RollupScript([string]$Workflow){
+ $text=$Workflow.Replace("`r`n","`n")
+ $rollup=[regex]::Match($text,'(?ms)^  ci-rollup:\n(?<body>.*?)^  release:').Groups['body'].Value
+ $run=[regex]::Match($rollup,'(?ms)^        run: \|\n(?<body>.*?)(?=^\S|^      - name: |\z)').Groups['body'].Value
+ return (($run -split "`n"|ForEach-Object {if($_.Length -ge 10){$_.Substring(10)}else{$_.TrimStart()}}) -join "`n")
+}
+function Invoke-RollupScenario([string]$Event,[string[]]$Paths,[hashtable]$Override){
+ $sel=Get-CIChangeSelection -EventName $Event -ChangedPaths $Paths -Root $root
+ $map=@{TEST_RESULT='tests';REQUIREMENTS_RESULT='requirements_gate';DOCKER_RESULT='docker_tests';OOBE_PAYLOAD_RESULT='oobe_payload';POWERSHELL_COVERAGE_RESULT='powershell_coverage';COVERAGE_RESULT='coverage_aggregation';DOC_CHECKS_RESULT='doc_checks'}
+ $envs=@{EVENT_NAME=$Event;CLASSIFY_RESULT='success';SELECT_TESTS=$sel['tests'];SELECT_REQUIREMENTS=$sel['requirements_gate'];SELECT_DOCKER=$sel['docker_tests'];SELECT_PAYLOAD=$sel['oobe_payload'];SELECT_POWERSHELL_COVERAGE=$sel['powershell_coverage'];SELECT_COVERAGE=$sel['coverage_aggregation'];SELECT_DOC_CHECKS=$sel['doc_checks']}
+ foreach($k in $map.Keys){$envs[$k]=$(if($sel[$map[$k]] -ceq 'true'){'success'}else{'skipped'})}
+ if($Override){foreach($k in $Override.Keys){$envs[$k]=$Override[$k]}}
+ $script=Join-Path $env:TEMP ('rollup_'+[guid]::NewGuid().ToString('N')+'.ps1');$summary=$script+'.md'
+ [IO.File]::WriteAllText($script,(Get-RollupScript $workflowText),[Text.UTF8Encoding]::new($true))
+ $saved=@{};$names=@($envs.Keys)+@('GITHUB_STEP_SUMMARY')
+ foreach($n in $names){$saved[$n]=[Environment]::GetEnvironmentVariable($n)}
+ try{
+  foreach($k in $envs.Keys){[Environment]::SetEnvironmentVariable($k,[string]$envs[$k])}
+  [Environment]::SetEnvironmentVariable('GITHUB_STEP_SUMMARY',$summary)
+  Push-Location $root
+  $previousPreference=$ErrorActionPreference;try{$ErrorActionPreference='Continue';$null=& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $script 2>&1;$code=$LASTEXITCODE}finally{$ErrorActionPreference=$previousPreference;Pop-Location}
+ }finally{
+  foreach($n in $names){[Environment]::SetEnvironmentVariable($n,$saved[$n])}
+  Remove-Item -LiteralPath $script,$summary -Force -ErrorAction SilentlyContinue
+ }
+ return [pscustomobject]@{Passed=($code -eq 0);Selection=$sel}
+}
+$rollupScript=Get-RollupScript $workflowText
+Assert ($rollupScript.Contains('Resolve-CIRollupStates') -and $rollupScript.Contains('Assert-CIResults')) '能從 workflow 取出 ci-rollup 步驟的實際腳本'
+$docPr=Invoke-RollupScenario 'pull_request' @('readme.md')
+Assert ($docPr.Passed -and $docPr.Selection['doc_checks'] -ceq 'true' -and $docPr.Selection['tests'] -ceq 'false') '端到端：pull_request 純文件只跑文件檢查，rollup 通過'
+$codePr=Invoke-RollupScenario 'pull_request' @('core/paths.json')
+Assert ($codePr.Passed -and $codePr.Selection['doc_checks'] -ceq 'false' -and $codePr.Selection['tests'] -ceq 'true') '端到端：pull_request 程式變更（共用路徑，完整套件）rollup 通過'
+foreach($event in @('merge_group','push','workflow_dispatch','tag')){
+ $r=Invoke-RollupScenario $event $null
+ Assert ($r.Passed -and $r.Selection['doc_checks'] -ceq 'false' -and $r.Selection['test_scope'] -ceq 'full') ('端到端：'+$event+' 完整套件、文件檢查未選取且 skipped，rollup 通過')
+ $other=Invoke-RollupScenario $event $null @{DOCKER_RESULT='skipped'}
+ Assert (-not $other.Passed) ('端到端：'+$event+' 其他工作 skipped，rollup 必須失敗')
+ $docFail=Invoke-RollupScenario $event $null @{DOC_CHECKS_RESULT='failure'}
+ Assert (-not $docFail.Passed) ('端到端：'+$event+' 文件檢查失敗，rollup 必須失敗')
+}

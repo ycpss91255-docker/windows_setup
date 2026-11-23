@@ -108,3 +108,31 @@ foreach($event in @('push','merge_group','workflow_dispatch','schedule','release
  Assert-CIResults (Resolve-CIRollupStates -Results $allSuccess -Selection $allSelected -EventName $event)
  Assert $true ('非 PR 事件（'+$event+'）全部成功仍通過')
 }
+# 非 PR 事件跑完整套件，文件輕量檢查依分類不執行（SELECT_DOC_CHECKS=false、結果 skipped）才是正常輸入。
+$fullNonPr=$allSuccess.Clone();$fullNonPr['DocChecks']='skipped'
+foreach($event in @('merge_group','push','workflow_dispatch','tag')){
+ Assert-CIResults (Resolve-CIRollupStates -Results $fullNonPr -Selection $allSelected -EventName $event)
+ Assert $true ('非 PR 事件（'+$event+'）文件檢查未選取且 skipped 仍通過')
+ $selectedSkipped=$fullNonPr.Clone()
+ $docSelected=$allSelected.Clone();$docSelected['DocChecks']='true'
+ Reject {Assert-CIResults (Resolve-CIRollupStates -Results $selectedSkipped -Selection $docSelected -EventName $event)} ('非 PR 事件（'+$event+'）文件檢查被選取卻 skipped 不得通過')
+ foreach($value in @('','True','FALSE','unknown')){
+  $sel=$allSelected.Clone();$sel['DocChecks']=$value
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $fullNonPr -Selection $sel -EventName $event)} ('非 PR 事件（'+$event+'）文件檢查選擇值不是明確 false（'+$value+'）時 skipped 不得通過')
+ }
+ $noSel=$allSelected.Clone();[void]$noSel.Remove('DocChecks')
+ Reject {Assert-CIResults (Resolve-CIRollupStates -Results $fullNonPr -Selection $noSel -EventName $event)} ('非 PR 事件（'+$event+'）缺少文件檢查選擇值時 skipped 不得通過')
+ foreach($state in @('failure','cancelled')){
+  $badDocNonPr=$fullNonPr.Clone();$badDocNonPr['DocChecks']=$state
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badDocNonPr -Selection $allSelected -EventName $event)} ('非 PR 事件（'+$event+'）文件檢查 '+$state+' 不得通過')
+ }
+ foreach($state in @('failure','cancelled','skipped')){
+  $badClassifyNonPr=$fullNonPr.Clone();$badClassifyNonPr['Classify']=$state
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badClassifyNonPr -Selection $allSelected -EventName $event)} ('非 PR 事件（'+$event+'）分類工作 '+$state+' 時不採信文件檢查略過')
+ }
+ foreach($name in $required){
+  $other=$fullNonPr.Clone();$other[$name]='skipped'
+  $sel=$allSelected.Clone();$sel[$name]='false'
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $other -Selection $sel -EventName $event)} ('非 PR 事件（'+$event+'）文件檢查略過時，其他工作 '+$name+' 略過仍不得通過')
+ }
+}
