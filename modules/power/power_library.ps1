@@ -8,7 +8,8 @@ function Read-SetupHibernateState {
  $kind='';$value=$null
  if($name){$kind=[string]$key.GetValueKind($name);$value=$key.GetValue($name)}
  $hiberFile=Join-Path ($env:SystemDrive+'\') 'hiberfil.sys'
- [pscustomobject]@{Source=$name;Kind=$kind;HibernateEnabled=$value;HiberFile=$hiberFile;HiberFilePresent=[bool](Test-Path -LiteralPath $hiberFile -PathType Leaf)}
+ # Windows PowerShell 5.1 的 Test-Path／Get-Item 對系統鎖定的檔案回報不存在，必須用 File.Exists。
+ [pscustomobject]@{Source=$name;Kind=$kind;HibernateEnabled=$value;HiberFile=$hiberFile;HiberFilePresent=[IO.File]::Exists($hiberFile)}
 }
 function Test-SetupHibernateDisabled {
  param([Parameter(Mandatory=$true)]$State)
