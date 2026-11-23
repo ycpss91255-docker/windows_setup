@@ -14,7 +14,7 @@ func TestPullRequestClassifyGatesOnlyDeclaredHeavyJobs(t *testing.T) {
 	}
 	text := strings.ReplaceAll(string(data), "\r\n", "\n")
 	classify := coverageJob(text, "classify")
-	for _, required := range []string{"fetch-depth: 0", "ci_classify.ps1", "continue-on-error: true", "steps.classify.outcome != 'success'", "-FailOpen", "select_doc_checks", "doc_tests"} {
+	for _, required := range []string{"fetch-depth: 0", "ci_classify.ps1", "continue-on-error: true", "steps.classify.outcome != 'success'", "path: base-source", "ref: ${{ github.event.pull_request.base.sha || github.sha }}", "& ./base-source/script/test/ci_classify.ps1", "test_scope=full", "select_doc_checks", "doc_tests"} {
 		if !strings.Contains(classify, required) {
 			t.Fatalf("classify missing %s", required)
 		}
@@ -127,6 +127,30 @@ func TestScopedPullRequestKeepsFullGateForOtherEvents(t *testing.T) {
 	for _, required := range []string{"EVENT_NAME: ${{ github.event_name }}", "-EventName $env:EVENT_NAME"} {
 		if !strings.Contains(rollup, required) {
 			t.Fatalf("ci-rollup missing %s", required)
+		}
+	}
+}
+
+func TestClassifyRunsBaseVersionRulesAndFallsBackWithoutScript(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("../../..", ".github/workflows/windows_tests.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	classify := coverageJob(strings.ReplaceAll(string(data), "\r\n", "\n"), "classify")
+	if strings.Contains(classify, "& ./script/test/ci_classify.ps1") {
+		t.Fatal("a pull request must not classify itself with its own rules")
+	}
+	idx := strings.Index(classify, "id: fallback")
+	if idx < 0 {
+		t.Fatal("classify has no fallback")
+	}
+	fallback := classify[idx:]
+	if strings.Contains(fallback, "ci_classify.ps1") {
+		t.Fatal("fallback must not depend on any script a pull request can change")
+	}
+	for _, required := range []string{"select_tests=true", "select_docker_tests=true", "select_powershell_coverage=true", "select_coverage_aggregation=true", "select_requirements_gate=true", "select_oobe_payload=true", "select_doc_checks=false", "test_scope=full"} {
+		if !strings.Contains(fallback, required) {
+			t.Fatalf("fallback missing %s", required)
 		}
 	}
 }

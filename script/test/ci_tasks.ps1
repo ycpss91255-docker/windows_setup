@@ -25,8 +25,9 @@ function Export-CIPowerShellRawEvidence {
 }
 function Resolve-CIRollupStates {
  # PR 分類只有在分類工作成功、對應選擇值明確為 false 且該工作確實 skipped 時，才把 skipped 視為通過。
- param([Parameter(Mandatory=$true)][hashtable]$Results,[Parameter(Mandatory=$true)][hashtable]$Selection,[string]$EventName='pull_request')
+ param([Parameter(Mandatory=$true)][hashtable]$Results,[Parameter(Mandatory=$true)][hashtable]$Selection,[string]$EventName)
  $resolved=$Results.Clone()
+ if(-not $PSBoundParameters.ContainsKey('EventName')){throw '必須明確指定事件名稱，才能判斷是否接受分類略過。'}
  # 分類略過只存在於 pull_request；main、merge_group、tag 與手動執行任何一項略過都要失敗。
  if($EventName -cne 'pull_request'){return $resolved}
  if(-not $Results.ContainsKey('Classify') -or $Results['Classify'] -cne 'success'){return $resolved}

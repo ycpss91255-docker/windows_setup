@@ -128,6 +128,9 @@ function Test-ScopedWorkflow([string]$Workflow){
   $body=[regex]::Match($isolated,'(?ms)^      - name: '+[regex]::Escape($step)+'\n(?<body>.*?)(?=^      - name: |\z)').Groups['body'].Value
   $ok=$ok -and $body.Contains("needs.classify.outputs.test_scope != 'scoped'")
  }
+ $ok=$ok -and $classify.Contains('path: base-source') -and $classify.Contains('ref: ${{ github.event.pull_request.base.sha || github.sha }}') -and $classify.Contains('& ./base-source/script/test/ci_classify.ps1') -and -not [regex]::IsMatch($classify,'(?m)&\s+\./script/test/ci_classify\.ps1')
+ $fallback=[regex]::Match($classify,'(?ms)id: fallback\n(?<body>.*?)\z').Groups['body'].Value
+ $ok=$ok -and $fallback.Contains("test_scope=full") -and $fallback.Contains('select_docker_tests=true') -and $fallback.Contains('select_tests=true') -and -not $fallback.Contains('ci_classify.ps1')
  $merge=[regex]::Match($isolated,'(?ms)^      - name: 核對本次新增合併提交標題\n(?<body>.*?)(?=^      - name: |\z)').Groups['body'].Value
  $ok=$ok -and -not $merge.Contains('test_scope') -and $merge.Contains('mergecheck')
  $ok=$ok -and $rollup.Contains('EVENT_NAME: ${{ github.event_name }}') -and $rollup.Contains('-EventName $env:EVENT_NAME')

@@ -8,8 +8,17 @@ $script:CIHeavyKeys=@('tests','powershell_coverage','coverage_aggregation','requ
 $script:CIGlobalContract='^(architecture|layout|markdown_line_ending)'
 $script:CIMaxScopedFiles=300
 $script:CIHubReferenceLimit=30
-# 這些路徑改動會影響所有測試或工作流程本身，PR 階段不縮小範圍。
-$script:CISharedPathPattern='^(\.github/|go\.(mod|sum)$|vendor/|\.version$|dockerfile$|compose\.yaml$|script/docker/|script/test/(ci_|run_ci\.ps1|test_report|powershell_coverage|run_repo_coverage|repo_coverage)|test/powershell/(helpers|support|coverage|fixtures)/|core/paths\.)'
+# 這些路徑改動會影響所有測試或工作流程本身，PR 階段不縮小範圍；逐條命名以便個別驗證。
+$script:CISharedPathRules=@(
+ @{Name='workflow';Pattern='^\.github/'},
+ @{Name='go_module';Pattern='^(go\.(mod|sum)$|vendor/)'},
+ @{Name='version';Pattern='^\.version$'},
+ @{Name='container';Pattern='^(dockerfile$|compose\.yaml$|script/docker/)'},
+ @{Name='ci_tools';Pattern='^script/test/(ci_|run_ci\.ps1|test_report|powershell_coverage|run_repo_coverage|repo_coverage)'},
+ @{Name='test_support';Pattern='^test/powershell/(helpers|support|coverage|fixtures)/'},
+ @{Name='path_registry';Pattern='^core/paths\.'},
+ @{Name='go_source';Pattern='(\.go$|^test/go/)'}
+)
 $script:CIReferenceExtensions=@('.ps1','.psm1','.psd1','.cmd','.bat','.json','.xml')
 $script:CIPlainOutputs=@('test_scope','affected_tests','doc_tests')
 
@@ -102,6 +111,12 @@ function Get-CIGlobalContractTests {
  return @($names|Sort-Object)
 }
 
+function Get-CISharedPathRule {
+ param([string]$Path)
+ foreach($rule in @($script:CISharedPathRules)){if($Path -imatch $rule.Pattern){return $rule.Name}}
+ return $null
+}
+
 function Get-CIScopedTests {
  # 只在每個變更路徑都能經由測試內容的引用鏈對應到 suite 時縮小；任何無法判斷的情況回傳完整範圍。
  param([string]$Root,[string[]]$ChangedPaths,[int]$MaxSuites=0)
@@ -110,8 +125,8 @@ function Get-CIScopedTests {
  $paths=@($ChangedPaths|ForEach-Object {[string]$_})
  foreach($path in $paths){
   if(-not(Test-CISafePath $path)){return Get-CIFullScope ('可疑路徑：'+$path)}
-  if($path -imatch '\.go$' -or $path -imatch '^test/go/'){return Get-CIFullScope ('Go 變更的整合測試依賴完整 PowerShell 報告：'+$path)}
-  if($path -imatch $script:CISharedPathPattern){return Get-CIFullScope ('共用或全域路徑：'+$path)}
+  $rule=Get-CISharedPathRule $path
+  if($rule){return Get-CIFullScope ('共用或全域路徑（'+$rule+'）：'+$path)}
  }
  $documents=@($paths|Where-Object {Test-CIDocumentPath $_})
  $code=@($paths|Where-Object {-not(Test-CIDocumentPath $_)})

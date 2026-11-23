@@ -79,7 +79,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: 依 diff 選出可在 PR 階段略過的工作
+      - name: 取得基底版本的分類規則
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: base-source
+          persist-credentials: false
+      - name: 以基底版本的規則依 diff 選出受影響的工作
         id: classify
         continue-on-error: true
         shell: pwsh
@@ -87,13 +93,13 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
         run: |
-          & ./script/test/ci_classify.ps1 -EventName $env:EVENT_NAME -BaseRef ('origin/' + $env:BASE_REF) -Root $PWD.Path -OutputPath $env:GITHUB_OUTPUT
+          & ./base-source/script/test/ci_classify.ps1 -EventName $env:EVENT_NAME -BaseRef ('origin/' + $env:BASE_REF) -Root $PWD.Path -OutputPath $env:GITHUB_OUTPUT
       - name: 分類失敗時改跑完整套件
         id: fallback
         if: steps.classify.outcome != 'success'
         shell: pwsh
         run: |
-          & ./script/test/ci_classify.ps1 -FailOpen -OutputPath $env:GITHUB_OUTPUT
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value @('select_tests=true','select_powershell_coverage=true','select_coverage_aggregation=true','select_requirements_gate=true','select_docker_tests=true','select_oobe_payload=true','select_doc_checks=false','test_scope=full')
 
   doc-checks:
     name: 文件輕量檢查
