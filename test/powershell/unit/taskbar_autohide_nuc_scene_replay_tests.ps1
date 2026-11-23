@@ -27,3 +27,9 @@ Write-Host ('replay VerifyOnly: AutoHide='+$verify.AutoHide+' AppBarState='+$ver
 Assert ($verify.AutoHide -eq $true) 'after an Apply that reported success, the read-back still shows auto-hide enabled (scene symptom: captured read-back was false)'
 $expected=[byte[]]$sceneBytes.Clone();$expected[8]=[byte]($expected[8] -bor 1)
 Assert (-not (Compare-Object $script:reg $expected)) 'only the auto-hide bit of StuckRects3 changes; all other captured bytes are preserved'
+# 實機時間序列（NUC8 對照）：未修版 Apply 後立即／+5 秒／+30 秒 StuckRects3 皆不變；修正版第 9 位元組變 0x03，其餘位元組不變。
+$timeline=@{};foreach($line in (Get-Content -LiteralPath (Join-Path $fx 'stuckrects3_nuc_apply_timeline.txt') -Encoding UTF8)){if($line -match '^#' -or [string]::IsNullOrWhiteSpace($line)){continue};$f=$line -split "`t";$timeline[$f[0]]=[pscustomobject]@{Bytes=[byte[]]($f[2] -split ',');LastWrite=$f[3]}}
+Assert ($timeline['main-before-apply'].Bytes[8] -eq 2 -and $timeline['main-before-apply'].Bytes.Count -eq $sceneBytes.Count) 'timeline pre-Apply StuckRects3 also has byte 9 = 0x02 (display geometry bytes differ from the earlier snapshot, so the timeline is replayed from its own bytes)'
+Assert (@('main-immediately-after','main-plus5s','main-plus30s'|Where-Object{(Compare-Object $timeline[$_].Bytes $timeline['main-before-apply'].Bytes) -or $timeline[$_].LastWrite -cne $timeline['main-before-apply'].LastWrite}).Count -eq 0) 'captured real-machine unfixed Apply leaves StuckRects3 bytes and last-write time unchanged at 0s, 5s and 30s'
+$script:reg=[byte[]]$timeline['main-before-apply'].Bytes.Clone();$script:running=[uint32]0;Invoke-SetupTaskbarAutoHide -ModuleRoot $mod|Out-Null
+Assert (-not (Compare-Object $script:reg $timeline['fixed-plus30s'].Bytes)) 'replayed Apply writes exactly the StuckRects3 bytes captured on the real machine after the fixed Apply'
