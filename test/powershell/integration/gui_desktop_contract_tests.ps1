@@ -16,6 +16,12 @@ $library=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'co
 $dispatch=$library.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Invoke-SetupGuiPublicDispatch'},$true)
 $forward=@($dispatch.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-SetupGuiRole' -and $n.Extent.Text.Contains('-IconMode $IconMode')},$true))
 Assert ($errors.Count -eq 0 -and $forward.Count -eq 1 -and $forward[0].Extent.Text.Contains('-Role $Role') -and $forward[0].Extent.Text.Contains('-Worker:$Worker') -and $forward[0].Extent.Text.Contains('-VerifyOnly:$VerifyOnly') -and $forward[0].Extent.Text.Contains('-VerificationRunId $VerificationRunId')) 'Icons named dispatch forwards its mode and identity to the fixed controller'
+$tokens=$null;$errors=$null;$verificationAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'core/verification_library.ps1'),[ref]$tokens,[ref]$errors)
+$layoutIf=@($verificationAst.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and $n.Clauses.Count -eq 2 -and $n.Clauses[0].Item1.Extent.Text -ceq '$layoutDecision.Applicable'},$true))
+$unknownBody=if($layoutIf.Count -eq 1){$layoutIf[0].Clauses[1]}else{$null}
+$unknownCalls=if($unknownBody){@($unknownBody.Item2.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst]},$true))}else{@()}
+$addCheck=@($unknownCalls|Where-Object {$_.GetCommandName() -ceq 'Add-Check'})
+Assert ($errors.Count -eq 0 -and $layoutIf.Count -eq 1 -and $unknownBody.Item1.Extent.Text -ceq '$layoutDecision.Status -ceq ''Unknown''' -and $addCheck.Count -eq 1 -and $addCheck[0].CommandElements[2].Extent.Text -ceq '$false' -and $addCheck[0].CommandElements[3].Extent.Text -ceq '$layoutDecision.Reason' -and @($unknownCalls|Where-Object {$_.GetCommandName() -ceq 'New-SetupSkippedCheck'}).Count -eq 0 -and $layoutIf[0].ElseClause.Extent.Text.Contains('New-SetupSkippedCheck')) '驗收圖示語言 Unknown 記為未通過而非略過'
 $tokens=$null;$errors=$null;$aggregate=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'core/verification_library.ps1'),[ref]$tokens,[ref]$errors)
 $fresh=@($aggregate.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst] -and $n.GetCommandName() -eq 'Invoke-SetupGuiFreshVerification' -and $n.Extent.Text.Contains('-Role Icons')},$true))
 Assert ($fresh.Count -eq 1) 'core Icons acceptance consumes current private result directly'

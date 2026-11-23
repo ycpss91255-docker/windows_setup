@@ -1,0 +1,52 @@
+HKEY_USERS\S-1-5-21-1000-2000-3000-1001\Control Panel\Desktop
+    BlockSendInputResets    REG_SZ    0
+    CaretTimeout    REG_DWORD    0x1388
+    CaretWidth    REG_DWORD    0x1
+    ClickLockTime    REG_DWORD    0x4b0
+    CoolSwitchColumns    REG_SZ    7
+    CoolSwitchRows    REG_SZ    3
+    CursorBlinkRate    REG_SZ    530
+    DockMoving    REG_SZ    1
+    DragFromMaximize    REG_SZ    1
+    DragFullWindows    REG_SZ    1
+    DragHeight    REG_SZ    4
+    DragWidth    REG_SZ    4
+    FocusBorderHeight    REG_DWORD    0x1
+    FocusBorderWidth    REG_DWORD    0x1
+    FontSmoothing    REG_SZ    2
+    FontSmoothingGamma    REG_DWORD    0x0
+    FontSmoothingOrientation    REG_DWORD    0x1
+    FontSmoothingType    REG_DWORD    0x2
+    ForegroundFlashCount    REG_DWORD    0x7
+    ForegroundLockTimeout    REG_DWORD    0x30d40
+    LeftOverlapChars    REG_SZ    3
+    MenuShowDelay    REG_SZ    400
+    MouseWheelRouting    REG_DWORD    0x2
+    PaintDesktopVersion    REG_DWORD    0x0
+    Pattern    REG_DWORD    0x0
+    RightOverlapChars    REG_SZ    3
+    ScreenSaveActive    REG_SZ    1
+    SnapSizing    REG_SZ    1
+    TileWallpaper    REG_SZ    0
+    WallPaper    REG_SZ    
+    WallpaperOriginX    REG_DWORD    0x0
+    WallpaperOriginY    REG_DWORD    0x0
+    WallpaperStyle    REG_SZ    10
+    WheelScrollChars    REG_SZ    3
+    WheelScrollLines    REG_SZ    3
+    WindowArrangementActive    REG_SZ    1
+    Win8DpiScaling    REG_DWORD    0x0
+    DpiScalingVer    REG_DWORD    0x1000
+    UserPreferencesMask    REG_BINARY    9E1E078012000000
+    MaxVirtualDesktopDimension    REG_DWORD    0x780
+    MaxMonitorDimension    REG_DWORD    0x780
+    TranscodedImageCount    REG_DWORD    0x5
+    LastUpdated    REG_DWORD    0xffffffff
+    PreviousPreferredUILanguages    REG_MULTI_SZ    zh-TW
+    PreferredUILanguagesPending    REG_MULTI_SZ    zh-TW
+
+HKEY_USERS\S-1-5-21-1000-2000-3000-1001\Control Panel\Desktop\LanguageConfigurationPending
+    zh-TW    REG_MULTI_SZ    en-US
+
+HKEY_USERS\S-1-5-21-1000-2000-3000-1001\Control Panel\Desktop\MuiCached
+    MachinePreferredUILanguages    REG_MULTI_SZ    zh-TW
