@@ -13,9 +13,10 @@ function Get-SetupTaskbarPersistedAutoHide {
 function Set-SetupTaskbarPersistedAutoHide {
  $path='HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3'
  $value=(Get-ItemProperty $path -Name Settings -ErrorAction SilentlyContinue).Settings
- if($null -eq $value -or @($value).Count -lt 9){throw '找不到 StuckRects3 設定，無法持久化自動隱藏。'}
+ if($null -eq $value -or @($value).Count -lt 9){return $false}
  [byte[]]$bytes=@($value);$bytes[8]=[byte]($bytes[8] -bor 1)
  Set-ItemProperty $path -Name Settings -Value $bytes -Type Binary -ErrorAction Stop
+ return $true
 }
 function Invoke-SetupTaskbarAutoHide {
  param([string]$ModuleRoot=$PSScriptRoot,[switch]$VerifyOnly)
@@ -25,9 +26,12 @@ function Invoke-SetupTaskbarAutoHide {
  $persisted=[bool](Get-SetupTaskbarPersistedAutoHide)
  if(-not $VerifyOnly -and -not $persisted){
   # ABM_SETSTATE 只改執行中的工作列，重開或 Explorer 重啟會回到登錄值，必須同時寫入 StuckRects3 並讀回。
-  Set-SetupTaskbarPersistedAutoHide
-  $persisted=[bool](Get-SetupTaskbarPersistedAutoHide)
-  if(-not $persisted){throw '工作列自動隱藏未持久化：StuckRects3 寫後讀回失敗。'}
+  # 全新設定檔可能尚無 StuckRects3：不擲錯中斷整個階段，如實回報未持久化（AutoHide=false），其餘設定照常套用並由彙總標為失敗。
+  $wrote=Set-SetupTaskbarPersistedAutoHide
+  if($false -ne $wrote){
+   $persisted=[bool](Get-SetupTaskbarPersistedAutoHide)
+   if(-not $persisted){throw '工作列自動隱藏未持久化：StuckRects3 寫後讀回失敗。'}
+  }
  }
  return [pscustomobject]@{AutoHide=($running -and $persisted);PersistedAutoHide=$persisted;AppBarState=$state}
 }

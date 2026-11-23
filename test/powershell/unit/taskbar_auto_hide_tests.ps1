@@ -36,6 +36,18 @@ Assert ($r.AutoHide -and $r.PersistedAutoHide) 'VerifyOnly succeeds when running
 $script:native=[uint32]2;$script:persisted=$false;$script:persistDiscard=$true;$failed=$false
 try{Invoke-SetupTaskbarAutoHide -ModuleRoot $mod|Out-Null}catch{$failed=$true}
 Assert $failed 'Apply fails honestly when the persisted bit cannot be read back'
+# 全新設定檔可能沒有 StuckRects3：不可中斷工作列階段，須如實回報未持久化。
+$script:native=[uint32]2;$script:persisted=$false;$script:persistDiscard=$false;$script:keyMissing=$true;$script:persistWrites=0
+function Set-SetupTaskbarPersistedAutoHide {$script:persistWrites++;if($script:keyMissing){return $false};$script:persisted=$true}
+$failed=$false;$r=$null;try{$r=Invoke-SetupTaskbarAutoHide -ModuleRoot $mod}catch{$failed=$true}
+Assert (-not $failed -and -not $r.AutoHide -and -not $r.PersistedAutoHide -and $r.AppBarState -eq 3) 'Apply without a StuckRects3 key reports not persisted instead of aborting the Taskbar stage'
+Remove-Item Function:\Set-SetupTaskbarPersistedAutoHide;Remove-Item Function:\Get-SetupTaskbarPersistedAutoHide
+. (Join-Path $mod 'taskbar_settings_library.ps1')
+function Get-ItemProperty {param($Path,$Name,$ErrorAction) return $null}
+function Set-ItemProperty {throw 'must not write when the key is missing'}
+$wrote=Set-SetupTaskbarPersistedAutoHide
+Assert ($false -eq $wrote -and -not (Get-SetupTaskbarPersistedAutoHide)) 'Persisting without a StuckRects3 key returns false without creating the key'
+Remove-Item Function:\Get-ItemProperty;Remove-Item Function:\Set-ItemProperty
 function Invoke-SetupTaskbarNativeAutoHide {param([string]$ModuleRoot,[bool]$Apply) throw 'fixture missing interactive taskbar'}
 $failed=$false;try{Invoke-SetupTaskbarAutoHide -ModuleRoot (Join-Path $root 'modules/taskbar')|Out-Null}catch{$failed=$true}
 Assert $failed 'Missing current-session taskbar remains a failure'

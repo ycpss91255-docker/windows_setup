@@ -28,7 +28,9 @@ function Start-ScheduledTask {param($TaskName,$ErrorAction)
 }
 function Test-Path {param($Path,$LiteralPath,$PathType) if($Path -like 'HK*'){return $true};Microsoft.PowerShell.Management\Test-Path @PSBoundParameters}
 function New-ItemProperty {param($Path,$Name,$Value,$PropertyType,[switch]$Force) if($Path -notlike 'HK*'){throw 'unexpected registry write'};$script:values[$Name]=$Value;$script:writes++}
-function Get-ItemProperty {param($Path,$ErrorAction) if($Path -notlike 'HK*'){throw 'unexpected registry read'};[pscustomobject]$script:values}
+$script:stuck=[byte[]](0x30,0,0,0,0xFE,0xFF,0xFF,0xFF,2,0,0,0,3,0,0,0)
+function Get-ItemProperty {param($Path,$Name,$ErrorAction) if($Path -notlike 'HK*'){throw 'unexpected registry read'};if($Path -like '*StuckRects3'){return [pscustomobject]@{Settings=[byte[]]$script:stuck.Clone()}};[pscustomobject]$script:values}
+function Set-ItemProperty {param($Path,$Name,$Value,$Type,$ErrorAction) if($Path -notlike '*StuckRects3' -or $Name -ne 'Settings'){throw 'unexpected registry write'};$script:stuck=[byte[]]$Value}
 function Remove-ItemProperty {param($Path,$Name,$ErrorAction) if($Path -ne 'HKCU:\Software\Policies\Microsoft\Windows\Explorer'){throw 'unexpected policy removal'};$script:values.Remove($Name);$script:writes++}
 function Export-SetupTaskbarBackup {param($Path) if(-not $Path.StartsWith($temp)){throw 'outside TEMP backup'};$script:backups++}
 function Start-Sleep {param($Seconds) $script:delays+=@($Seconds)}
