@@ -52,7 +52,7 @@ git push origin "refs/tags/$version"
 
 從 GitHub Release 使用內建 **Source code (zip)** 或 **Source code (tar.gz)** 下載來源，不額外上傳重複來源 ZIP／SHA256。內建來源封存檔的根目錄名稱由 GitHub 決定。若使用快速開始的 USB 自動尋找指令，請改名為 `windows_setup` 並放在 USB 根目錄；腳本本身可放任意路徑，手動呼叫該位置的 `init.cmd` 即可。
 
-Release 不一定提供驅動資產；所有電腦（包括 NUC）都可在 `windows.cmd` 選包提示按 Enter 略過。若該版提供適合本機型號的獨立驅動包且需要安裝，依 [準備獨立驅動包](../readme.md#準備獨立驅動包) 下載同版 ZIP、解壓後選取該資料夾。資產檔名、大小、SHA256、機型設定檔與包內 manifest 雜湊，列在該版來源的 [驅動資產清單](../script/release/driver_release_assets.json)；只選擇自己機型對應的包，不把其他型號包套用到本機。
+Release 不一定提供驅動資產；所有電腦（包括 NUC）都可在 `windows.cmd` 選包提示輸入 N 略過；只有自動偵測型號與驅動包完全對上時 Enter 才是安裝，其餘情況 Enter 略過。若該版提供適合本機型號的獨立驅動包且需要安裝，依 [準備獨立驅動包](../readme.md#準備獨立驅動包) 下載同版 ZIP、解壓後選取該資料夾。資產檔名、大小、SHA256、機型設定檔與包內 manifest 雜湊，列在該版來源的 [驅動資產清單](../script/release/driver_release_assets.json)；只選擇自己機型對應的包，不把其他型號包套用到本機。
 
 - 來源不包含 `.git`、驅動 ZIP、Autologon EXE、實機 Reports 或密碼暫存；來源檢查會拒絕錯誤追蹤的敏感檔案。
 - 依 [來源包準備說明](../readme.md#從原始碼準備完整工具包) 補齊所選功能需要的二進位，不能把來源 ZIP 當成完整離線安裝包。

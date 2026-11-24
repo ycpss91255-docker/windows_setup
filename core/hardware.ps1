@@ -123,10 +123,9 @@ function Get-SetupDriverManifestEntries {
  foreach($entry in $entries){if($entry.File -notmatch '^[^\\/:]+\.zip$' -or $entry.File -match '^\.\.' -or $entry.SHA256 -notmatch '^[a-fA-F0-9]{64}$'){throw 'NUC 驅動清單格式不合法。'}}
  return $entries
 }
-function Test-SetupDriverPayload {
- param([Parameter(Mandatory=$true)]$Hardware,[string]$DriverPackagePath,[switch]$AllowLegacyManifest)
- if(-not $Hardware.DriverProfileId -and -not $Hardware.IsNuc8){return [pscustomobject]@{Status='Skipped';Count=0;Reason='目前硬體沒有驅動設定檔'}}
- if(-not $DriverPackagePath){return [pscustomobject]@{Status='Skipped';Count=0;Reason='未選擇獨立驅動包'}}
+function Test-SetupDriverPackageIdentity {
+ # Read-only identity check shared by the Enter prompt and the full verification; it never hashes archives.
+ param([Parameter(Mandatory=$true)]$Hardware,[Parameter(Mandatory=$true)][string]$DriverPackagePath,[switch]$AllowLegacyManifest)
  $driverRoot=$DriverPackagePath
  if(-not $AllowLegacyManifest){
   $identity=Get-Content -LiteralPath (Join-Path $driverRoot 'package.json') -Raw -Encoding UTF8 -ErrorAction Stop|ConvertFrom-Json
@@ -138,13 +137,38 @@ function Test-SetupDriverPayload {
   }elseif($identity.SchemaVersion -ne 1 -or -not $Hardware.IsNuc8 -or $identity.HardwareProfile -ne 'NUC8' -or $identity.Architecture -ne 'x64' -or @($identity.SupportedBoards).Count -ne 2 -or 'NUC8i7HVB' -notin $identity.SupportedBoards -or 'NUC8i7HNB' -notin $identity.SupportedBoards -or $Hardware.DriverBoard -notin $identity.SupportedBoards){throw '驅動包機型或架構識別不符合目前硬體。'}
  }
  $manifest=Get-Content -LiteralPath (Join-Path $driverRoot 'manifest.json') -Raw -Encoding UTF8 -ErrorAction Stop|ConvertFrom-Json
-  $manifest=@(Get-SetupDriverManifestEntries -Manifest $manifest)
+ $manifest=@(Get-SetupDriverManifestEntries -Manifest $manifest)
+ foreach($entry in $manifest){
+  if($entry.File -notmatch '^[^\/:]+\.zip$' -or $entry.File -match '^\.\.' -or $entry.SHA256 -notmatch '^[a-fA-F0-9]{64}$'){throw 'NUC 驅動清單格式不合法。'}
+  if(-not(Test-Path -LiteralPath (Join-Path $driverRoot $entry.File) -PathType Leaf)){throw ('缺少驅動：'+$entry.File)}
+ }
+ [pscustomobject]@{Entries=$manifest}
+}
+function Test-SetupDriverExactMatch {
+ # Enter may install only when every identity fact lines up; any doubt returns a plain-language reason.
+ param([Parameter(Mandatory=$true)]$Hardware,[Parameter(Mandatory=$true)][string]$DriverPackagePath)
+ $no={param($why)[pscustomobject]@{Matched=$false;Reason=$why}}
+ if($Hardware.ConfirmedBoard){return (& $no '型號是手動確認的，不是系統自動偵測到的。')}
+ if($Hardware.DetectionStatus -ne 'Detected'){return (& $no '系統沒有自動偵測到唯一的主機板型號。')}
+ $board=[string]$Hardware.DriverBoard
+ $profile=$Hardware.DriverProfileData
+ if(-not $board -or -not $profile -or $Hardware.BoardProduct.Trim() -cne $board){return (& $no '偵測到的型號沒有對應的驅動設定檔。')}
+ if($profile.SupportedBoards -cnotcontains $board){return (& $no ('偵測到的型號 '+$board+' 不在本工具支援清單內。'))}
+ try{$identity=Get-Content -LiteralPath (Join-Path $DriverPackagePath 'package.json') -Raw -Encoding UTF8 -ErrorAction Stop|ConvertFrom-Json}catch{return (& $no '驅動包的 package.json 缺少或讀不到。')}
+ if($identity.SupportedBoards -cnotcontains $board){return (& $no ('偵測到的型號 '+$board+' 不在驅動包支援的型號清單內。'))}
+ try{$null=Test-SetupDriverPackageIdentity -Hardware $Hardware -DriverPackagePath $DriverPackagePath}catch{return (& $no ('驅動包身分檢查沒通過：'+$_.Exception.Message))}
+ [pscustomobject]@{Matched=$true;Reason=''}
+}
+function Test-SetupDriverPayload {
+ param([Parameter(Mandatory=$true)]$Hardware,[string]$DriverPackagePath,[switch]$AllowLegacyManifest)
+ if(-not $Hardware.DriverProfileId -and -not $Hardware.IsNuc8){return [pscustomobject]@{Status='Skipped';Count=0;Reason='目前硬體沒有驅動設定檔'}}
+ if(-not $DriverPackagePath){return [pscustomobject]@{Status='Skipped';Count=0;Reason='未選擇獨立驅動包'}}
+ $driverRoot=$DriverPackagePath
+ $manifest=@((Test-SetupDriverPackageIdentity -Hardware $Hardware -DriverPackagePath $driverRoot -AllowLegacyManifest:$AllowLegacyManifest).Entries)
  $validationIndex=0
  foreach($entry in $manifest){
   $validationIndex++
-  if($entry.File -notmatch '^[^\\/:]+\.zip$' -or $entry.File -match '^\.\.' -or $entry.SHA256 -notmatch '^[a-fA-F0-9]{64}$'){throw 'NUC 驅動清單格式不合法。'}
   $path=Join-Path $driverRoot $entry.File
-  if(-not(Test-Path -LiteralPath $path -PathType Leaf)){throw ('缺少驅動：'+$entry.File)}
   Write-Host ('[驅動包驗證 '+$validationIndex+'/'+$manifest.Count+'] 正在計算 SHA256：'+$entry.File+'；大型檔案可能需要較久，請稍候。') -ForegroundColor Cyan
   $hashStarted=[Diagnostics.Stopwatch]::StartNew()
   try{$actualHash=Get-FileHash -LiteralPath $path -Algorithm SHA256 -ErrorAction Stop}catch{throw ('驅動包讀取失敗：'+$entry.File+'；'+$_.Exception.Message)}
@@ -229,13 +253,23 @@ function Select-SetupDriverRequest {
   if(-not $choice -or $choice -eq 'g'){break}
  }
  if(-not $hardware.DriverProfileId -and -not $hardware.IsNuc8){Write-Host '通用設定：目前沒有對應的驅動設定檔。';return [pscustomobject]@{Hardware=$hardware;DriverPackagePath='';ConfirmedBoard='';ConfirmationComputer=''}}
+ $notifySkip=$false;$adjacentOffered=$false
  if(-not $PathSpecified){
   $DriverPackagePath=''
   if($Interactive){
    $candidate=Join-Path (Split-Path -Parent $PackageRoot) ('windows_driver_packages/'+$hardware.DriverProfileData.PackageDirectory)
    if(Test-Path -LiteralPath $candidate -PathType Container){
-    $choice=Read-Host ('找到獨立包 '+$candidate+'；輸入 Y 選用、P 指定其他位置，Enter 略過')
-    if($choice -eq 'y'){$DriverPackagePath=$candidate}elseif($choice -eq 'p'){$DriverPackagePath=Read-Host '獨立驅動包完整路徑，Enter 略過'}
+    $adjacentOffered=$true
+    $match=Test-SetupDriverExactMatch -Hardware $hardware -DriverPackagePath $candidate
+    while($true){
+     if($match.Matched){$choice=Read-Host ('找到獨立包 '+$candidate+'；偵測到的型號 '+$hardware.DriverBoard+' 與驅動包支援的型號完全相符。Enter 或 Y 安裝，N 略過，P 指定其他位置')}
+     else{$choice=Read-Host ('找到獨立包 '+$candidate+'；但無法確認完全對上：'+$match.Reason+' 為安全起見 Enter 略過；Y 明確選用（仍會嚴格檢查），P 指定其他位置')}
+     $choice=([string]$choice).Trim()
+     if($choice -eq 'p'){$DriverPackagePath=Read-Host '獨立驅動包完整路徑，Enter 略過';$notifySkip=-not $DriverPackagePath;break}
+     if($choice -eq 'y' -or ($match.Matched -and $choice -eq '')){$DriverPackagePath=$candidate;break}
+     if($choice -eq 'n' -or (-not $match.Matched -and $choice -eq '')){$notifySkip=$true;break}
+     Write-Warning '無法辨識的輸入，請輸入 Enter、Y、N 或 P。'
+    }
    }else{$DriverPackagePath=Read-Host '找不到相鄰獨立包，輸入包完整路徑或 Enter 略過'}
   }
  }
@@ -248,8 +282,10 @@ function Select-SetupDriverRequest {
    if(-not $Interactive){throw}
    Write-Warning ('驅動包未通過檢查：'+$_.Exception.Message)
    $DriverPackagePath=Read-Host '重新輸入獨立包完整路徑，或 Enter 略過'
+   if(-not $DriverPackagePath -and $adjacentOffered){$notifySkip=$true}
   }
  }
+ if(-not $DriverPackagePath -and $notifySkip){Write-Host '本次不安裝驅動。之後要補裝：重新執行 windows.cmd 並選用驅動包；-AfterRestart 續跑不會重新詢問。' -ForegroundColor Yellow}
  # A skipped choice must not enable a manual hardware profile without a driver package.
  if(-not $DriverPackagePath){$ConfirmedBoard='';$ConfirmationComputer='';$hardware=Get-SetupHardwareProfile}
  [pscustomobject]@{Hardware=$hardware;DriverPackagePath=$DriverPackagePath;ConfirmedBoard=$ConfirmedBoard;ConfirmationComputer=$ConfirmationComputer}
