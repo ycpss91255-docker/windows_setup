@@ -1,0 +1,44 @@
+[
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\\3&00000000&0&40",
+    "Class": null,
+    "FriendlyName": "基本系統裝置",
+    "Status": "Error",
+    "Problem": 28
+  },
+  {
+    "InstanceId": "ACPI\\INT3515\\0",
+    "Class": null,
+    "FriendlyName": null,
+    "Status": "Error",
+    "Problem": 28
+  },
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\\3&00000000&0&F0",
+    "Class": null,
+    "FriendlyName": "PCI 資料擷取以及訊號處理控制器",
+    "Status": "Error",
+    "Problem": 28
+  },
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA",
+    "Class": null,
+    "FriendlyName": "PCI 記憶體控制器",
+    "Status": "Error",
+    "Problem": 28
+  },
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC",
+    "Class": null,
+    "FriendlyName": "SM 匯流排控制器",
+    "Status": "Error",
+    "Problem": 28
+  },
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&00000000&0&A2",
+    "Class": null,
+    "FriendlyName": "PCI 資料擷取以及訊號處理控制器",
+    "Status": "Error",
+    "Problem": 28
+  }
+]
