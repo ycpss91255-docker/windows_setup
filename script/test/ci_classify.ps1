@@ -15,12 +15,15 @@ $script:CISharedPathRules=@(
  @{Name='version';Pattern='^\.version$'},
  @{Name='container';Pattern='^(dockerfile$|compose\.yaml$|script/docker/)'},
  @{Name='ci_tools';Pattern='^script/test/(ci_|run_ci\.ps1|test_report|powershell_coverage|run_repo_coverage|repo_coverage)'},
- @{Name='test_support';Pattern='^test/powershell/(helpers|support|coverage|fixtures)/'},
+ @{Name='test_support';Pattern='^(test/powershell/(helpers|support|coverage)/|test/powershell/fixtures/[^/]+\.(ps1|psm1|psd1|cmd|bat)$)'},
  @{Name='path_registry';Pattern='^core/paths\.'},
  @{Name='go_source';Pattern='(\.go$|^test/go/)'}
 )
 $script:CIReferenceExtensions=@('.ps1','.psm1','.psd1','.cmd','.bat','.json','.xml')
-$script:CIPlainOutputs=@('test_scope','affected_tests','doc_tests')
+$script:CIPlainOutputs=@('test_scope','affected_tests','doc_tests','pr_full','shard_count','shard_matrix')
+# PR 階段每片目標的序列秒數；分片數 = 受影響 suite 的權重總和 ÷ 此值，限制在 1 到 4 片。
+$script:CIShardBudgetSeconds=250
+$script:CIMaxShards=4
 
 function Test-CIDocumentPath {
  param([string]$Path)
@@ -117,6 +120,30 @@ function Get-CISharedPathRule {
  return $null
 }
 
+function Get-CIFixtureDirectory {
+ # test/powershell/fixtures/<目錄>/<檔案>：現場重放資料，回傳目錄名；fixtures 根目錄的散檔屬於共用輔助，不在此列。
+ param([string]$Path)
+ if($Path -cmatch '^test/powershell/fixtures/([A-Za-z0-9_][A-Za-z0-9_.-]*)/.+'){return $Matches[1]}
+ return $null
+}
+
+function Get-CIFixtureSuites {
+ # suite 以目錄名組路徑讀取 fixture，所以用「fixtures/<目錄>」比對；非 suite 檔（輔助程式）也引用同一目錄時無法確定影響範圍，回傳 $null 由呼叫端選完整套件。
+ param([object[]]$Index,[string]$Directory)
+ $needle='fixtures/'+$Directory.ToLowerInvariant()
+ $pattern='(?<![a-z0-9_.-])'+[regex]::Escape($needle)+'(?![a-z0-9_.-])'
+ $found=New-Object Collections.Generic.HashSet[string]([StringComparer]::Ordinal)
+ foreach($file in $Index){
+  if($file.Lower.StartsWith('test/powershell/fixtures/'+$Directory.ToLowerInvariant()+'/')){continue}
+  if(-not($file.Text -match $pattern)){continue}
+  # 正式程式碼不得引用測試資料（只可能是註解），不是載入者。
+  if($file.Lower -match '^(core|modules|drivers)/'){continue}
+  $suite=Get-CISuiteName $file.Path
+  if(-not $suite){return $null}
+  [void]$found.Add($suite)
+ }
+ return ,@($found|Sort-Object)
+}
 function Get-CIScopedTests {
  # 只在每個變更路徑都能經由測試內容的引用鏈對應到 suite 時縮小；任何無法判斷的情況回傳完整範圍。
  param([string]$Root,[string[]]$ChangedPaths,[int]$MaxSuites=0)
@@ -132,16 +159,24 @@ function Get-CIScopedTests {
  $code=@($paths|Where-Object {-not(Test-CIDocumentPath $_)})
  $suites=New-Object Collections.Generic.HashSet[string]([StringComparer]::Ordinal)
  $needIndex=@()
+ $fixtureDirectories=New-Object Collections.Generic.HashSet[string]([StringComparer]::Ordinal)
  foreach($path in $code){
   $own=Get-CISuiteName $path
   if($own){
    if(Test-Path -LiteralPath (Join-Path $Root $path) -PathType Leaf){[void]$suites.Add($own)}
    continue
   }
+  $fixtureDirectory=Get-CIFixtureDirectory $path
+  if($fixtureDirectory){[void]$fixtureDirectories.Add($fixtureDirectory);continue}
   $needIndex+=$path
  }
- if($needIndex.Count -gt 0){
+ if($needIndex.Count -gt 0 -or $fixtureDirectories.Count -gt 0){
   $index=Get-CIReferenceIndex -Root $Root
+  foreach($directory in $fixtureDirectories){
+   $fixtureSuites=Get-CIFixtureSuites -Index $index -Directory $directory
+   if($null -eq $fixtureSuites -or @($fixtureSuites).Count -eq 0){return Get-CIFullScope ('fixture 目錄沒有單純的測試引用：'+$directory)}
+   foreach($name in $fixtureSuites){[void]$suites.Add($name)}
+  }
   $codeFiles=@($index|Where-Object {-not(Get-CISuiteName $_.Path)})
   $hubs=@{}
   foreach($path in $needIndex){
@@ -177,16 +212,38 @@ function Get-CIScopedTests {
  return [pscustomobject]@{Scope='scoped';Tests=$tests;Reason=''}
 }
 
+function Get-CIShardCount {
+ # 依實測權重決定分片數；權重檔缺漏或損壞時每個 suite 以 10 秒估計，不影響正確性只影響平衡。
+ param([string[]]$Tests)
+ $weights=@{}
+ $path=Join-Path $PSScriptRoot 'ci_suite_weights.json'
+ if(Test-Path -LiteralPath $path -PathType Leaf){
+  try{foreach($property in (ConvertFrom-Json -InputObject ([IO.File]::ReadAllText($path))).PSObject.Properties){$weights[$property.Name]=[double]$property.Value}}catch{$weights=@{}}
+ }
+ $total=0.0
+ foreach($name in @($Tests)){$total+=$(if($weights.ContainsKey($name)){$weights[$name]}else{10.0})}
+ $count=[int][math]::Ceiling($total/$script:CIShardBudgetSeconds)
+ return [math]::Min($script:CIMaxShards,[math]::Max(1,$count))
+}
 function Get-CIChangeSelection {
  param([string]$EventName,[string[]]$ChangedPaths,[string]$Root)
  $selection=[ordered]@{}
  $documentOnly=$false
  $scope=$null
+ $prFull=$false
  if($EventName -ceq 'pull_request' -and $null -ne $ChangedPaths -and @($ChangedPaths).Count -gt 0){
   $documentOnly=$true
   foreach($path in @($ChangedPaths)){if(-not(Test-CIDocumentPath $path)){$documentOnly=$false;break}}
   if(-not $documentOnly -and $Root){
-   try{$scope=Get-CIScopedTests -Root $Root -ChangedPaths $ChangedPaths}catch{$scope=$null}
+   $scopeFailed=$false
+   try{$scope=Get-CIScopedTests -Root $Root -ChangedPaths $ChangedPaths}catch{$scope=$null;$scopeFailed=$true}
+   # 無法縮小的 PR 在 PR 階段改跑全部 suite 的分片與 Go 測試；覆蓋率、聚合、需求驗收與容器留給 merge_group、main 與 tag。
+   # 取不到變更清單時無法確認這是什麼變更，維持完整套件（fail open）。
+   # 範圍判斷本身丟出例外時同樣無法確認，維持完整套件。
+   if(-not $scopeFailed -and ($null -eq $scope -or $scope.Scope -cne 'scoped') -and @($ChangedPaths|Where-Object {-not [string]::IsNullOrWhiteSpace($_)}).Count -eq @($ChangedPaths).Count){
+    try{$every=@(Get-CIAllSuiteNames -Root $Root)}catch{$every=@()}
+    if($every.Count -gt 0){$scope=[pscustomobject]@{Scope='scoped';Tests=$every;Reason='pr_full'};$prFull=$true}
+   }
   }
  }
  $scoped=($null -ne $scope -and $scope.Scope -ceq 'scoped')
@@ -194,6 +251,11 @@ function Get-CIChangeSelection {
   $selection[$key]=$(if($documentOnly){'false'}elseif($scoped -and $key -cne 'tests' -and $key -cne 'oobe_payload'){'false'}else{'true'})
  }
  $selection['doc_checks']=$(if($documentOnly){'true'}else{'false'})
+ $selection['go_tests']=$(if($prFull){'true'}else{'false'})
+ $selection['pr_full']=$(if($prFull){'true'}else{'false'})
+ $shards=$(if($scoped){Get-CIShardCount -Tests @($scope.Tests)}else{1})
+ $selection['shard_count']=[string]$shards
+ $selection['shard_matrix']='['+((0..($shards-1)) -join ',')+']'
  $selection['test_scope']=$(if($scoped){'scoped'}else{'full'})
  $selection['affected_tests']=$(if($scoped){@($scope.Tests) -join ','}else{''})
  return $selection

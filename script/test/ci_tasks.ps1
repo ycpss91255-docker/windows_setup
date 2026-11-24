@@ -5,6 +5,12 @@ function Invoke-CINative {
  try{$ErrorActionPreference='Continue';$global:LASTEXITCODE=0;& $File @Arguments;$code=$LASTEXITCODE}finally{$ErrorActionPreference=$previous}
  if($code -ne 0){$failure=[Exception]::new(('CI command failed: '+$File+' / '+$code));$failure.Data['ExitCode']=$code;throw $failure}
 }
+function Invoke-CIGoUnitTests {
+ # PR 階段的獨立 Go 工作：執行維護工具的單元測試，不含 test/go/integration（它需要完整的 PowerShell 報告，留給 merge_group、main 與 tag）。
+ $packages=@(Invoke-CINative -File go.exe -Arguments @('list','-mod=vendor','./...')|ForEach-Object {([string]$_).Trim()}|Where-Object {$_ -and $_ -notmatch '/test/go/integration$'})
+ if(-not $packages.Count){throw '排除整合測試後沒有任何 Go 套件可執行，不得回報成功。'}
+ Invoke-CINative -File go.exe -Arguments (@('test','-mod=vendor','-count=1')+$packages)
+}
 function Invoke-CIReportLayout {
  $browser=Join-Path $env:ProgramFiles 'Google\Chrome\Application\chrome.exe'
  if(-not(Test-Path -LiteralPath $browser -PathType Leaf)){throw '預裝 Chrome 不存在，無法驗證報表排版。'}
@@ -31,6 +37,8 @@ function Resolve-CIRollupStates {
  if(-not $Results.ContainsKey('Classify') -or $Results['Classify'] -cne 'success'){return $resolved}
  # 文件輕量檢查只在純文件 PR 選取；其他事件跑完整套件，未選取且 skipped 才合格，被選取卻 skipped 仍失敗。
  $skippable=@('DocChecks')
+ # 獨立 Go 測試工作只在 PR 的完整分片模式選取；其他事件由 isolated-tests 自己執行 Go 測試，所以選取值為 false 的 skipped 在任何事件都合格，被選取卻 skipped 仍失敗。
+ if($Results.ContainsKey('GoTests') -and $Results['GoTests'] -ceq 'skipped' -and $Selection.ContainsKey('GoTests') -and $Selection['GoTests'] -ceq 'false'){$resolved['GoTests']='success'}
  # 其餘重型工作的分類略過只存在於 pull_request；main、merge_group、tag 與手動執行任何一項略過都要失敗。
  if($EventName -ceq 'pull_request'){$skippable=@('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage','DocChecks')}
  foreach($name in $skippable){
@@ -41,7 +49,7 @@ function Resolve-CIRollupStates {
 function Assert-CIResults {
  param([hashtable]$Results)
  foreach($name in @('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage')){if(-not $Results.ContainsKey($name) -or $Results[$name] -cne 'success'){throw ('必要工作失敗、取消或跳過：'+$name)}}
- foreach($name in @('Classify','DocChecks')){if($Results.ContainsKey($name) -and $Results[$name] -cne 'success'){throw ('必要工作失敗、取消或跳過：'+$name)}}
+ foreach($name in @('Classify','DocChecks','GoTests')){if($Results.ContainsKey($name) -and $Results[$name] -cne 'success'){throw ('必要工作失敗、取消或跳過：'+$name)}}
 }
 function Assert-CIRequiredTools {
  param([switch]$Managed)

@@ -17,7 +17,7 @@ $temp=Join-Path ([IO.Path]::GetTempPath()) ('gui_dispatch_'+[guid]::NewGuid().To
 $script:scope=[pscustomobject]@{UserSID='S-1-5-21-1-2-3-1001';Computer='fixture';SessionId=0;CommonDataRoot=$temp;PowerShell='fixture powershell.exe'}
 function Get-SetupGuiIdentity {$script:scope}
 $script:processes=@([pscustomobject]@{SessionId=4;Owner='S-1-5-21-1-2-3-1001'},[pscustomobject]@{SessionId=4;Owner='S-1-5-21-1-2-3-1001'},[pscustomobject]@{SessionId=7;Owner='S-1-5-21-1-2-3-2001'})
-function Get-CimInstance {param($ClassName,$Filter) Assert ($ClassName -eq 'Win32_Process' -and $Filter -eq "Name='explorer.exe'") 'desktop discovery only queries Explorer processes';$script:processes}
+function Get-CimInstance {param($ClassName,$Filter,$ErrorAction) if($Filter -eq "Name='powershell.exe'"){return @()};Assert ($ClassName -eq 'Win32_Process' -and $Filter -eq "Name='explorer.exe'") 'desktop discovery only queries Explorer processes';$script:processes}
 function Invoke-CimMethod {param($InputObject,$MethodName) [pscustomobject]@{Sid=$InputObject.Owner;ReturnValue=0}}
 Assert ((Get-SetupGuiDesktopSession $script:scope) -eq 4) 'duplicate Explorer processes in same user session resolve to one desktop'
 $script:processes+=@([pscustomobject]@{SessionId=5;Owner=$script:scope.UserSID});Reject {Get-SetupGuiDesktopSession $script:scope} '唯一' 'ambiguous sessions cannot silently select a desktop'
@@ -43,6 +43,7 @@ function Get-ScheduledTaskInfo {param($TaskName,$ErrorAction) if(-not $TaskName.
 function Register-ScheduledTask {param($TaskName,$Action,$Principal,$ErrorAction) Assert ($TaskName.Contains($script:stage.Context.RunId)) 'GUI task uses unique current-run identity'}
 function Start-ScheduledTask {param($TaskName) $script:started++;if($script:writeReport){[IO.File]::WriteAllText((Join-Path $script:stage.DataRoot (Get-SetupGuiResultName $script:stage.Context)),'fixture')}}
 function Unregister-ScheduledTask {param($TaskName,[switch]$Confirm) $script:removed++}
+function Stop-ScheduledTask {param($TaskName,$ErrorAction)}
 function Start-Sleep {param($Seconds)}
 function Invoke-SetupGuiLocalWorker {param($Stage,$Scope) $script:localRuns++}
 Invoke-SetupGuiRole -PackageRoot $root -Role Explorer -VerifyOnly|Out-Null
