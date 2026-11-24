@@ -10,7 +10,7 @@ function Get-SetupGuiIdentity {[pscustomobject]@{CommonDataRoot=$temp;UserSID='S
 function Assert-SetupGuiAncestors {param($CommonDataRoot) if($CommonDataRoot -ne $temp){throw 'wrong fixture parent'}}
 function New-SetupGuiProtectedDirectory {param($Path,$UserSid) if(-not $Path.StartsWith($temp)){throw 'outside TEMP'};[void][IO.Directory]::CreateDirectory($Path)}
 function Assert-SetupGuiProtectedPath {param($Path,[switch]$Directory,$UserSid) if(-not $Path.StartsWith($temp) -or -not(Microsoft.PowerShell.Management\Test-Path -LiteralPath $Path)){throw 'outside protected fixture'}}
-function Get-CimInstance {param($ClassName,$Filter,$ErrorAction) if($ClassName -ne 'Win32_Process' -or $Filter -ne "Name='explorer.exe'"){throw 'unexpected process query'};[pscustomobject]@{SessionId=4}}
+function Get-CimInstance {param($ClassName,$Filter,$ErrorAction) if($ClassName -eq 'Win32_Process' -and $Filter -eq "Name='powershell.exe'"){return @()};if($ClassName -ne 'Win32_Process' -or $Filter -ne "Name='explorer.exe'"){throw 'unexpected process query'};[pscustomobject]@{SessionId=4}}
 function Invoke-CimMethod {param($InputObject,$MethodName,$ErrorAction) [pscustomobject]@{ReturnValue=0;Sid='S-1-5-21-1-2-3-1001'}}
 function Get-ScheduledTask {param($TaskName,$ErrorAction) if($script:tasks.ContainsKey($TaskName)){[pscustomobject]@{State='Ready'}}}
 function Get-ScheduledTaskInfo {param($TaskName,$ErrorAction) if(-not $script:tasks.ContainsKey($TaskName)){throw 'wrong task info'};[pscustomobject]@{LastTaskResult=0}}
@@ -43,3 +43,13 @@ foreach($role in @('Display','Theme')){
  Assert ($script:writes -eq $before -and ([NUC8Display.Display]::Applied+[NUC8Theme]::Applied) -eq $beforeNative) ('fresh '+$role+' verification does not reapply native APIs or preferences')
 }
 Assert (-not (Test-Path -LiteralPath (Join-Path $temp 'NUC8-Setup'))) 'Display and Theme never create legacy public result authority'
+
+# The public caller must explain incomplete pixel verification without waking Explorer.
+[NUC8Theme]::AutoHidden=$true
+$before=$script:writes;$messages=@(Invoke-SetupGuiRole -PackageRoot $root -Role Theme 3>&1)
+Assert (@($messages|Where-Object {$_ -is [Management.Automation.WarningRecord] -and $_.Message -match '工作列.*未驗證'}).Count -eq 1 -and @($messages|Where-Object {$_.Success -eq $true -and -not $_.TaskbarPixelsVerified}).Count -eq 1) 'public theme apply reports hidden pixels unverified while keeping success'
+$before=$script:writes;$messages=@(Invoke-SetupGuiFreshVerification -PackageRoot $root -Role Theme 3>&1)
+Assert (@($messages|Where-Object {$_ -is [Management.Automation.WarningRecord] -and $_.Message -match '工作列.*未驗證'}).Count -eq 1 -and @($messages|Where-Object {$_.Success -eq $true -and -not $_.TaskbarPixelsVerified}).Count -eq 1 -and $script:writes -eq $before) 'public VerifyOnly reports hidden pixels without changes'
+[NUC8Theme]::AutoHidden=$false
+$messages=@(Invoke-SetupGuiRole -PackageRoot $root -Role Theme -VerifyOnly 3>&1)
+Assert (@($messages|Where-Object {$_ -is [Management.Automation.WarningRecord]}).Count -eq 0 -and @($messages|Where-Object {$_.TaskbarPixelsVerified -eq $true}).Count -eq 1) 'verified visible dark pixels need no warning'

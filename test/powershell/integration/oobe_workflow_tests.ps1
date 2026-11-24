@@ -12,6 +12,9 @@ $priorSummaryPath=$env:GITHUB_STEP_SUMMARY
 $summaryPath=Join-Path ([IO.Path]::GetTempPath()) ('oobe_rollup_summary_'+[guid]::NewGuid().ToString('N')+'.md')
 $env:GITHUB_STEP_SUMMARY=$summaryPath
 try {
+$classifyKeys=@('EVENT_NAME','CLASSIFY_RESULT','DOC_CHECKS_RESULT','SELECT_TESTS','SELECT_REQUIREMENTS','SELECT_DOCKER','SELECT_PAYLOAD','SELECT_POWERSHELL_COVERAGE','SELECT_COVERAGE','SELECT_DOC_CHECKS','GO_TESTS_RESULT','SELECT_GO_TESTS')
+$env:EVENT_NAME='pull_request';$env:CLASSIFY_RESULT='success';$env:DOC_CHECKS_RESULT='skipped';$env:SELECT_DOC_CHECKS='false';$env:GO_TESTS_RESULT='skipped';$env:SELECT_GO_TESTS='false'
+foreach($selectKey in @('SELECT_TESTS','SELECT_REQUIREMENTS','SELECT_DOCKER','SELECT_PAYLOAD','SELECT_POWERSHELL_COVERAGE','SELECT_COVERAGE')){[Environment]::SetEnvironmentVariable($selectKey,'true','Process')}
 $env:TEST_RESULT='success';$env:REQUIREMENTS_RESULT='success';$env:DOCKER_RESULT='success';$env:POWERSHELL_COVERAGE_RESULT='success';$env:OOBE_PAYLOAD_RESULT='failure';$env:COVERAGE_RESULT='success'
 $rejected=$false;try{& ([scriptblock]::Create($scriptText))}catch{$rejected=Test-RollupFailure $_.Exception.Message 'Payload'}
 Assert $rejected 'actual ci-rollup rejects failed OOBE package content inspection'
@@ -31,12 +34,40 @@ $env:COVERAGE_RESULT='failure'
 $wrongScript=$scriptText.Replace('$env:POWERSHELL_COVERAGE_RESULT','$env:COVERAGE_RESULT')
 $wrongMessage='';try{& ([scriptblock]::Create($wrongScript))}catch{$wrongMessage=$_.Exception.Message}
 Assert ((Test-RollupFailure $wrongMessage 'PowerShellCoverage') -and -not (Test-RollupFailure $wrongMessage 'Coverage')) 'wrong PowerShellCoverage failure cannot satisfy Coverage check'
-}finally{$env:COVERAGE_RESULT=$priorCoverageResult;$env:GITHUB_STEP_SUMMARY=$priorSummaryPath;if(Test-Path -LiteralPath $summaryPath){[IO.File]::Delete($summaryPath)}}
+$env:COVERAGE_RESULT='success'
+# 純文件 PR：分類成功、重型工作 skipped 且選擇為 false 時 actual ci-rollup 通過；被選中的工作 skipped 仍拒絕。
+foreach($resultKey in @('TEST_RESULT','REQUIREMENTS_RESULT','DOCKER_RESULT','POWERSHELL_COVERAGE_RESULT','OOBE_PAYLOAD_RESULT','COVERAGE_RESULT')){[Environment]::SetEnvironmentVariable($resultKey,'skipped','Process')}
+foreach($selectKey in @('SELECT_TESTS','SELECT_REQUIREMENTS','SELECT_DOCKER','SELECT_PAYLOAD','SELECT_POWERSHELL_COVERAGE','SELECT_COVERAGE')){[Environment]::SetEnvironmentVariable($selectKey,'false','Process')}
+$env:DOC_CHECKS_RESULT='success';$env:SELECT_DOC_CHECKS='true'
+$docAccepted=$true;try{& ([scriptblock]::Create($scriptText))}catch{$docAccepted=$false}
+Assert $docAccepted 'actual ci-rollup accepts document-only PR when classify excused every skipped heavy job'
+$env:SELECT_DOCKER='true'
+$selectedSkipped=$false;try{& ([scriptblock]::Create($scriptText))}catch{$selectedSkipped=Test-RollupFailure $_.Exception.Message 'Docker'}
+Assert $selectedSkipped 'actual ci-rollup rejects a skipped job that classify selected'
+$env:SELECT_DOCKER='false';$env:CLASSIFY_RESULT='failure'
+$classifyFailed=$false;try{& ([scriptblock]::Create($scriptText))}catch{$classifyFailed=$true}
+Assert $classifyFailed 'actual ci-rollup trusts no skipped job when classify failed'
+# 非 PR 事件不採信分類略過；程式碼 PR 縮小範圍時只有被分類略過的重型工作可以 skipped。
+$env:CLASSIFY_RESULT='success';$env:SELECT_DOCKER='false'
+foreach($event in @('push','merge_group','workflow_dispatch')){
+ $env:EVENT_NAME=$event
+ $notPullRequest=$false;try{& ([scriptblock]::Create($scriptText))}catch{$notPullRequest=$true}
+ Assert $notPullRequest ('actual ci-rollup rejects classify-skipped jobs on '+$event)
+}
+$env:EVENT_NAME='pull_request'
+$env:DOC_CHECKS_RESULT='skipped';$env:SELECT_DOC_CHECKS='false'
+$env:TEST_RESULT='success';$env:SELECT_TESTS='true';$env:OOBE_PAYLOAD_RESULT='success';$env:SELECT_PAYLOAD='true'
+$scopedAccepted=$true;try{& ([scriptblock]::Create($scriptText))}catch{$scopedAccepted=$false}
+Assert $scopedAccepted 'actual ci-rollup accepts a scoped code PR when only classify-skipped heavy jobs are skipped'
+$env:TEST_RESULT='failure'
+$scopedFailed=$false;try{& ([scriptblock]::Create($scriptText))}catch{$scopedFailed=Test-RollupFailure $_.Exception.Message 'Tests'}
+Assert $scopedFailed 'actual ci-rollup rejects failed affected tests in a scoped code PR'
+}finally{foreach($resultKey in @('TEST_RESULT','REQUIREMENTS_RESULT','DOCKER_RESULT','POWERSHELL_COVERAGE_RESULT','OOBE_PAYLOAD_RESULT')+$classifyKeys){[Environment]::SetEnvironmentVariable($resultKey,$null,'Process')};$env:COVERAGE_RESULT=$priorCoverageResult;$env:GITHUB_STEP_SUMMARY=$priorSummaryPath;if(Test-Path -LiteralPath $summaryPath){[IO.File]::Delete($summaryPath)}}
 $job=[regex]::Match($workflow,'(?ms)^  oobe_payload_inspection:\r?\n(?<body>.*?)(?=^  [a-z][a-z_-]+:)').Groups['body'].Value
-function Test-PayloadJobDependencies([string]$Job){return $Job -match '(?m)^    runs-on: windows-2022\s*$' -and [regex]::Matches($Job,'(?m)^    needs:').Count -eq 1 -and $Job -match '(?m)^    needs: \[source-preflight\]\s*$'}
+function Test-PayloadJobDependencies([string]$Job){return $Job -match '(?m)^    runs-on: windows-2022\s*$' -and [regex]::Matches($Job,'(?m)^    needs:').Count -eq 1 -and $Job -match '(?m)^    needs: \[source-preflight, classify\]\s*$'}
 Assert (Test-PayloadJobDependencies $job) 'payload inspection runs on Windows after source preflight only'
 foreach($expensive in @('isolated-tests','docker-tests','powershell-coverage','coverage-aggregation')){
- $wrongJob=$job.Replace('needs: [source-preflight]',('needs: [source-preflight, '+$expensive+']'))
+ $wrongJob=$job.Replace('needs: [source-preflight, classify]',('needs: [source-preflight, classify, '+$expensive+']'))
  Assert (-not (Test-PayloadJobDependencies $wrongJob)) ('payload inspection rejects extra expensive dependency: '+$expensive)
 }
 Assert ($job.Contains('verify_oobe_payload.ps1') -and $job.Contains('payload_baseline.json') -and $job.Contains('if: always()') -and $job.Contains('retention-days: 7')) 'CI invokes real reader with reviewed baseline and preserves failure evidence seven days'

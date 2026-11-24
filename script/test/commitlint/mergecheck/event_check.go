@@ -228,7 +228,11 @@ func checkEventInRepository(repo, kind, ref, sha, main string, raw []byte, ancho
 		return err
 	}
 	excluded = append(excluded, roots...)
-	return validateMergeTitlesSync(repo, tips, excluded, v.Kind, syncContext{Ref: v.HeadRef, Base: v.Base})
+	sync := syncContext{Ref: v.HeadRef, Base: v.Base}
+	if v.Kind == "push_main" {
+		sync.Base = v.Before
+	}
+	return validateMergeTitlesSync(repo, tips, excluded, v.Kind, sync)
 }
 
 func main() {

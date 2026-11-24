@@ -105,10 +105,10 @@ func TestPullRequestSyncMainMerge(t *testing.T) {
 			}
 		})
 	}
-	t.Run("push event does not accept sync merge", func(t *testing.T) {
+	t.Run("push event without a base does not accept sync merge", func(t *testing.T) {
 		git("switch", "--quiet", "--detach", good)
 		if err := validateMergeTitlesForEvent(repo, []string{good}, []string{root}, "push_main"); err == nil {
-			t.Fatal("sync merge accepted outside pull_request")
+			t.Fatal("sync merge accepted without an event base")
 		}
 	})
 }

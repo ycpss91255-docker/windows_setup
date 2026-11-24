@@ -18,6 +18,7 @@ function New-ItemProperty {param($Path,$Name,$Value,$PropertyType,[switch]$Force
 function Get-ItemProperty {param($Path,$LiteralPath,$ErrorAction) if($Path -and $Path -notlike 'HKCU:*'){throw 'unexpected registry read'};if($LiteralPath -and $LiteralPath -ne 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'){throw 'unexpected version read'};[pscustomobject]$script:values}
 function Get-ProvisioningPackage {param($PackagePath,$LogsDirectoryPath,[switch]$AllInstalledPackages,$ErrorAction) if($PackagePath -or $script:installed){[pscustomobject]@{PackageID='73c18f23-529e-4379-a458-4c9b3a8d5b92';PackageName='windows_setup_empty_start';Version='1.0';Rank=0;OwnerType=5000;IsInstalled=$script:installed}}}
 function Install-ProvisioningPackage {param($PackagePath,[switch]$QuietInstall,$ErrorAction) if($PackagePath -notlike ($temp+'*\modules\start_menu\assets\empty_start.ppkg')){throw 'unexpected provisioning path'};$script:installed=$true;$script:installs++}
+$global:StartPinsExportInProcess=$true
 function Export-StartLayout {param($Path,$ErrorAction) if(-not $Path.StartsWith($temp)){throw 'outside TEMP export'};[IO.File]::WriteAllText($Path,$(if($script:pins -eq 0){'{"pinnedList":[]}'}else{'{"pinnedList":[{"desktopAppId":"Fixture"}]}'}))}
 function Read-Host {param($Prompt) $script:asked++;'YES'}
 $r=Invoke-SetupGuiRole -PackageRoot $root -Role Start

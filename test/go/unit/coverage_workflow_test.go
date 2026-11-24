@@ -76,12 +76,12 @@ func TestCIWholeCoverageHasProducerAndStrictConsumers(t *testing.T) {
 		t.Fatal("serial aggregation must consume parallel managed evidence, not rebuild it")
 	}
 	managed := coverageJob(text, "managed-coverage")
-	for _, required := range []string{"needs: [source-preflight]", "actions/setup-dotnet@", "dotnet-version: '10.0.300'", "DOTNET_INSTALL_DIR:", "managed_coverage.ps1", "-Runtime", "actions/upload-artifact@", "managed-coverage-${{ github.run_id }}-${{ github.run_attempt }}", "evidence.json", "merged.xml", "retention-days: 7", "if-no-files-found: error"} {
+	for _, required := range []string{"needs: [source-preflight, classify]", "needs.classify.outputs.select_coverage_aggregation == 'true'", "actions/setup-dotnet@", "dotnet-version: '10.0.300'", "DOTNET_INSTALL_DIR:", "managed_coverage.ps1", "-Runtime", "actions/upload-artifact@", "managed-coverage-${{ github.run_id }}-${{ github.run_attempt }}", "evidence.json", "merged.xml", "retention-days: 7", "if-no-files-found: error"} {
 		if !strings.Contains(managed, required) {
 			t.Fatalf("parallel managed producer missing %s", required)
 		}
 	}
-	if strings.Contains(managed, "needs: [source-preflight, ") || strings.Contains(managed, "isolated-tests") || strings.Contains(managed, "powershell-coverage") {
+	if strings.Contains(managed, "isolated-tests") || strings.Contains(managed, "powershell-coverage") {
 		t.Fatal("managed producer must not wait for tests or shards")
 	}
 	gate := coverageJob(text, "requirements-gate")
