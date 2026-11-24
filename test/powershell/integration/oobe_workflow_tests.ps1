@@ -12,8 +12,8 @@ $priorSummaryPath=$env:GITHUB_STEP_SUMMARY
 $summaryPath=Join-Path ([IO.Path]::GetTempPath()) ('oobe_rollup_summary_'+[guid]::NewGuid().ToString('N')+'.md')
 $env:GITHUB_STEP_SUMMARY=$summaryPath
 try {
-$classifyKeys=@('EVENT_NAME','CLASSIFY_RESULT','DOC_CHECKS_RESULT','SELECT_TESTS','SELECT_REQUIREMENTS','SELECT_DOCKER','SELECT_PAYLOAD','SELECT_POWERSHELL_COVERAGE','SELECT_COVERAGE','SELECT_DOC_CHECKS')
-$env:EVENT_NAME='pull_request';$env:CLASSIFY_RESULT='success';$env:DOC_CHECKS_RESULT='skipped';$env:SELECT_DOC_CHECKS='false'
+$classifyKeys=@('EVENT_NAME','CLASSIFY_RESULT','DOC_CHECKS_RESULT','SELECT_TESTS','SELECT_REQUIREMENTS','SELECT_DOCKER','SELECT_PAYLOAD','SELECT_POWERSHELL_COVERAGE','SELECT_COVERAGE','SELECT_DOC_CHECKS','GO_TESTS_RESULT','SELECT_GO_TESTS')
+$env:EVENT_NAME='pull_request';$env:CLASSIFY_RESULT='success';$env:DOC_CHECKS_RESULT='skipped';$env:SELECT_DOC_CHECKS='false';$env:GO_TESTS_RESULT='skipped';$env:SELECT_GO_TESTS='false'
 foreach($selectKey in @('SELECT_TESTS','SELECT_REQUIREMENTS','SELECT_DOCKER','SELECT_PAYLOAD','SELECT_POWERSHELL_COVERAGE','SELECT_COVERAGE')){[Environment]::SetEnvironmentVariable($selectKey,'true','Process')}
 $env:TEST_RESULT='success';$env:REQUIREMENTS_RESULT='success';$env:DOCKER_RESULT='success';$env:POWERSHELL_COVERAGE_RESULT='success';$env:OOBE_PAYLOAD_RESULT='failure';$env:COVERAGE_RESULT='success'
 $rejected=$false;try{& ([scriptblock]::Create($scriptText))}catch{$rejected=Test-RollupFailure $_.Exception.Message 'Payload'}

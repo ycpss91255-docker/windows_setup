@@ -67,7 +67,7 @@ try{
  $outCode=Join-Path $fixture 'out_code.txt'
  & $script -EventName pull_request -BaseRef main -Root $fixture -OutputPath $outCode
  $codeLines=@(Get-Content -LiteralPath $outCode -Encoding UTF8)
- Assert ($codeLines -ccontains 'select_docker_tests=true' -and $codeLines -ccontains 'select_doc_checks=false') '真 Git 程式碼 diff 選完整套件'
+ Assert (($codeLines -ccontains 'select_docker_tests=false') -and ($codeLines -ccontains 'select_tests=true') -and ($codeLines -ccontains 'select_go_tests=true') -and ($codeLines -ccontains 'pr_full=true') -and ($codeLines -ccontains 'select_doc_checks=false')) '真 Git 程式碼 diff 無法縮小時在 PR 階段改為全部 suite 分片與 Go 測試'
  $outBad=Join-Path $fixture 'out_bad.txt'
  & $script -EventName pull_request -BaseRef 'no_such_ref' -Root $fixture -OutputPath $outBad
  $badLines=@(Get-Content -LiteralPath $outBad -Encoding UTF8)
@@ -86,7 +86,7 @@ try{
  $outRename=Join-Path $fixture 'out_rename.txt'
  & $script -EventName pull_request -BaseRef main -Root $fixture -OutputPath $outRename
  $renameLines=@(Get-Content -LiteralPath $outRename -Encoding UTF8)
- Assert (($renameLines -ccontains 'select_docker_tests=true') -and ($renameLines -ccontains 'select_tests=true') -and ($renameLines -ccontains 'select_doc_checks=false')) '程式碼改名為 Markdown 仍選完整套件'
+ Assert (($renameLines -ccontains 'select_tests=true') -and ($renameLines -ccontains 'pr_full=true') -and ($renameLines -ccontains 'select_doc_checks=false')) '程式碼改名為 Markdown 仍被當成程式碼 PR，不走文件輕量檢查'
  $changed=@(Get-CIChangedPaths -Root $fixture -BaseRef main)
  Assert (($changed -ccontains 'tool.ps1') -and ($changed -ccontains 'tool.md')) '變更清單同時列出改名前後路徑'
 }finally{
