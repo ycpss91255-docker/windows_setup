@@ -5,6 +5,8 @@
 ## [Unreleased]
 ### Changed（變更）
 
+- 選用相鄰驅動包時，只有系統自動偵測到唯一型號、且該型號精確列在驅動包與工具設定檔的支援清單、身分檢查全部相符時，Enter 才會安裝；型號為手動確認、無法偵測、多塊主機板、型號不在清單或包內身分檔缺少／損壞時，Enter 改為略過並說明原因，手動確認型號仍可輸入 Y 明確選用。略過時會顯示「本次不安裝驅動」與補裝方法，無法辨識的輸入會重新詢問。
+
 - 倉庫已移至 `ycpss91255-lab` 組織：README、Release 下載與品質報表連結改用 `https://github.com/ycpss91255-lab/windows_setup` 及 `https://ycpss91255-lab.github.io/windows_setup/`，舊網址不保證持續轉址。
 
 - 第 03 模組停用休眠並移除 `hiberfil.sys`，快速啟動一併停用，冷開機可能稍慢；`-VerifyOnly` 與重開後驗收會核對。需要時可自行執行 `powercfg /hibernate on` 重新啟用。
