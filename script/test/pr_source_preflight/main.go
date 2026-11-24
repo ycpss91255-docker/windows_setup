@@ -102,8 +102,11 @@ func authorityCheck(eventPath, authorityPath string) error {
 	if err = json.Unmarshal(a, &live); err != nil {
 		return err
 	}
+	// pull_request 事件只要求事件 SHA 自洽，不要求 base 等於當下 main（由 merge queue 驗證實際組合）；
+	// 其他或未設定的事件名稱維持嚴格，base 必須等於當下 main。
 	mainSHA := os.Getenv("PREFLIGHT_MAIN_SHA")
-	if !oid.MatchString(mainSHA) || ev.PullRequest == nil || ev.PullRequest.Base.SHA != mainSHA || ev.Number <= 0 || ev.Number != ev.PullRequest.Number || ev.Number != live.Number || live.State != "open" || ev.PullRequest.Base.Ref != "main" || ev.PullRequest.Base.Repo.FullName == "" || ev.PullRequest.Base.Ref != live.Base.Ref || ev.PullRequest.Base.Repo.FullName != live.Base.Repo.FullName || !oid.MatchString(live.Base.SHA) || ev.PullRequest.Base.SHA != live.Base.SHA || !oid.MatchString(live.Head.SHA) || ev.PullRequest.Head.SHA != live.Head.SHA {
+	strictMain := os.Getenv("PREFLIGHT_EVENT_NAME") != "pull_request"
+	if (strictMain && (!oid.MatchString(mainSHA) || (ev.PullRequest != nil && ev.PullRequest.Base.SHA != mainSHA))) || ev.PullRequest == nil || ev.Number <= 0 || ev.Number != ev.PullRequest.Number || ev.Number != live.Number || live.State != "open" || ev.PullRequest.Base.Ref != "main" || ev.PullRequest.Base.Repo.FullName == "" || ev.PullRequest.Base.Ref != live.Base.Ref || ev.PullRequest.Base.Repo.FullName != live.Base.Repo.FullName || !oid.MatchString(live.Base.SHA) || ev.PullRequest.Base.SHA != live.Base.SHA || !oid.MatchString(live.Head.SHA) || ev.PullRequest.Head.SHA != live.Head.SHA {
 		return errors.New("live PR identity differs from event")
 	}
 	return nil
