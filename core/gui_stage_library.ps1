@@ -277,6 +277,44 @@ function Invoke-SetupGuiLocalWorker {
  param($Stage,$Scope)
  $null= & (Join-Path $Stage.CodeRoot 'core/gui_worker.ps1') -Role $Stage.Context.Role -RunId $Stage.Context.RunId
 }
+function Stop-SetupGuiProcessTree {
+ param([Parameter(Mandatory=$true)][int]$ProcessId)
+ & taskkill.exe /PID $ProcessId /T /F|Out-Null
+}
+function Get-SetupGuiWorkerProcess {
+ # 只認本倉庫固定格式的 worker：-File "<資料根>\windows_setup_gui\<角色>\<RunId>\code\core/gui_worker.ps1" -Role <角色> -RunId <RunId>，且路徑必須落在受保護資料根下。
+ param([Parameter(Mandatory=$true)][string]$CommonDataRoot,[Parameter(Mandatory=$true)][string]$Role)
+ $null=Get-SetupGuiStageFiles $Role
+ $roleRoot=Join-Path (Join-Path ([IO.Path]::GetFullPath($CommonDataRoot)) 'windows_setup_gui') $Role.ToLowerInvariant()
+ foreach($process in @(Get-CimInstance -ClassName Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue)){
+  if(-not $process.CommandLine){continue}
+  if($process.CommandLine -notmatch '-File "(?<path>[^"]+)" -Role (?<role>[A-Za-z]+) -RunId (?<id>[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12})\s*$'){continue}
+  if($Matches.role -cne $Role){continue}
+  $runId=$Matches.id;$actual=$Matches.path
+  try{$expected=[IO.Path]::GetFullPath((Join-Path (Join-Path (Join-Path $roleRoot $runId) 'code') 'core/gui_worker.ps1'));$actual=[IO.Path]::GetFullPath($actual)}catch{continue}
+  if($actual -ine $expected){continue}
+  [pscustomobject]@{RunId=$runId;ProcessId=[int]$process.ProcessId;CreatedAt=$process.CreationDate;TaskName=('WindowsSetup-Gui-'+$Role+'-'+$runId)}
+ }
+}
+function Stop-SetupGuiWorkerRun {
+ param([Parameter(Mandatory=$true)]$Worker)
+ $task=Get-ScheduledTask -TaskName $Worker.TaskName -ErrorAction SilentlyContinue
+ if($task){Stop-ScheduledTask -TaskName $Worker.TaskName -ErrorAction SilentlyContinue}
+ Stop-SetupGuiProcessTree -ProcessId $Worker.ProcessId
+ if($task){Unregister-ScheduledTask -TaskName $Worker.TaskName -Confirm:$false -ErrorAction SilentlyContinue}
+}
+function Stop-SetupGuiStaleWorkers {
+ # 清掉「我們自己建立、仍在執行、且超過上限」的舊 worker：同角色、他輪、有對應的執行中排程。正在工作的合法 worker（未超過上限）一律不動。
+ param([Parameter(Mandatory=$true)][string]$CommonDataRoot,[Parameter(Mandatory=$true)][string]$Role,[Parameter(Mandatory=$true)][string]$CurrentRunId,[int]$MaxAgeSeconds=300)
+ foreach($worker in @(Get-SetupGuiWorkerProcess -CommonDataRoot $CommonDataRoot -Role $Role)){
+  if($worker.RunId -ieq $CurrentRunId){continue}
+  if(((Get-Date)-$worker.CreatedAt).TotalSeconds -lt $MaxAgeSeconds){continue}
+  $task=Get-ScheduledTask -TaskName $worker.TaskName -ErrorAction SilentlyContinue
+  if(-not $task -or $task.State -ne 'Running'){continue}
+  Stop-SetupGuiWorkerRun -Worker $worker
+  $worker.RunId
+ }
+}
 function Invoke-SetupGuiScheduledWorker {
  param($Stage,$Scope)
  $context=$Stage.Context;$worker=Join-Path $Stage.CodeRoot 'core/gui_worker.ps1'
@@ -288,6 +326,7 @@ function Invoke-SetupGuiScheduledWorker {
  $principal=New-ScheduledTaskPrincipal -UserId $context.UserSID -LogonType Interactive -RunLevel Highest
  $registered=$false
  try{
+  try{$null=@(Stop-SetupGuiStaleWorkers -CommonDataRoot $Scope.CommonDataRoot -Role $context.Role -CurrentRunId $context.RunId)}catch{Write-Warning ('舊GUI worker清理失敗，未接管：'+$_.Exception.Message)}
   Register-ScheduledTask -TaskName $name -Action $action -Principal $principal -ErrorAction Stop|Out-Null
   $registered=$true;Start-ScheduledTask -TaskName $name -ErrorAction Stop
   $resultPath=Join-Path $Stage.DataRoot (Get-SetupGuiResultName $context);$deadline=(Get-Date).AddSeconds(60)
@@ -299,6 +338,8 @@ function Invoke-SetupGuiScheduledWorker {
     return
    }
   }while((Get-Date) -lt $deadline)
+  foreach($own in @(Get-SetupGuiWorkerProcess -CommonDataRoot $Scope.CommonDataRoot -Role $context.Role|Where-Object {$_.RunId -ieq $context.RunId})){try{Stop-SetupGuiWorkerRun -Worker $own}catch{Write-Warning ('本輪逾時worker清理失敗：'+$_.Exception.Message)}}
+  Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
   throw '尚未取得受保護的本輪GUI worker結果；請確認原帳號已登入桌面。'
  }finally{
   if($registered){$task=Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue;if($task -and $task.State -ne 'Running'){Unregister-ScheduledTask -TaskName $name -Confirm:$false -ErrorAction Stop}}

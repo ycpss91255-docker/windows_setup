@@ -13,7 +13,7 @@ function Get-SetupGuiIdentity {[pscustomobject]@{CommonDataRoot=$temp;UserSID=$s
 function Assert-SetupGuiAncestors {param($CommonDataRoot) if($CommonDataRoot -ne $temp){throw 'wrong fixture parent'}}
 function New-SetupGuiProtectedDirectory {param($Path,$UserSid) if(-not $Path.StartsWith($temp)){throw 'outside TEMP'};[void][IO.Directory]::CreateDirectory($Path)}
 function Assert-SetupGuiProtectedPath {param($Path,[switch]$Directory,$UserSid) if(-not $Path.StartsWith($temp) -or -not(Microsoft.PowerShell.Management\Test-Path -LiteralPath $Path)){throw 'outside protected fixture'}}
-function Get-CimInstance {param($ClassName,$Filter,$ErrorAction) if($ClassName -ne 'Win32_Process' -or $Filter -ne "Name='explorer.exe'"){throw 'unexpected process query'};[pscustomobject]@{SessionId=$script:desktopSession}}
+function Get-CimInstance {param($ClassName,$Filter,$ErrorAction) if($ClassName -eq 'Win32_Process' -and $Filter -eq "Name='powershell.exe'"){return @()};if($ClassName -ne 'Win32_Process' -or $Filter -ne "Name='explorer.exe'"){throw 'unexpected process query'};[pscustomobject]@{SessionId=$script:desktopSession}}
 function Invoke-CimMethod {param($InputObject,$MethodName,$ErrorAction) [pscustomobject]@{ReturnValue=0;Sid=$script:sid}}
 function New-ScheduledTaskAction {param($Execute,$Argument) if($Execute -cne $ps){throw 'non-OS PowerShell task executable'};[pscustomobject]@{Execute=$Execute;Argument=$Argument;Arguments=$Argument}}
 function New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel) if($UserId -cne $script:sid -or $LogonType -cne 'Interactive' -or $RunLevel -cne 'Highest'){throw 'wrong task principal'};[pscustomobject]@{UserId=$UserId;LogonType=$LogonType;RunLevel=$RunLevel}}
