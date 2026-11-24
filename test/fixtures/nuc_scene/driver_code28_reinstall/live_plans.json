@@ -1,0 +1,98 @@
+{
+  "PowerShell": "5.1.26100.9444",
+  "Build": "10.0.26300.0",
+  "Main": [
+    {
+      "TargetHardwareIds": [
+        "PCI\\VEN_8086&DEV_1911"
+      ],
+      "Status": "Unverified",
+      "Reason": "目標驅動狀態屬性讀取失敗",
+      "TargetVersion": "10.1.7.4",
+      "CurrentVersion": ""
+    },
+    {
+      "TargetHardwareIds": [
+        "PCI\\VEN_8086&DEV_A127"
+      ],
+      "Status": "Unverified Unverified Unverified Unverified Unverified",
+      "Reason": "目前供應商或版本無法安全比較 目標驅動狀態屬性讀取失敗 目前供應商或版本無法安全比較 目前供應商或版本無法安全比較 目前供應商或版本無法安全比較",
+      "TargetVersion": "10.1.6.2 10.1.6.2 10.1.6.2 10.1.6.2 10.1.6.2",
+      "CurrentVersion": "30.100.1816.3  30.100.1816.3 30.100.1816.3 30.100.1816.3"
+    },
+    {
+      "TargetHardwareIds": [
+        "PCI\\VEN_8086&DEV_A131"
+      ],
+      "Status": "Unverified",
+      "Reason": "目標驅動狀態屬性讀取失敗",
+      "TargetVersion": "10.1.6.2",
+      "CurrentVersion": ""
+    },
+    {
+      "TargetHardwareIds": [
+        "PCI\\VEN_8086&DEV_A127"
+      ],
+      "Status": "Unverified",
+      "Reason": "目標驅動狀態屬性讀取失敗",
+      "TargetVersion": "30.100.1914.3",
+      "CurrentVersion": ""
+    },
+    {
+      "TargetHardwareIds": [
+        "ACPI\\INT3515"
+      ],
+      "Status": "Unverified",
+      "Reason": "目標驅動狀態屬性讀取失敗",
+      "TargetVersion": "1.0.10.3",
+      "CurrentVersion": ""
+    }
+  ],
+  "Fix374": [
+    {
+      "TargetHardwareIds": [
+        "PCI\\VEN_8086&DEV_1911"
+      ],
+      "Status": "UpdateRequired",
+      "Reason": "原生Code28確認未安裝驅動，使用已核相符目標",
+      "TargetVersion": "10.1.7.4",
+      "CurrentVersion": ""
+    },
+    {
+      "TargetHardwareIds": [
+        "PCI\\VEN_8086&DEV_A127"
+      ],
+      "Status": "Unverified UpdateRequired Unverified Unverified Unverified",
+      "Reason": "目前供應商或版本無法安全比較 原生Code28確認未安裝驅動，使用已核相符目標 目前供應商或版本無法安全比較 目前供應商或版本無法安全比較 目前供應商或版本無法安全比較",
+      "TargetVersion": "10.1.6.2 10.1.6.2 10.1.6.2 10.1.6.2 10.1.6.2",
+      "CurrentVersion": "30.100.1816.3  30.100.1816.3 30.100.1816.3 30.100.1816.3"
+    },
+    {
+      "TargetHardwareIds": [
+        "PCI\\VEN_8086&DEV_A131"
+      ],
+      "Status": "UpdateRequired",
+      "Reason": "原生Code28確認未安裝驅動，使用已核相符目標",
+      "TargetVersion": "10.1.6.2",
+      "CurrentVersion": ""
+    },
+    {
+      "TargetHardwareIds": [
+        "PCI\\VEN_8086&DEV_A127"
+      ],
+      "Status": "UpdateRequired",
+      "Reason": "原生Code28確認未安裝驅動，使用已核相符目標",
+      "TargetVersion": "30.100.1914.3",
+      "CurrentVersion": ""
+    },
+    {
+      "TargetHardwareIds": [
+        "ACPI\\INT3515"
+      ],
+      "Status": "UpdateRequired",
+      "Reason": "原生Code28確認未安裝驅動，使用已核相符目標",
+      "TargetVersion": "1.0.10.3",
+      "CurrentVersion": ""
+    }
+  ]
+}
