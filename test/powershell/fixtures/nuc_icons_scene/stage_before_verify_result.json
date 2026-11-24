@@ -1,0 +1,37 @@
+﻿{
+    "Schema":  1,
+    "Role":  "Icons",
+    "RunId":  "00000000-0000-0000-0000-000000000000",
+    "UserSID":  "S-1-5-21-0-0-0-1001",
+    "SessionId":  2,
+    "Computer":  "TESTPC",
+    "VerifyOnly":  true,
+    "Success":  false,
+    "Mode":  "Verify",
+    "Differences":  [
+                        "位置不符：本機"
+                    ],
+    "Actual":  [
+                   {
+                       "Name":  "本機",
+                       "X":  14,
+                       "Y":  202
+                   },
+                   {
+                       "Name":  "網路",
+                       "X":  90,
+                       "Y":  102
+                   },
+                   {
+                       "Name":  "資源回收筒",
+                       "X":  14,
+                       "Y":  2
+                   },
+                   {
+                       "Name":  "控制台",
+                       "X":  90,
+                       "Y":  2
+                   }
+               ],
+    "Error":  "位置不符：本機"
+}

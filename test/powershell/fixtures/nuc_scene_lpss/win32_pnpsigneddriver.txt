@@ -1,0 +1,164 @@
+﻿Caption                 : 
+Description             : Intel(R) Serial IO GPIO Host Controller - INT345D
+InstallDate             : 
+Name                    : 
+Status                  : 
+CreationClassName       : 
+Started                 : 
+StartMode               : 
+SystemCreationClassName : 
+SystemName              : 
+ClassGuid               : {4d36e97d-e325-11ce-bfc1-08002be10318}
+CompatID                : 
+DeviceClass             : SYSTEM
+DeviceID                : ACPI\INT345D\3&00000000&0
+DeviceName              : Intel(R) Serial IO GPIO Host Controller - INT345D
+DevLoader               : 
+DriverDate              : 2019/4/2 上午 08:00:00
+DriverName              : 
+DriverProviderName      : Intel Corporation
+DriverVersion           : 30.100.1914.3
+FriendlyName            : 
+HardWareID              : ACPI\VEN_INT&DEV_345D
+InfName                 : oem4.inf
+IsSigned                : True
+Location                : 
+Manufacturer            : Intel Corporation
+PDO                     : \Device\00000031
+Signer                  : Microsoft Windows Hardware Compatibility Publisher
+PSComputerName          : 
+CimClass                : root/cimv2:Win32_PnPSignedDriver
+CimInstanceProperties   : {Caption, Description, InstallDate, Name...}
+CimSystemProperties     : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Caption                 : 
+Description             : 
+InstallDate             : 
+Name                    : 
+Status                  : 
+CreationClassName       : 
+Started                 : 
+StartMode               : 
+SystemCreationClassName : 
+SystemName              : 
+ClassGuid               : 
+CompatID                : PCI\VEN_8086&DEV_A127&REV_31
+DeviceClass             : 
+DeviceID                : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+DeviceName              : PCI 資料擷取以及訊號處理控制器
+DevLoader               : 
+DriverDate              : 
+DriverName              : 
+DriverProviderName      : 
+DriverVersion           : 
+FriendlyName            : 
+HardWareID              : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31
+InfName                 : 
+IsSigned                : 
+Location                : PCI bus 0, device 30, function 0
+Manufacturer            : 
+PDO                     : \Device\NTPNP_PCI0016
+Signer                  : 
+PSComputerName          : 
+CimClass                : root/cimv2:Win32_PnPSignedDriver
+CimInstanceProperties   : {Caption, Description, InstallDate, Name...}
+CimSystemProperties     : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Caption                 : 
+Description             : Intel(R) Serial IO I2C Host Controller - A162
+InstallDate             : 
+Name                    : 
+Status                  : 
+CreationClassName       : 
+Started                 : 
+StartMode               : 
+SystemCreationClassName : 
+SystemName              : 
+ClassGuid               : {4d36e97d-e325-11ce-bfc1-08002be10318}
+CompatID                : PCI\VEN_8086&DEV_A162&REV_31
+DeviceClass             : SYSTEM
+DeviceID                : PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\3&00000000&0&AA
+DeviceName              : Intel(R) Serial IO I2C Host Controller - A162
+DevLoader               : 
+DriverDate              : 2019/4/2 上午 08:00:00
+DriverName              : 
+DriverProviderName      : Intel Corporation
+DriverVersion           : 30.100.1914.3
+FriendlyName            : 
+HardWareID              : PCI\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31
+InfName                 : oem5.inf
+IsSigned                : True
+Location                : PCI 匯流排 0，裝置 21，函數 2
+Manufacturer            : Intel Corporation
+PDO                     : \Device\NTPNP_PCI0009
+Signer                  : Microsoft Windows Hardware Compatibility Publisher
+PSComputerName          : 
+CimClass                : root/cimv2:Win32_PnPSignedDriver
+CimInstanceProperties   : {Caption, Description, InstallDate, Name...}
+CimSystemProperties     : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Caption                 : 
+Description             : Intel(R) Serial IO I2C Host Controller - A161
+InstallDate             : 
+Name                    : 
+Status                  : 
+CreationClassName       : 
+Started                 : 
+StartMode               : 
+SystemCreationClassName : 
+SystemName              : 
+ClassGuid               : {4d36e97d-e325-11ce-bfc1-08002be10318}
+CompatID                : PCI\VEN_8086&DEV_A161&REV_31
+DeviceClass             : SYSTEM
+DeviceID                : PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\3&00000000&0&A9
+DeviceName              : Intel(R) Serial IO I2C Host Controller - A161
+DevLoader               : 
+DriverDate              : 2019/4/2 上午 08:00:00
+DriverName              : 
+DriverProviderName      : Intel Corporation
+DriverVersion           : 30.100.1914.3
+FriendlyName            : 
+HardWareID              : PCI\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31
+InfName                 : oem5.inf
+IsSigned                : True
+Location                : PCI 匯流排 0，裝置 21，函數 1
+Manufacturer            : Intel Corporation
+PDO                     : \Device\NTPNP_PCI0008
+Signer                  : Microsoft Windows Hardware Compatibility Publisher
+PSComputerName          : 
+CimClass                : root/cimv2:Win32_PnPSignedDriver
+CimInstanceProperties   : {Caption, Description, InstallDate, Name...}
+CimSystemProperties     : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Caption                 : 
+Description             : Intel(R) Serial IO I2C Host Controller - A160
+InstallDate             : 
+Name                    : 
+Status                  : 
+CreationClassName       : 
+Started                 : 
+StartMode               : 
+SystemCreationClassName : 
+SystemName              : 
+ClassGuid               : {4d36e97d-e325-11ce-bfc1-08002be10318}
+CompatID                : PCI\VEN_8086&DEV_A160&REV_31
+DeviceClass             : SYSTEM
+DeviceID                : PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\3&00000000&0&A8
+DeviceName              : Intel(R) Serial IO I2C Host Controller - A160
+DevLoader               : 
+DriverDate              : 2019/4/2 上午 08:00:00
+DriverName              : 
+DriverProviderName      : Intel Corporation
+DriverVersion           : 30.100.1914.3
+FriendlyName            : 
+HardWareID              : PCI\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31
+InfName                 : oem5.inf
+IsSigned                : True
+Location                : PCI 匯流排 0，裝置 21，函數 0
+Manufacturer            : Intel Corporation
+PDO                     : \Device\NTPNP_PCI0007
+Signer                  : Microsoft Windows Hardware Compatibility Publisher
+PSComputerName          : 
+CimClass                : root/cimv2:Win32_PnPSignedDriver
+CimInstanceProperties   : {Caption, Description, InstallDate, Name...}
+CimSystemProperties     : Microsoft.Management.Infrastructure.CimSystemProperties

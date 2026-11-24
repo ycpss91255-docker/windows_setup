@@ -1,0 +1,23 @@
+﻿{
+    "Schema":  1,
+    "Role":  "Theme",
+    "RunId":  "f83b8992-6f44-495f-8f8d-757db8a495f3",
+    "UserSID":  "S-1-5-21-1-2-3-1001",
+    "SessionId":  2,
+    "Computer":  "fixture-computer",
+    "VerifyOnly":  false,
+    "Success":  true,
+    "AppsMode":  "Dark",
+    "WindowsMode":  "Dark",
+    "Background":  "#000000",
+    "TaskbarRGB":  [
+
+                   ],
+    "TaskbarIsDark":  null,
+    "TaskbarAppearanceStatus":  "AutoHidden",
+    "TaskbarPixelsVerified":  false,
+    "ExplorerReloaded":  false,
+    "ActualBackgroundColor":  0,
+    "ActualWallpaper":  "",
+    "AppliedAt":  "2026-11-22T17:02:48.8405824+08:00"
+}
