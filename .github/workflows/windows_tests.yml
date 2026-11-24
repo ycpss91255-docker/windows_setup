@@ -705,6 +705,8 @@ jobs:
     needs: [coverage-aggregation, requirements-gate, docker-tests, release, ci-rollup]
     runs-on: windows-2022
     timeout-minutes: 15
+    outputs:
+      superseded: ${{ steps.portal.outputs.superseded }}
     permissions:
       contents: read
       actions: read
@@ -732,6 +734,7 @@ jobs:
           go build -o $env:WINDOWS_SETUP_COVERAGE_TOOL ./script/test/repo_coverage_tool
           go build -o $env:WINDOWS_SETUP_REPORT_BUNDLE_TOOL ./script/test/report_bundle_tool
       - name: 核對版本品質附件並本地產生索引
+        id: portal
         shell: powershell
         env:
           WINDOWS_SETUP_COVERAGE_TOOL: ${{ runner.temp }}/repo_coverage_tool.exe
@@ -746,8 +749,9 @@ jobs:
           . .\script\test\ci_tasks.ps1
           $parameters = Get-CIPortalParameters -Repository $env:GH_REPO -OutputDirectory "$env:RUNNER_TEMP\portal-inputs" -EventRef $env:EVENT_REF -RunId $env:CURRENT_RUN -EventName $env:EVENT_NAME -RunAttempt ([int]$env:CURRENT_ATTEMPT)
           $inputs = .\script\report\get_portal_inputs.ps1 @parameters
-          .\script\report\build_portal.ps1 -CatalogPath $inputs.CatalogPath -MainSnapshotPath $inputs.MainSnapshotPath -ContainerSnapshotPath $inputs.ContainerSnapshotPath -OutputDirectory "$env:RUNNER_TEMP\quality-portal"
+          Invoke-CIPortalBuild -Inputs $inputs -OutputDirectory "$env:RUNNER_TEMP\quality-portal" -OutputPath $env:GITHUB_OUTPUT -SummaryPath $env:GITHUB_STEP_SUMMARY
       - name: 保存去識別 portal 供 Linux 部署
+        if: steps.portal.outputs.superseded != 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: quality-portal-${{ github.run_id }}-${{ github.run_attempt }}
@@ -758,9 +762,11 @@ jobs:
   publish-reports:
     name: 發布 Pages 品質入口
     needs: [build-portal]
-    if: always() && needs.build-portal.result == 'success'
+    if: always() && needs.build-portal.result == 'success' && needs.build-portal.outputs.superseded != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      deployed: ${{ steps.fresh.outputs.current == 'true' }}
     permissions:
       contents: read
       actions: read
@@ -811,7 +817,17 @@ jobs:
         with:
           script: |
             require('child_process').execFileSync('go', ['run', '-mod=vendor', './script/test/pages_artifact_visibility'], {stdio:'inherit'})
+      - name: 確認 main 尚未前進再發布
+        id: fresh
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          . ./script/test/ci_tasks.ps1
+          Set-CIMainFreshness -Repository $env:GITHUB_REPOSITORY -Ref $env:GITHUB_REF -RunSha $env:RUN_SHA -OutputPath $env:GITHUB_OUTPUT
       - name: 發布 Pages
+        if: steps.fresh.outputs.current == 'true'
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
         with:
@@ -819,7 +835,7 @@ jobs:
   verify-deployment:
     name: 公開部署需求驗收
     needs: [publish-reports]
-    if: always() && ((github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && needs.publish-reports.result == 'success'
+    if: always() && ((github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && needs.publish-reports.result == 'success' && needs.publish-reports.outputs.deployed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 7
     permissions:
