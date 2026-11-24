@@ -289,7 +289,7 @@ function Get-CIDocumentTestNames {
 function Get-CIChangedPaths {
  param([string]$Root,[string]$BaseRef)
  if([string]::IsNullOrWhiteSpace($BaseRef)){return $null}
- $lines=@(& git.exe -c core.quotepath=false -C $Root diff --no-renames --no-ext-diff --name-only ($BaseRef+'...HEAD') 2>$null)
+ $lines=@(& git -c core.quotepath=false -C $Root diff --no-renames --no-ext-diff --name-only ($BaseRef+'...HEAD') 2>$null)
  if($LASTEXITCODE -ne 0){return $null}
  return @($lines|ForEach-Object {[string]$_})
 }
@@ -299,21 +299,28 @@ function Invoke-CIClassify {
  $paths=$null
  $selection=$null
  $documentTests=''
+ $fallbackReason=''
  try{
   if($FailOpen){throw '明確要求完整套件。'}
-  if($EventName -ceq 'pull_request'){$paths=Get-CIChangedPaths -Root $Root -BaseRef $BaseRef}
+  if($EventName -ceq 'pull_request'){$paths=Get-CIChangedPaths -Root $Root -BaseRef $BaseRef;if($null -eq $paths){throw '無法取得 PR 變更清單。'}}
   $selection=Get-CIChangeSelection -EventName $EventName -ChangedPaths $paths -Root $Root
   if($selection['doc_checks'] -ceq 'true'){
    $documentTests=(Get-CIDocumentTestNames -Root $Root -ChangedPaths $paths) -join ','
    if(-not $documentTests){throw '文件檢查清單為空。'}
   }
  }catch{
-  Write-Host ('::warning::PR 變更分類失敗，改跑完整套件：'+$_.Exception.Message)
+  $fallbackReason=(([string]$_.Exception.Message) -replace '\s+',' ').Trim()
+  if($fallbackReason.Length -gt 200){$fallbackReason=$fallbackReason.Substring(0,200)}
+  if(-not $fallbackReason){$fallbackReason='未知原因'}
+  Write-Host ('::warning::PR 變更分類失敗，改跑完整套件：'+$fallbackReason)
+  if($env:GITHUB_STEP_SUMMARY){Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding UTF8 -Value @('## PR 變更分類失敗，改跑完整套件','','加速未生效，原因：'+$fallbackReason)}
   $selection=Get-CIChangeSelection -EventName '' -ChangedPaths $null
   $documentTests=''
  }
  $lines=@(foreach($key in $selection.Keys){$(if($script:CIPlainOutputs -ccontains $key){$key}else{'select_'+$key})+'='+$selection[$key]})
  $lines+=('doc_tests='+$documentTests)
+ $lines+=('classify_fallback='+$(if($fallbackReason){'true'}else{'false'}))
+ if($fallbackReason){$lines+=('classify_fallback_reason='+$fallbackReason)}
  $lines|ForEach-Object {Write-Host $_}
  if($OutputPath){[IO.File]::AppendAllText($OutputPath,(($lines -join "`n")+"`n"),[Text.UTF8Encoding]::new($false))}
 }
