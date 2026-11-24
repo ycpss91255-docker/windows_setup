@@ -507,7 +507,7 @@ Windows 啟用由使用者另外處理；本工具不處理 Ubuntu 分割或安�
 | `modules\explorer` | 隱藏檔與副檔名 |
 | `modules\cleanup` | 舊系統與資料夾殘留 |
 
-主流程結果位於 `reports`；各模組的執行紀錄位於各自資料夾或畫面提示的 `%ProgramData%\NUC8-Setup`。既有程式碼不再全部平鋪在根目錄，請勿只取出其中一支腳本執行。
+主流程結果位於 `reports`；各模組的執行紀錄位於各自資料夾或畫面提示的 `%ProgramData%\NUC8-Setup`。電源模組的 `Power-Before-<時間>.txt` 與 `Power-After.txt` 也寫在這裡，不再寫入工具包；舊版已在工具包 `modules\power` 留下的同名檔案不會被自動刪除，它們屬於當時那臺電腦，確認不需要後可自行刪除，避免帶到其他電腦。既有程式碼不再全部平鋪在根目錄，請勿只取出其中一支腳本執行。
 
 ## 模組補充說明
 

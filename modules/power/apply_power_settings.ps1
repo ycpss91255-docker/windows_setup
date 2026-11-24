@@ -5,7 +5,9 @@ $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'power_library.ps1')
 $hibernateResult=@{ReportPath=(Join-Path $env:ProgramData 'NUC8-Setup/Power-Result.json');UserSid=([Security.Principal.WindowsIdentity]::GetCurrent().User.Value);VerificationRunId=$VerificationRunId}
 if($VerifyOnly){Invoke-SetupHibernateResult @hibernateResult -VerifyOnly|Out-Null;Write-Host '休眠已停用且休眠檔不存在。' -ForegroundColor Green;return}
-$before=Join-Path $PSScriptRoot ('Power-Before-'+(Get-Date -Format yyyyMMdd-HHmmss)+'.txt')
+$recordRoot=Join-Path $env:ProgramData 'NUC8-Setup'
+[void][IO.Directory]::CreateDirectory($recordRoot)
+$before=Join-Path $recordRoot ('Power-Before-'+(Get-Date -Format yyyyMMdd-HHmmss)+'.txt')
 & powercfg.exe /query SCHEME_CURRENT SUB_SLEEP | Out-File $before -Encoding utf8
 Write-Host '設定插電時永不自動睡眠；保留原本螢幕關閉時間。' -ForegroundColor Cyan
 & powercfg.exe /change standby-timeout-ac 0
@@ -14,7 +16,7 @@ if($LASTEXITCODE -ne 0){throw '設定插電睡眠時間失敗。'}
 if($LASTEXITCODE -ne 0){throw '設定插電休眠時間失敗。'}
 Write-Host '停用休眠並移除休眠檔；快速啟動依賴休眠，會一併停用。' -ForegroundColor Cyan
 $hibernate=Invoke-SetupHibernateResult @hibernateResult
-$after=Join-Path $PSScriptRoot 'Power-After.txt'
+$after=Join-Path $recordRoot 'Power-After.txt'
 & powercfg.exe /query SCHEME_CURRENT SUB_SLEEP STANDBYIDLE | Out-File $after -Encoding utf8
 & powercfg.exe /query SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE | Out-File $after -Append -Encoding utf8
 Get-Content $after|Out-Host
