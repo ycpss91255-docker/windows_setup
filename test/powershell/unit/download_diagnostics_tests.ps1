@@ -28,16 +28,18 @@ function Invoke-WebRequest {
  param($Uri,$OutFile,[switch]$UseBasicParsing,$TimeoutSec,$ErrorAction)
  $script:calls++;[IO.File]::WriteAllText($OutFile,'fixture')
  if($script:failure -eq 'Timeout'){throw [Net.WebException]::new('SECRET-URI-PATH',$null,[Net.WebExceptionStatus]::Timeout,$null)}
+ if($script:failure -in @('SecureChannelFailure','ConnectFailure','ConnectionClosed','ReceiveFailure','SendFailure','KeepAliveFailure','NameResolutionFailure','TrustFailure')){throw [Net.WebException]::new('SECRET-URI-PATH',$null,[Net.WebExceptionStatus]$script:failure,$null)}
  throw [Net.WebException]::new('SECRET-URI-PATH',$null,[Net.WebExceptionStatus]::ProtocolError,[DownloadDiagnosticResponse]::new($script:status))
 }
 $temp=Join-Path $env:TEMP ('download_diagnostics_'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($temp)
-foreach($case in @('504','Timeout','404')){
+$transientKinds=@('SecureChannelFailure','ConnectFailure','ConnectionClosed','ReceiveFailure','SendFailure','KeepAliveFailure','NameResolutionFailure')
+foreach($case in @(@('504','Timeout','404')+$transientKinds+@('TrustFailure'))){
  $script:messages=@();$script:calls=0;$script:failure=$case;$script:status=if($case -eq '504'){504}else{404}
  $failed=$false;try{Invoke-ContainerOfficialDownload -Uri 'https://example.invalid/SECRET-URI-PATH' -OutFile (Join-Path $temp ($case+'.zip'))}catch{$failed=$true}
- $expected=if($case -eq '404'){1}else{3}
+ $expected=if($case -in @('404','TrustFailure')){1}else{3}
  $attempts=@($script:messages|Where-Object {$_ -like 'Official download attempt *'})
  Assert ($failed -and $script:calls -eq $expected -and $attempts.Count -eq $expected -and $attempts[0] -ceq 'Official download attempt 1/3.') ('真重試次數可觀察且沒有改上限 '+$case)
- $reason=if($case -eq 'Timeout'){'Timeout'}else{'HTTP '+$case}
+ $reason=if($case -in @('504','404')){'HTTP '+$case}else{$case}
  $events=@($script:messages|Where-Object {$_ -like 'Official download failure:*'})
  $controlled=$events.Count -eq $expected
  for($i=0;$i -lt $events.Count;$i++){$controlled=$controlled -and (Test-ControlledFailureEvent $events[$i] $reason ($i -lt $expected-1))}
