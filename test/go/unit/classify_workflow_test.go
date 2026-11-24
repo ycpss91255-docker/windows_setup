@@ -200,3 +200,30 @@ func TestPullRequestShardsIsolatedTestsAndRunsGoTestsSeparately(t *testing.T) {
 		}
 	}
 }
+
+// 分類工作在 Linux 執行：必須真實跑分類器 smoke，且退回完整套件時 summary 與 rollup 明確標示。
+func TestClassifyRunsSmokeAndSurfacesFallback(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("../../..", ".github/workflows/windows_tests.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := strings.ReplaceAll(string(data), "\r\n", "\n")
+	classify := coverageJob(text, "classify")
+	rollup := coverageJob(text, "ci-rollup")
+	if !strings.Contains(classify, "runs-on: ubuntu-latest") {
+		t.Fatal("classify is expected to run on Linux")
+	}
+	if !strings.Contains(classify, "Invoke-CIClassifierSmoke") || !strings.Contains(classify, "./script/test/ci_classify_smoke.ps1") {
+		t.Fatal("classify must run the classifier smoke on the pull request's own source")
+	}
+	if !strings.Contains(classify, "classify_fallback: ${{ steps.classify.outputs.classify_fallback || steps.fallback.outputs.classify_fallback") {
+		t.Fatal("classify must expose whether it fell back to the full suite")
+	}
+	idx := strings.Index(classify, "id: fallback")
+	if idx < 0 || !strings.Contains(classify[idx:], "classify_fallback=true") {
+		t.Fatal("the workflow fallback must mark classify_fallback=true")
+	}
+	if !strings.Contains(rollup, "CLASSIFY_FALLBACK: ${{ needs.classify.outputs.classify_fallback }}") || !strings.Contains(rollup, "Write-CIClassifyFallbackNotice") {
+		t.Fatal("ci-rollup must surface a classification fallback in its summary")
+	}
+}
