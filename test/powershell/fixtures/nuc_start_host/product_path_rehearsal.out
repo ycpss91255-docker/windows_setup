@@ -1,0 +1,21 @@
+start 2026-11-23T23:43:29.8222822+08:00
+=== case A: host absent (single kill; the system does not respawn it)
+[after-kill] hosts=0
+export(before activation): FAIL 0x80070490 elapsed=1.2s
+activate: hr=0x00000000 pid=9688
+activation call took 0.31s
+  export try 1: OK elapsed=1.2s pins=0
+[after-A] hosts=1
+  pid=9688 ppid=1336(svchost.exe) sess=1 created=2026-11-23T23:43:33.3772080+08:00 age=1.6s
+  cmd="C:\Windows\SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe" -ServerName:FullTrustApp.AppXykjsye98af63ez2annt9djke8trg8stn.mca
+=== case B: host suspended (idle 30s)
+threads=25 responding=True :: Wait, Suspended=25
+export(before activation): TIMEOUT>20s elapsed=20.1s
+activate: hr=0x00000000 pid=9688
+  export try 1: OK elapsed=1.1s pins=0
+[final] hosts=1
+  pid=9688 ppid=1336(svchost.exe) sess=1 created=2026-11-23T23:43:33.3772080+08:00 age=52.9s
+  cmd="C:\Windows\SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe" -ServerName:FullTrustApp.AppXykjsye98af63ez2annt9djke8trg8stn.mca
+desktop: explorer responding=True
+done 2026-11-23T23:44:26.3087520+08:00
+

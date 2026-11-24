@@ -64,7 +64,23 @@ if(-not $MainRunId){
 if($MainRunId){
  if($MainRunId -notmatch '^[0-9]+$'){throw 'Run ID 不合法。'}
  $run=(& gh api ('repos/'+$Repository+'/actions/runs/'+$MainRunId))|ConvertFrom-Json
- if($LASTEXITCODE -ne 0 -or ($run.id -isnot [int] -and $run.id -isnot [long]) -or [string]$run.id -cne $MainRunId -or ($run.run_attempt -isnot [int] -and $run.run_attempt -isnot [long]) -or $run.run_attempt -lt 1 -or $run.head_sha -cne $mainSha -or $run.head_branch -cne 'main' -or $run.event -cne $ExpectedMainEvent -or ($ExpectedMainEvent -ceq 'workflow_dispatch' -and $ExpectedMainAttempt -lt 1) -or ($ExpectedMainAttempt -gt 0 -and $run.run_attempt -ne $ExpectedMainAttempt)){throw 'main run 來源不符。'}
+ if($LASTEXITCODE -ne 0){throw '無法取得 main run。'}
+$mismatch=New-Object Collections.Generic.List[string]
+if($run.id -isnot [int] -and $run.id -isnot [long] -or [string]$run.id -cne $MainRunId){$mismatch.Add('id 預期 '+$MainRunId+' 實際 '+[string]$run.id)}
+if($run.run_attempt -isnot [int] -and $run.run_attempt -isnot [long] -or $run.run_attempt -lt 1){$mismatch.Add('run_attempt 無效：'+[string]$run.run_attempt)}
+elseif($ExpectedMainAttempt -gt 0 -and $run.run_attempt -ne $ExpectedMainAttempt){$mismatch.Add('run_attempt 預期 '+$ExpectedMainAttempt+' 實際 '+[string]$run.run_attempt)}
+if($ExpectedMainEvent -ceq 'workflow_dispatch' -and $ExpectedMainAttempt -lt 1){$mismatch.Add('workflow_dispatch 必須指定預期 run_attempt')}
+if($run.head_branch -cne 'main'){$mismatch.Add('head_branch 預期 main 實際 '+[string]$run.head_branch)}
+if($run.event -cne $ExpectedMainEvent){$mismatch.Add('event 預期 '+$ExpectedMainEvent+' 實際 '+[string]$run.event)}
+if($mismatch.Count){throw ('main run 來源不符：'+($mismatch -join '；')+'。')}
+if($run.head_sha -cne $mainSha){
+ # 只有 run 的提交是目前 main 的祖先才算被較新的 main 取代；其餘一律失敗。無法確認祖先關係同樣失敗。
+ $compareJson=& gh api ('repos/'+$Repository+'/compare/'+$run.head_sha+'...'+$mainSha)
+ if($LASTEXITCODE -ne 0){throw ('main run 來源不符：run 提交 '+[string]$run.head_sha+' 與 main '+$mainSha+' 不同，且無法確認祖先關係。')}
+ $compare=$compareJson|ConvertFrom-Json
+ if($compare.status -cne 'ahead' -or $compare.behind_by -ne 0){throw ('main run 來源不符：run 提交 '+[string]$run.head_sha+' 不是目前 main '+$mainSha+' 的祖先（比較結果 '+[string]$compare.status+'）。')}
+ return [pscustomobject]@{Superseded=$true;RunSha=[string]$run.head_sha;MainSha=$mainSha;RunId=$MainRunId}
+}
  $artifacts=(& gh api ('repos/'+$Repository+'/actions/runs/'+$MainRunId+'/artifacts'))|ConvertFrom-Json
  $artifact=@($artifacts.artifacts|Where-Object {$_.name -eq ('windows-test-reports-'+$MainRunId+'-'+$run.run_attempt) -and -not $_.expired})
  if($artifact.Count -eq 1){
@@ -82,4 +98,4 @@ if($MainRunId){
  $containerSnapshot=Get-Content -LiteralPath (Join-Path $containerDir 'summary.json') -Raw -Encoding UTF8|ConvertFrom-Json
  if($containerSnapshot.Commit -cne $mainSha -or $containerSnapshot.RunUrl -cne ('https://github.com/'+$Repository+'/actions/runs/'+$MainRunId)){throw 'main 容器報告提交或執行紀錄不符。'}
 }
-[pscustomobject]@{CatalogPath=(Join-Path $out 'catalog.json');MainSnapshotPath=(Join-Path $out 'main/summary.json');ContainerSnapshotPath=(Join-Path $out 'windows_container/summary.json')}
+[pscustomobject]@{Superseded=$false;CatalogPath=(Join-Path $out 'catalog.json');MainSnapshotPath=(Join-Path $out 'main/summary.json');ContainerSnapshotPath=(Join-Path $out 'windows_container/summary.json')}

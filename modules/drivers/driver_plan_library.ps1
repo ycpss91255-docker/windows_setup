@@ -11,8 +11,24 @@ function Test-SetupDriverNotInstalled {
   [string]::IsNullOrEmpty([string]$Device.DriverInfPath) -and [string]::IsNullOrEmpty([string]$Device.DriverInfName) -and
   [string]::IsNullOrEmpty([string]$Device.DriverProvider) -and [string]::IsNullOrEmpty([string]$Device.DriverVersion) -and [string]::IsNullOrEmpty([string]$Device.DriverSigner))
 }
+function Add-SetupDriverNamingOnlyMarks {
+ param([Parameter(Mandatory=$true)][object[]]$Entries,[Parameter(Mandatory=$true)][string]$ProfileId,[string]$DriversRoot=(Join-Path $PSScriptRoot '../../drivers'))
+ # 已釘選的歷史驅動包不含 NamingOnly；以 repo 自己的清單標記補上。兩份清單身分對不上時如實失敗，不默默套用。
+ if($ProfileId -cnotmatch '^[a-z0-9][a-z0-9_]{0,63}$'){throw '驅動設定檔識別不合法。'}
+ $file=Join-Path (Join-Path $DriversRoot $ProfileId) 'manifest.json'
+ if(-not (Test-Path -LiteralPath $file -PathType Leaf)){return}
+ $repo=Get-Content -LiteralPath $file -Raw -Encoding UTF8|ConvertFrom-Json
+ foreach($source in @($repo.Packages|ForEach-Object Drivers|Where-Object {$_.PSObject.Properties['NamingOnly']})){
+  if($source.NamingOnly -isnot [bool] -or -not $source.NamingOnly){throw 'repo 驅動清單的 NamingOnly 只能是 true。'}
+  foreach($driver in @($Entries|ForEach-Object Drivers|Where-Object {$_.Id -ceq $source.Id})){
+   $sameIds=(@($driver.HardwareIds|Sort-Object) -join '|') -ceq (@($source.HardwareIds|Sort-Object) -join '|')
+   if($driver.InfPath -cne $source.InfPath -or $driver.InfSHA256 -ine [string]$source.InfSHA256 -or -not $sameIds -or $driver.Provider -cne $source.Provider -or $driver.DriverVersion -cne $source.DriverVersion){throw ('驅動包清單與 repo 清單的宣告式目標不一致：'+$source.Id)}
+   $driver|Add-Member -NotePropertyName NamingOnly -NotePropertyValue $true -Force
+  }
+ }
+}
 function Get-SetupDriverTargetPlan {
- param([Parameter(Mandatory=$true)]$Target,[object[]]$Devices=@(),[int]$Build,[string]$Architecture)
+ param([Parameter(Mandatory=$true)]$Target,[object[]]$Devices=@(),[int]$Build,[string]$Architecture,[object[]]$OwnerTargets=@())
  $matches=@($Devices|Where-Object {$ids=@($_.HardwareIds);@($Target.HardwareIds|Where-Object {$_ -in $ids}).Count -gt 0})
  $status='';$reason=''
  if($Build -lt $Target.MinimumBuild -or $Architecture -ne $Target.Architecture){$status='NotApplicable';$reason='作業系統或架構不適用'}
@@ -26,6 +42,18 @@ function Get-SetupDriverTargetPlan {
   if($possibleErrors.Count){$status='Unverified';$reason='相符裝置硬體屬性未能讀取'}else{$status='Absent';$reason='未枚舉相符硬體'}
  }
  if($status){return [pscustomobject]@{InstanceId='';InfPath=$Target.InfPath;Status=$status;Reason=$reason;CurrentVersion='';TargetVersion=$Target.DriverVersion;TargetProvider=$Target.Provider;ProviderAliases=@($Target.ProviderAliases)}}
+ if($PSBoundParameters.ContainsKey('OwnerTargets') -and $Target.PSObject.Properties['NamingOnly'] -and $Target.NamingOnly -eq $true){
+  # 宣告式命名INF不綁定裝置：同一硬體ID的另一個非宣告式目標已驗證為目前或較新版本，才算通過。
+  foreach($device in $matches){
+   $owned=@($OwnerTargets|Where-Object {$_.InfPath -cne $Target.InfPath -and -not ($_.PSObject.Properties['NamingOnly'] -and $_.NamingOnly -eq $true)}|ForEach-Object {
+    $owner=$_;$shared=@($owner.HardwareIds|Where-Object {$_ -in @($Target.HardwareIds) -and $_ -in @($device.HardwareIds)})
+    if($shared.Count){@(Get-SetupDriverTargetPlan -Target $owner -Devices @($device) -Build $Build -Architecture $Architecture)|Where-Object {$_.InstanceId -ceq [string]$device.InstanceId -and $_.Status -in @('Current','NewerInstalled')}|ForEach-Object {$owner.InfPath}}
+   })
+   if($owned.Count){$status='Current';$reason='宣告式命名INF；同硬體ID由已驗證目標綁定：'+[IO.Path]::GetFileName([string]$owned[0])}else{$status='Unverified';$reason='宣告式命名INF；同硬體ID沒有已驗證綁定的其他目標'}
+   [pscustomobject]@{InstanceId=[string]$device.InstanceId;InfPath=[string]$Target.InfPath;Status=$status;Reason=$reason;CurrentVersion=[string]$device.DriverVersion;CurrentProvider=[string]$device.DriverProvider;DriverSigned=$device.DriverSigned;TargetVersion=[string]$Target.DriverVersion;TargetProvider=[string]$Target.Provider;ProviderAliases=@($Target.ProviderAliases)}
+  }
+  return
+ }
  foreach($device in $matches){
   $current=$null;$desired=$null
   $comparable=($device.DriverProvider -eq $Target.Provider -or $device.DriverProvider -in @($Target.ProviderAliases))
@@ -241,6 +269,10 @@ function Invoke-SetupDriverTarget {
  param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][string]$Root,[int]$Build,[string]$Architecture,[string]$LogPath,[switch]$RequiredPresent)
  $null=Assert-SetupDriverTargetIntegrity -Target $Target -Root $Root
  $plans=@(Get-SetupDriverTargetPlan -Target $Target -Devices @(Get-SetupDriverDeviceInventory -Targets @($Target)) -Build $Build -Architecture $Architecture)
+ if($Target.PSObject.Properties['NamingOnly'] -and $Target.NamingOnly -eq $true){
+  foreach($plan in $plans){if($plan.Status -notin @('Absent','NotApplicable')){$plan.Status='NotApplicable';$plan.Reason='宣告式命名INF不安裝；由最終核對確認同硬體ID的綁定目標'}}
+  return [pscustomobject]@{Results=@($plans);RebootRequired=$false;Failures=@()}
+ }
  if($RequiredPresent){foreach($plan in $plans){if($plan.Status -eq 'Absent'){$plan.Status='Unverified';$plan.Reason='必需子元件尚未枚舉，需續跑核實'}}}
  $failures=@();$reboot=$false;$results=@()
  if(@($plans|Where-Object Status -eq 'UpdateRequired').Count){
@@ -289,6 +321,16 @@ function Register-SetupDriverExtractionLease {
  if($script:SetupDriverExtractionLeases.ContainsKey($full)){throw '解壓租約重複。'}
  $script:SetupDriverExtractionLeases[$full]=[pscustomobject]@{NativeActive=$false;Token=[guid]::NewGuid().ToString('N')}
 }
+function Assert-SetupDriverExtractionChildAcl {
+ # Children inherit from the protected lease root; they are accepted only when no non-trusted rule exists.
+ param([Parameter(Mandatory=$true)]$Acl,[switch]$Directory)
+ if($Acl.AreAccessRulesProtected){Assert-SetupUpdateAcl -Acl $Acl -Directory:$Directory;return}
+ $trusted=@('S-1-5-18','S-1-5-32-544')
+ if($Acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trusted){throw 'SYSTEM更新路徑擁有者不可信，保留原資料並拒絕接管。'}
+ foreach($rule in @($Acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier]))){
+  if($rule.AccessControlType -ne 'Allow' -or $rule.IdentityReference.Value -notin $trusted){throw '驅動解壓子項目ACL含非預期存取規則，保留資料。'}
+ }
+}
 function Remove-SetupDriverExtractionRoot {
  param([Parameter(Mandatory=$true)][string]$Path)
  $full=[IO.Path]::GetFullPath($Path);$parent=[IO.Path]::GetFullPath((Get-SetupDriverCacheParent))
@@ -301,7 +343,7 @@ function Remove-SetupDriverExtractionRoot {
  while($directories.Count){
   foreach($item in @(Get-ChildItem -LiteralPath $directories.Pop() -Force -ErrorAction Stop)){
    if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw '解壓清理拒絕重新解析點；保留資料。'}
-   Assert-SetupUpdateAcl -Acl (Get-Acl -LiteralPath $item.FullName -ErrorAction Stop) -Directory:$item.PSIsContainer
+   Assert-SetupDriverExtractionChildAcl -Acl (Get-Acl -LiteralPath $item.FullName -ErrorAction Stop) -Directory:$item.PSIsContainer
    if($item.PSIsContainer){$directories.Push($item.FullName)}
   }
  }
