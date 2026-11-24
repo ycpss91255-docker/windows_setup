@@ -22,10 +22,11 @@
 
 ## 合併與歷史
 
-- 日常變更走工作分支與 Pull Request，最終 PR HEAD 須通過 `classify` 依變更選出的必要檢查及 `ci-rollup` 後才合併，不以直接推送 main 繞過門檻。純文件 PR（根目錄 `*.md`、`license`、`doc/**/*.md`、`.github/pull_request_template.md`）只需跑輕量文件檢查，不跑 PowerShell 全源量測、isolated-tests、docker-tests；含程式碼的 PR 只跑受影響的 suite（由測試與程式內容的引用鏈推導）、合併標題核對與設定包唯讀驗證，不跑全來源覆蓋率、聚合、需求驗收與容器測試；共用或全域路徑（workflow、Go、依賴、容器、測試輔助）、無任何測試引用的路徑、受影響範圍過大、分類失敗或無法判斷時，一律跑完整套件。push 到 main、merge_group 與 tag 一律跑完整套件，並強制全來源覆蓋率與容器測試，且不接受任何分類略過；`ci-rollup` 只在對應 `select_*` 明確為 `false` 時接受該工作被略過。
+- 日常變更走工作分支與 Pull Request，最終 PR HEAD 須通過 `classify` 依變更選出的必要檢查及 `ci-rollup` 後才合併，不以直接推送 main 繞過門檻。main 使用 merge queue：PR 階段只要求最終 PR HEAD 通過 `classify` 選中的檢查與 `ci-rollup`；加入佇列後，`merge_group` 對「合進 main 之後的結果」執行完整套件，必要檢查 `ci-rollup` 通過才合併。純文件 PR（根目錄 `*.md`、`license`、`doc/**/*.md`、`.github/pull_request_template.md`）只需跑輕量文件檢查，不跑 PowerShell 全源量測、isolated-tests、docker-tests；含程式碼的 PR 只跑受影響的 suite（由測試與程式內容的引用鏈推導）、合併標題核對與設定包唯讀驗證，不跑全來源覆蓋率、聚合、需求驗收與容器測試；共用或全域路徑（workflow、Go、依賴、容器、測試輔助）、無任何測試引用的路徑、受影響範圍過大、分類失敗或無法判斷時，一律跑完整套件，並在 classify 與 `ci-rollup` 的 step summary 明確標示「改跑完整套件」及原因。push 到 main、merge_group 與 tag 一律跑完整套件，並強制全來源覆蓋率與容器測試，且不接受任何分類略過；`ci-rollup` 只在對應 `select_*` 明確為 `false` 時接受該工作被略過。
+- PR 事件的來源前置核對只要求事件 SHA 自洽（PR 身分、head 未被替換、checkout tree 等於事件合併結果），不要求 base 等於當下 main；`merge_group` 事件維持嚴格核對，合併前驗證的是佇列合成後的實際組合。main push 的品質索引與 Pages 發布只處理仍為 main 最新的 run；被後續合併取代的 run（其 SHA 是當前 main 的祖先）明確跳過，來源欄位（分支、事件、嘗試次數、run id）不符或非祖先關係仍使工作失敗。
 - 建立 PR 時在描述記錄相關範圍與初始測試證據；建立後所有補充資訊（包括新增 TDD 紅／綠燈證據、重測、CI 與獨立審查）使用 `gh pr comment` 新增留言，不修改原描述補充資訊。
 - 只使用 merge commit；禁止 squash、rebase merge、fixup 及任何改寫已推送歷史的做法。合併提交標題使用「合併：」加中文結果。既有提交與 SHA 保留。
-- `git log --first-parent` 顯示主線合併總覽，`git log` 顯示完整提交歷史。合併佇列若啟用，仍須保留 merge commit 方式及必要檢查。
+- `git log --first-parent` 顯示主線合併總覽，`git log` 顯示完整提交歷史。合併佇列產生的合併提交使用 GitHub 預設標題（`Merge pull request #<編號> from <owner>/<分支>`），無法自訂；PR 標題維持繁體中文「領域：結果」並作為合併提交正文，mergecheck 會在 pull_request、push、tag 與 merge_group 事件核對標題格式、正文與第二個父提交必須是該 PR 的 head。人工合併仍使用「合併：」加中文結果。合併佇列的合併方式固定為 merge commit（ruleset `main merge queue`：`MERGE`、`ci-rollup` 必要、禁止 force push 與刪除、無繞過者），不得改為 squash 或 rebase，也不得移除必要檢查。
 - PR 階段的合併標題檢查除「合併：」外，只另接受 GitHub「更新分支」同步主線產生的 `Merge branch 'main' into <本 PR 的 head 分支>`，且須通過結構核對：第一個父提交為 PR 分支原有提交、第二個父提交為 base 當時 main 的祖先、tree 等於兩父提交無衝突合併的結果；有衝突或帶入額外內容的同步仍須人工合併並使用「合併：」標題。此例外用於 pull_request、merge_group 與 main push 事件；合併佇列與 main push（before 之後）範圍內的同步合併，其分支名稱須由範圍內已核對的佇列合併提交（`Merge pull request #<n> from <本倉庫>/<分支>`）背書。
 - 提交訊息輔助檢查依 `readme.md` 明確選用，不自動安裝或覆蓋既有 hook；工具只提供有限提示，實際 TDD、單一任務與機密排除仍須人工審查。
 
