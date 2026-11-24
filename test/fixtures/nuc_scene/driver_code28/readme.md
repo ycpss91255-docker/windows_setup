@@ -22,3 +22,4 @@
 - `Format-List` 對空值只印空白，無法區分 `$null` 與空字串；重放時一律視為 `$null`。
 - 沒有驅動套件即時來源的 manifest；重放使用 repo 的 `drivers/nuc8i7hvk_hnk/manifest.json`，其 INF 路徑與現場 `driver_result.json` 的 `Windows10-x64` 路徑不同，只以硬體 ID 比對目標。
 - 沒有同一時間的 `pnputil` 輸出片段；本重放只涵蓋計畫階段，不涵蓋安裝後讀回。
+- 空白：原始輸出為 CRLF 且空值欄位行尾有空白，納入倉庫時改為 LF 並移除行尾空白以通過 `git diff --check`；欄位、值與順序不變，解析程式同時接受兩種換行。
