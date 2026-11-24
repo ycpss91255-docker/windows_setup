@@ -1,9 +1,14 @@
 ﻿#Requires -Version 5.1
+# 逾時、交握、連線、中斷與 DNS 類暫態失敗可重試；TrustFailure（憑證不信任）等其他狀態一律不重試。
+function Test-ContainerTransientWebStatus {
+ param([Net.WebExceptionStatus]$Status)
+ return ($Status -in @([Net.WebExceptionStatus]::Timeout,[Net.WebExceptionStatus]::SecureChannelFailure,[Net.WebExceptionStatus]::ConnectFailure,[Net.WebExceptionStatus]::ConnectionClosed,[Net.WebExceptionStatus]::ReceiveFailure,[Net.WebExceptionStatus]::SendFailure,[Net.WebExceptionStatus]::KeepAliveFailure,[Net.WebExceptionStatus]::NameResolutionFailure))
+}
 function Test-ContainerTransientDownload {
  param([Exception]$Exception)
  $current=$Exception
  for($depth=0;$null -ne $current -and $depth -lt 5;$depth++){
-  if($current -is [Net.WebException] -and $current.Status -eq [Net.WebExceptionStatus]::Timeout){return $true}
+  if($current -is [Net.WebException] -and (Test-ContainerTransientWebStatus -Status $current.Status)){return $true}
   if($null -ne $current.Response -and $null -ne $current.Response.StatusCode){$status=[int]$current.Response.StatusCode;if($status -eq 408 -or $status -eq 429 -or ($status -ge 500 -and $status -le 599)){return $true}}
   $current=$current.InnerException
  }
@@ -13,7 +18,7 @@ function Get-ContainerDownloadFailureKind {
  param([Exception]$Exception)
  $current=$Exception
  for($depth=0;$null -ne $current -and $depth -lt 5;$depth++){
-  if($current -is [Net.WebException] -and $current.Status -eq [Net.WebExceptionStatus]::Timeout){return 'Timeout'}
+  if($current -is [Net.WebException] -and ((Test-ContainerTransientWebStatus -Status $current.Status) -or $current.Status -eq [Net.WebExceptionStatus]::TrustFailure)){return $current.Status.ToString()}
   if($null -ne $current.Response -and $null -ne $current.Response.StatusCode){try{$status=[int]$current.Response.StatusCode;if($status -ge 100 -and $status -le 599){return ('HTTP '+$status)}}catch{}}
   $current=$current.InnerException
  }

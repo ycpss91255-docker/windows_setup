@@ -22,7 +22,8 @@ function Get-PinnedPester {
   try{[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12;Invoke-WebRequest -Uri 'https://www.powershellgallery.com/api/v2/package/Pester/6.0.0' -OutFile $download -UseBasicParsing}finally{[Net.ServicePointManager]::SecurityProtocol=$tls}
   $hash=[Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash([IO.File]::ReadAllBytes($download)))
   if($hash -cne $packageHash){throw 'Pester 官方套件 SHA512 不符。'}
-  [IO.File]::Copy($download,$zip,$true)
+  # 並行的 suite 可能同時下載：以不覆寫的搬移發布，目標已被另一個行程發布時沿用它（後面仍會驗證雜湊），並清掉自己的下載暫存檔。
+  try{[IO.File]::Move($download,$zip)}catch [IO.IOException]{if(-not(Test-Path -LiteralPath $zip -PathType Leaf)){throw}}finally{Remove-Item -LiteralPath $download -Force -ErrorAction SilentlyContinue}
  }
  $hash=[Convert]::ToBase64String([Security.Cryptography.SHA512]::Create().ComputeHash([IO.File]::ReadAllBytes($zip)))
  if($hash -cne $packageHash){throw 'Pester 快取 SHA512 不符，拒絕載入。'}

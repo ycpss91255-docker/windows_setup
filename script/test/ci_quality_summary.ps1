@@ -32,3 +32,9 @@ function Write-CIQualityFailureSummary {
   if($States.Coverage -cne 'success'){Add-Content -LiteralPath $SummaryPath -Encoding UTF8 -Value '**未提供完整量測。**'}
  }
 }
+function Write-CIClassifyFallbackNotice {
+ param([string]$Fallback,[Parameter(Mandatory=$true)][string]$SummaryPath)
+ if($Fallback -ceq 'true'){
+  Add-Content -LiteralPath $SummaryPath -Encoding UTF8 -Value @('## PR 變更分類失敗，本次改跑完整套件','','CI 加速未生效；請查看 classify 工作的摘要與記錄，修正後再期待 PR 階段縮小範圍。')
+ }
+}

@@ -18,7 +18,7 @@ try {
  $fixture=Join-Path $env:TEMP ('container_acceptance_'+[guid]::NewGuid().ToString('N'))
  $plan=Get-ContainerAcceptancePlan -ReportDirectory C:/reports -FixtureDirectory $fixture
  Write-Host 'Phase 1: actual PowerShell unit and isolated integration suites.'
- & C:/workspace/script/test/run_ci.ps1 -Layer All -ReportDirectory C:/reports
+ & C:/workspace/script/test/run_ci.ps1 -Layer All -ReportDirectory C:/reports -Parallelism 2
  Write-Host 'Phase 2: private, explicitly synthetic renderer fixture.'
  & C:/workspace/script/test/create_portal_fixture.ps1 -OutputDirectory $fixture
  if($plan.Mode -eq 'LocalSynthetic'){Write-Host 'Local mode: Go contract checks use synthetic evidence; actual local PowerShell metadata is preserved in reports/public. This is not published CI evidence.'}

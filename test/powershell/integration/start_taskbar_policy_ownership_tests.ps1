@@ -20,8 +20,11 @@ function New-ItemProperty {param($Path,$Name,$Value,$PropertyType,[switch]$Force
 function Get-ItemProperty {param($Path,$LiteralPath,$ErrorAction) $p=if($LiteralPath){$LiteralPath}else{$Path};if($p -eq 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'){return [pscustomobject]@{CurrentBuildNumber=26200;UBR=1}};if($script:values.ContainsKey($p)){return [pscustomobject]$script:values[$p]};return [pscustomobject]@{}}
 function Remove-ItemProperty {param($Path,$Name,$ErrorAction) if($Path -cne $shared -or $Name -notin @('StartLayoutFile','LockedStartLayout')){throw 'owner attempted unrelated cleanup'};$script:values[$Path].Remove($Name);$script:kinds[$Path].Remove($Name);$script:writes++}
 function Set-Content {param($LiteralPath,$Value,$Encoding,$ErrorAction) if(-not $LiteralPath.StartsWith($temp+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'outside TEMP content write'};Microsoft.PowerShell.Management\Set-Content @PSBoundParameters}
+$global:StartPinsExportInProcess=$true
 function Export-StartLayout {param($Path,$ErrorAction) if(-not $Path.StartsWith($temp+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'outside TEMP export'};$script:exports++;[IO.File]::WriteAllText($Path,'{"pinnedList":[]}')}
 function Invoke-SetupTaskbarNativeAutoHide {param($ModuleRoot,[bool]$Apply) $script:nativeStubCalls++;return [uint32]1}
+function Get-SetupTaskbarPersistedAutoHide {return $true}
+function Set-SetupTaskbarPersistedAutoHide {}
 function Export-SetupTaskbarBackup {param($Path) if(-not $Path.StartsWith($temp+'\',[StringComparison]::OrdinalIgnoreCase)){throw 'outside TEMP backup'}}
 function Add-Type {throw 'Native AppBar compilation must stay isolated'}
 function Start-Sleep {param($Seconds) if($Seconds -ne 45){throw 'unexpected delay'}}
