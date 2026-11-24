@@ -87,6 +87,7 @@ jobs:
       test_scope: ${{ steps.classify.outputs.test_scope || steps.fallback.outputs.test_scope }}
       affected_tests: ${{ steps.classify.outputs.affected_tests }}
       doc_tests: ${{ steps.classify.outputs.doc_tests }}
+      classify_fallback: ${{ steps.classify.outputs.classify_fallback || steps.fallback.outputs.classify_fallback || 'false' }}
     steps:
       - name: 取得完整歷史以計算 PR 變更
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -99,6 +100,11 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha || github.sha }}
           path: base-source
           persist-credentials: false
+      - name: 在 Linux 以暫時倉庫確認分類器不會退回完整套件
+        shell: pwsh
+        run: |
+          . ./script/test/ci_classify_smoke.ps1
+          Invoke-CIClassifierSmoke -ClassifierPath ./script/test/ci_classify.ps1 | Out-Null
       - name: 以基底版本的規則依 diff 選出受影響的工作
         id: classify
         continue-on-error: true
@@ -113,7 +119,8 @@ jobs:
         if: steps.classify.outcome != 'success'
         shell: pwsh
         run: |
-          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value @('select_tests=true','select_powershell_coverage=true','select_coverage_aggregation=true','select_requirements_gate=true','select_docker_tests=true','select_oobe_payload=true','select_doc_checks=false','select_go_tests=false','shard_count=1','shard_matrix=[0]','pr_full=false','test_scope=full')
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value @('select_tests=true','select_powershell_coverage=true','select_coverage_aggregation=true','select_requirements_gate=true','select_docker_tests=true','select_oobe_payload=true','select_doc_checks=false','select_go_tests=false','shard_count=1','shard_matrix=[0]','pr_full=false','test_scope=full','classify_fallback=true')
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value @('## PR 變更分類步驟失敗，改跑完整套件','','CI 加速未生效；請查看 classify 工作的記錄。')
 
   doc-checks:
     name: 文件輕量檢查
@@ -643,6 +650,7 @@ jobs:
           COVERAGE_RESULT: ${{ needs.coverage-aggregation.result }}
           EVENT_NAME: ${{ github.event_name }}
           CLASSIFY_RESULT: ${{ needs.classify.result }}
+          CLASSIFY_FALLBACK: ${{ needs.classify.outputs.classify_fallback }}
           DOC_CHECKS_RESULT: ${{ needs.doc-checks.result }}
           GO_TESTS_RESULT: ${{ needs.go-tests.result }}
           SELECT_TESTS: ${{ needs.classify.outputs.select_tests }}
@@ -660,6 +668,7 @@ jobs:
           $selection=@{Tests=$env:SELECT_TESTS;Requirements=$env:SELECT_REQUIREMENTS;Docker=$env:SELECT_DOCKER;Payload=$env:SELECT_PAYLOAD;PowerShellCoverage=$env:SELECT_POWERSHELL_COVERAGE;Coverage=$env:SELECT_COVERAGE;DocChecks=$env:SELECT_DOC_CHECKS;GoTests=$env:SELECT_GO_TESTS}
           $states=Resolve-CIRollupStates -Results $states -Selection $selection -EventName $env:EVENT_NAME
           Write-CIQualityFailureSummary -States $states -SummaryPath $env:GITHUB_STEP_SUMMARY
+          Write-CIClassifyFallbackNotice -Fallback $env:CLASSIFY_FALLBACK -SummaryPath $env:GITHUB_STEP_SUMMARY
           Assert-CIResults $states
 
   release:
