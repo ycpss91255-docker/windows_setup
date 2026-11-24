@@ -252,6 +252,9 @@ function Get-SetupDriverLiveDevices {
      $signer=Get-SetupDriverPublishedSigner -PublishedName ([string]$live.InfPath)
      $device.DriverSigned=($signer -ieq 'Microsoft Windows Hardware Compatibility Publisher')
      $bound=-not [string]::IsNullOrEmpty([string]$signer)
+     # Windows 內建驅動（INF 不是 oemNN.inf）不在 pnputil /enum-drivers 清單內；供應商為 Microsoft 時視為已由系統簽章，
+     # 讓計畫走既有的「原廠目標取代通用驅動」安裝路徑，安裝後仍以 pnputil 簽署者嚴格讀回。
+     if(-not $bound -and [string]$live.InfPath -notmatch '^oem\d+\.inf$' -and [string]$live.DriverProvider -eq 'Microsoft'){$device.DriverSigned=$true;$bound=$true}
     }
    }
    Add-Member -InputObject $device -NotePropertyName LiveBound -NotePropertyValue $bound -Force

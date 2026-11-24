@@ -19,14 +19,14 @@ function Get-PnpDeviceProperty {param([string]$InstanceId,[string]$KeyName,$Erro
  $version=if($script:installed){[string]$script:child.TargetVersion}elseif($bound){[string]$script:cfg.LiveVersion}else{$null}
  switch($KeyName){
   'DEVPKEY_Device_DriverVersion'{return [pscustomobject]@{Data=$version}}
-  'DEVPKEY_Device_DriverProvider'{return [pscustomobject]@{Data=$(if($bound){[string]$script:child.Provider}else{$null})}}
-  'DEVPKEY_Device_DriverInfPath'{return [pscustomobject]@{Data=$(if($bound){[string]$script:child.PublishedName}else{$null})}}
+  'DEVPKEY_Device_DriverProvider'{return [pscustomobject]@{Data=$(if($script:installed){[string]$script:child.Provider}elseif($bound -and $script:cfg.LiveProvider){[string]$script:cfg.LiveProvider}elseif($bound){[string]$script:child.Provider}else{$null})}}
+  'DEVPKEY_Device_DriverInfPath'{return [pscustomobject]@{Data=$(if($script:installed){[string]$script:child.PublishedName}elseif($bound -and $script:cfg.LiveInf){[string]$script:cfg.LiveInf}elseif($bound){[string]$script:child.PublishedName}else{$null})}}
   default{return [pscustomobject]@{Data=@($script:child.HardwareIds)}}
  }
 }
 function Get-SetupDriverEnumDriversXmlText {
  $script:enumCalls++
- $signer=[string]$script:cfg.Signer
+ $signer=if($script:installed){[string]$fx.SignerName}else{[string]$script:cfg.Signer}
  if(-not $signer){return '<PnpUtil></PnpUtil>'}
  return ('<?xml version="1.0" encoding="utf-8"?><PnpUtil><Driver DriverName="'+$script:child.PublishedName+'"><OriginalName>x.inf</OriginalName><SignerName>'+$signer+'</SignerName></Driver></PnpUtil>')
 }
@@ -82,6 +82,18 @@ Assert ($script:installs -eq 1 -and @($r.Results|Where-Object Status -eq 'Update
 $script:SetupDriverReadbackWaited=150
 $r=Invoke-Child -Child $c -Config @{liveAt=20;enumAt=0;LiveVersion=[string]$c.TargetVersion;Signer=$good} -Settle -KeepBudget
 Assert (@($r.Results|Where-Object Status -eq 'Unverified').Count -eq 1 -and (Total) -eq 0 -and [string]$r.Results[0].Reason -match '額度已用盡') '共用額度用盡時不再等待並說明'
+
+# 現場（2026-11-25 MEWMIProv）：子元件綁到 Windows 內建 c_swcomponent.inf（Microsoft、10.0.26100.1），pnputil 的 /enum-drivers 不列內建驅動，查不到簽署者
+$c=@($fx.Children|Where-Object Id -eq 'mei_wmi')[0]
+$r=Invoke-Child -Child $c -Config @{liveAt=0;enumAt=0;LiveVersion='10.0.26100.1';LiveProvider='Microsoft';LiveInf='c_swcomponent.inf';Signer=''} -Settle
+Assert ($script:installs -eq 1 -and @($r.Results|Where-Object Status -eq 'Updated').Count -eq 1 -and $r.Failures.Count -eq 0) '子元件綁在內建驅動時應視為原廠目標取代通用驅動，走既有安裝路徑並以 pnputil 簽署者讀回 Updated'
+Assert ((Total) -eq 0) '內建驅動不需要等待 150 秒'
+# 內建 INF 的豁免只限 Microsoft 供應商：其他供應商的非 oem INF 仍須有簽署者，否則 Unverified
+$r=Invoke-Child -Child $c -Config @{liveAt=0;enumAt=0;LiveVersion='1.0.0.0';LiveProvider='Contoso';LiveInf='contoso.inf';Signer=''} -Settle
+Assert (@($r.Results|Where-Object Status -eq 'Unverified').Count -eq 1 -and $script:installs -eq 0) '非 Microsoft 供應商且查不到簽署者時不得視為已簽署'
+# 內建驅動的豁免不影響 oem 套件：Microsoft 供應商但 oem INF，簽署者不符仍 Unverified
+$r=Invoke-Child -Child $c -Config @{liveAt=0;enumAt=0;LiveVersion='10.0.26100.1';LiveProvider='Microsoft';LiveInf='oem77.inf';Signer='Contoso Test Publisher'} -Settle
+Assert (@($r.Results|Where-Object Status -eq 'Unverified').Count -eq 1 -and $script:installs -eq 0) 'oem INF 簽署者不符時不因供應商為 Microsoft 而放行'
 
 # 非「剛安裝父驅動」情境（VerifyOnly、未安裝任何驅動）：不改用即時屬性、不等待、不放寬
 $r=Invoke-Child -Child $c -Config @{liveAt=0;enumAt=0;LiveVersion=[string]$c.TargetVersion;Signer=$good}
