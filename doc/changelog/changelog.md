@@ -5,6 +5,8 @@
 ## [Unreleased]
 ### Changed（變更）
 
+- 開頭的網路檢查改為白話提示：偵測到網際網路時只顯示一行並直接繼續；只有區域網路、離線或無法判斷時，說明影響（Windows 更新與線上下載 OpenSSH 可能失敗，其他設定可繼續），輸入 R 可重複重新檢查、Enter 繼續，其他輸入會重新詢問。此提示與 SSH 設定無關，也不改變任何階段結果；0x8024402C 與 DNS／代理說明移至 README。
+
 - 倉庫已移至 `ycpss91255-lab` 組織：README、Release 下載與品質報表連結改用 `https://github.com/ycpss91255-lab/windows_setup` 及 `https://ycpss91255-lab.github.io/windows_setup/`，舊網址不保證持續轉址。
 
 - 第 03 模組停用休眠並移除 `hiberfil.sys`，快速啟動一併停用，冷開機可能稍慢；`-VerifyOnly` 與重開後驗收會核對。需要時可自行執行 `powercfg /hibernate on` 重新啟用。
