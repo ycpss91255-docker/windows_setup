@@ -50,7 +50,7 @@ $fixtureState.Board=''
 & (Join-Path $core 'start_windows.ps1') -NonInteractive -DriverPackagePath $payload -ConfirmedBoard NUC8i7HVB -ConfirmationComputer $env:COMPUTERNAME
 Assert ($fixtureState.Forwarded.Path -eq $payload -and $fixtureState.Forwarded.Board -eq 'NUC8i7HVB' -and $fixtureState.Forwarded.Computer -eq $env:COMPUTERNAME) '真windows入口把非互動確認送到configure'
 # Retry refreshes the hardware rather than retaining the original unknown result.
-$fixtureState.Board='';$fixtureState.Answers.Enqueue('r');$fixtureState.Answers.Enqueue('')
+$fixtureState.Board='';$fixtureState.Answers.Enqueue('r');$fixtureState.Answers.Enqueue('n')
 $fixtureState.RefreshOnRead=$true
 function Read-Host {param($Prompt);$fixtureState.PromptCount++;if(-not $fixtureState.Answers.Count){throw 'Unexpected prompt'};$answer=$fixtureState.Answers.Dequeue();if($fixtureState.RefreshOnRead -and $answer -eq 'r'){$fixtureState.Board='NUC8i7HNB'};return $answer}
 $request=Select-SetupDriverRequest -PackageRoot (Split-Path $core -Parent) -Interactive $true

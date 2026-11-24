@@ -1,0 +1,131 @@
+Caption                 :
+Description             :
+InstallDate             :
+Name                    :
+Status                  :
+CreationClassName       :
+Started                 :
+StartMode               :
+SystemCreationClassName :
+SystemName              :
+ClassGuid               :
+CompatID                : PCI\VEN_8086&DEV_A127&REV_31
+DeviceClass             :
+DeviceID                : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\3&00000000&0&F0
+DeviceName              : PCI 資料擷取以及訊號處理控制器
+DevLoader               :
+DriverDate              :
+DriverName              :
+DriverProviderName      :
+DriverVersion           :
+FriendlyName            :
+HardWareID              : PCI\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31
+InfName                 :
+IsSigned                :
+Location                : PCI bus 0, device 30, function 0
+Manufacturer            :
+PDO                     : \Device\NTPNP_PCI0016
+Signer                  :
+PSComputerName          :
+CimClass                : root/cimv2:Win32_PnPSignedDriver
+CimInstanceProperties   : {Caption, Description, InstallDate, Name...}
+CimSystemProperties     : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Caption                 :
+Description             :
+InstallDate             :
+Name                    :
+Status                  :
+CreationClassName       :
+Started                 :
+StartMode               :
+SystemCreationClassName :
+SystemName              :
+ClassGuid               :
+CompatID                :
+DeviceClass             :
+DeviceID                : ACPI\INT3515\0
+DeviceName              :
+DevLoader               :
+DriverDate              :
+DriverName              :
+DriverProviderName      :
+DriverVersion           :
+FriendlyName            :
+HardWareID              :
+InfName                 :
+IsSigned                :
+Location                :
+Manufacturer            :
+PDO                     :
+Signer                  :
+PSComputerName          :
+CimClass                : root/cimv2:Win32_PnPSignedDriver
+CimInstanceProperties   : {Caption, Description, InstallDate, Name...}
+CimSystemProperties     : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Caption                 :
+Description             :
+InstallDate             :
+Name                    :
+Status                  :
+CreationClassName       :
+Started                 :
+StartMode               :
+SystemCreationClassName :
+SystemName              :
+ClassGuid               :
+CompatID                : PCI\VEN_8086&DEV_A131&REV_31
+DeviceClass             :
+DeviceID                : PCI\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\3&00000000&0&A2
+DeviceName              : PCI 資料擷取以及訊號處理控制器
+DevLoader               :
+DriverDate              :
+DriverName              :
+DriverProviderName      :
+DriverVersion           :
+FriendlyName            :
+HardWareID              : PCI\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31
+InfName                 :
+IsSigned                :
+Location                : PCI bus 0, device 20, function 2
+Manufacturer            :
+PDO                     : \Device\NTPNP_PCI0006
+Signer                  :
+PSComputerName          :
+CimClass                : root/cimv2:Win32_PnPSignedDriver
+CimInstanceProperties   : {Caption, Description, InstallDate, Name...}
+CimSystemProperties     : Microsoft.Management.Infrastructure.CimSystemProperties
+
+Caption                 :
+Description             :
+InstallDate             :
+Name                    :
+Status                  :
+CreationClassName       :
+Started                 :
+StartMode               :
+SystemCreationClassName :
+SystemName              :
+ClassGuid               :
+CompatID                : PCI\VEN_8086&DEV_1911&REV_00
+DeviceClass             :
+DeviceID                : PCI\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\3&00000000&0&40
+DeviceName              : 基本系統裝置
+DevLoader               :
+DriverDate              :
+DriverName              :
+DriverProviderName      :
+DriverVersion           :
+FriendlyName            :
+HardWareID              : PCI\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00
+InfName                 :
+IsSigned                :
+Location                : PCI bus 0, device 8, function 0
+Manufacturer            :
+PDO                     : \Device\NTPNP_PCI0004
+Signer                  :
+PSComputerName          :
+CimClass                : root/cimv2:Win32_PnPSignedDriver
+CimInstanceProperties   : {Caption, Description, InstallDate, Name...}
+CimSystemProperties     : Microsoft.Management.Infrastructure.CimSystemProperties
