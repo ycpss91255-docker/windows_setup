@@ -43,3 +43,13 @@ foreach($role in @('Display','Theme')){
  Assert ($script:writes -eq $before -and ([NUC8Display.Display]::Applied+[NUC8Theme]::Applied) -eq $beforeNative) ('fresh '+$role+' verification does not reapply native APIs or preferences')
 }
 Assert (-not (Test-Path -LiteralPath (Join-Path $temp 'NUC8-Setup'))) 'Display and Theme never create legacy public result authority'
+
+# The public caller must explain incomplete pixel verification without waking Explorer.
+[NUC8Theme]::AutoHidden=$true
+$before=$script:writes;$messages=@(Invoke-SetupGuiRole -PackageRoot $root -Role Theme 3>&1)
+Assert (@($messages|Where-Object {$_ -is [Management.Automation.WarningRecord] -and $_.Message -match '工作列.*未驗證'}).Count -eq 1 -and @($messages|Where-Object {$_.Success -eq $true -and -not $_.TaskbarPixelsVerified}).Count -eq 1) 'public theme apply reports hidden pixels unverified while keeping success'
+$before=$script:writes;$messages=@(Invoke-SetupGuiFreshVerification -PackageRoot $root -Role Theme 3>&1)
+Assert (@($messages|Where-Object {$_ -is [Management.Automation.WarningRecord] -and $_.Message -match '工作列.*未驗證'}).Count -eq 1 -and @($messages|Where-Object {$_.Success -eq $true -and -not $_.TaskbarPixelsVerified}).Count -eq 1 -and $script:writes -eq $before) 'public VerifyOnly reports hidden pixels without changes'
+[NUC8Theme]::AutoHidden=$false
+$messages=@(Invoke-SetupGuiRole -PackageRoot $root -Role Theme -VerifyOnly 3>&1)
+Assert (@($messages|Where-Object {$_ -is [Management.Automation.WarningRecord]}).Count -eq 0 -and @($messages|Where-Object {$_.TaskbarPixelsVerified -eq $true}).Count -eq 1) 'verified visible dark pixels need no warning'

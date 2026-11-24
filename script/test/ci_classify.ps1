@@ -15,7 +15,7 @@ $script:CISharedPathRules=@(
  @{Name='version';Pattern='^\.version$'},
  @{Name='container';Pattern='^(dockerfile$|compose\.yaml$|script/docker/)'},
  @{Name='ci_tools';Pattern='^script/test/(ci_|run_ci\.ps1|test_report|powershell_coverage|run_repo_coverage|repo_coverage)'},
- @{Name='test_support';Pattern='^test/powershell/(helpers|support|coverage|fixtures)/'},
+ @{Name='test_support';Pattern='^(test/powershell/(helpers|support|coverage)/|test/powershell/fixtures/[^/]+\.(ps1|psm1|psd1|cmd|bat)$)'},
  @{Name='path_registry';Pattern='^core/paths\.'},
  @{Name='go_source';Pattern='(\.go$|^test/go/)'}
 )
@@ -120,6 +120,30 @@ function Get-CISharedPathRule {
  return $null
 }
 
+function Get-CIFixtureDirectory {
+ # test/powershell/fixtures/<目錄>/<檔案>：現場重放資料，回傳目錄名；fixtures 根目錄的散檔屬於共用輔助，不在此列。
+ param([string]$Path)
+ if($Path -cmatch '^test/powershell/fixtures/([A-Za-z0-9_][A-Za-z0-9_.-]*)/.+'){return $Matches[1]}
+ return $null
+}
+
+function Get-CIFixtureSuites {
+ # suite 以目錄名組路徑讀取 fixture，所以用「fixtures/<目錄>」比對；非 suite 檔（輔助程式）也引用同一目錄時無法確定影響範圍，回傳 $null 由呼叫端選完整套件。
+ param([object[]]$Index,[string]$Directory)
+ $needle='fixtures/'+$Directory.ToLowerInvariant()
+ $pattern='(?<![a-z0-9_.-])'+[regex]::Escape($needle)+'(?![a-z0-9_.-])'
+ $found=New-Object Collections.Generic.HashSet[string]([StringComparer]::Ordinal)
+ foreach($file in $Index){
+  if($file.Lower.StartsWith('test/powershell/fixtures/'+$Directory.ToLowerInvariant()+'/')){continue}
+  if(-not($file.Text -match $pattern)){continue}
+  # 正式程式碼不得引用測試資料（只可能是註解），不是載入者。
+  if($file.Lower -match '^(core|modules|drivers)/'){continue}
+  $suite=Get-CISuiteName $file.Path
+  if(-not $suite){return $null}
+  [void]$found.Add($suite)
+ }
+ return ,@($found|Sort-Object)
+}
 function Get-CIScopedTests {
  # 只在每個變更路徑都能經由測試內容的引用鏈對應到 suite 時縮小；任何無法判斷的情況回傳完整範圍。
  param([string]$Root,[string[]]$ChangedPaths,[int]$MaxSuites=0)
@@ -135,16 +159,24 @@ function Get-CIScopedTests {
  $code=@($paths|Where-Object {-not(Test-CIDocumentPath $_)})
  $suites=New-Object Collections.Generic.HashSet[string]([StringComparer]::Ordinal)
  $needIndex=@()
+ $fixtureDirectories=New-Object Collections.Generic.HashSet[string]([StringComparer]::Ordinal)
  foreach($path in $code){
   $own=Get-CISuiteName $path
   if($own){
    if(Test-Path -LiteralPath (Join-Path $Root $path) -PathType Leaf){[void]$suites.Add($own)}
    continue
   }
+  $fixtureDirectory=Get-CIFixtureDirectory $path
+  if($fixtureDirectory){[void]$fixtureDirectories.Add($fixtureDirectory);continue}
   $needIndex+=$path
  }
- if($needIndex.Count -gt 0){
+ if($needIndex.Count -gt 0 -or $fixtureDirectories.Count -gt 0){
   $index=Get-CIReferenceIndex -Root $Root
+  foreach($directory in $fixtureDirectories){
+   $fixtureSuites=Get-CIFixtureSuites -Index $index -Directory $directory
+   if($null -eq $fixtureSuites -or @($fixtureSuites).Count -eq 0){return Get-CIFullScope ('fixture 目錄沒有單純的測試引用：'+$directory)}
+   foreach($name in $fixtureSuites){[void]$suites.Add($name)}
+  }
   $codeFiles=@($index|Where-Object {-not(Get-CISuiteName $_.Path)})
   $hubs=@{}
   foreach($path in $needIndex){

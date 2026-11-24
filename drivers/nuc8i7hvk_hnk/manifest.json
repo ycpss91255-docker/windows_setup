@@ -2279,6 +2279,7 @@
         },
         {
           "Id": "sunrisepoint_hsystemlpss",
+          "NamingOnly": true,
           "InfPath": "DriverFiles/production/Windows10-x64/SunrisePoint-HSystemLPSS.inf",
           "CatalogPath": "DriverFiles/production/Windows10-x64/SunrisePoint-H.cat",
           "InfSHA256": "A3FDCE5FBD8518A5282472ED9B2F07317982505A7C21A4B693324A84D53A2576",
