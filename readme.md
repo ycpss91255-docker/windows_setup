@@ -1,14 +1,14 @@
 # windows_setup
 
-[![Windows CI](https://github.com/ycpss91255/windows_setup/actions/workflows/windows_tests.yml/badge.svg)](https://github.com/ycpss91255/windows_setup/actions/workflows/windows_tests.yml)
+[![Windows CI](https://github.com/ycpss91255-lab/windows_setup/actions/workflows/windows_tests.yml/badge.svg)](https://github.com/ycpss91255-lab/windows_setup/actions/workflows/windows_tests.yml)
 
 ![Runtime: PowerShell | C#](https://img.shields.io/badge/Runtime-PowerShell%20%7C%20C%23-blue?style=flat-square)
-[![Coverage](https://ycpss91255.github.io/windows_setup/main/coverage.svg)](https://ycpss91255.github.io/windows_setup/)
+[![Coverage](https://ycpss91255-lab.github.io/windows_setup/main/coverage.svg)](https://ycpss91255-lab.github.io/windows_setup/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-blue?style=flat-square)](license)
 
 新範圍成功部署後，上方覆蓋率徽章顯示最近一次成功部署 main 的 PowerShell/C# runtime 可執行行覆蓋率；舊徽章在更新前仍代表當時的口徑。點擊徽章可查閱該次報表與來源。若部署失敗，徽章保留上次成功結果，請以 Windows CI 與 Actions 的最新執行結果為準。PR 不更新公開報表。
 
-使用 **v0.2.5 或更新版本**時，在對應的 [GitHub Release](https://github.com/ycpss91255/windows_setup/releases) Assets 下載 `windows_setup_report_<version>.zip`，解壓後開啟 `index.html`，即可查看原生與容器報表及各自的量測範圍（Scope）。v0.2.4 仍使用該版既有的原始品質附件與歷史報表頁，不提供此 ZIP。
+使用 **v0.2.5 或更新版本**時，在對應的 [GitHub Release](https://github.com/ycpss91255-lab/windows_setup/releases) Assets 下載 `windows_setup_report_<version>.zip`，解壓後開啟 `index.html`，即可查看原生與容器報表及各自的量測範圍（Scope）。v0.2.4 仍使用該版既有的原始品質附件與歷史報表頁，不提供此 ZIP。
 
 Windows 設定工具：以 Init 與 Windows 兩個入口完成帳號初始化、模組設定與後續驗收。本文以繁體中文提供完整操作說明；版本摘要見 [變更紀錄](doc/changelog/changelog.md)，實作與驗證細節以中文 Git 提交及 GitHub Release 為準。
 
@@ -370,6 +370,31 @@ modules\uac\apply_uac_settings.cmd -Restore
 每次都讀回政策確認，組織政策覆寫或錯誤會回報失敗。結果在 `%ProgramData%\NUC8-Setup\UAC-Result.json`；`windows.cmd -VerifyOnly` 也核對本輪結果。還原後，針對一鍵流程的「管理員免提示」驗證可能不通過，這代表目前採用還原的設定。
 
 政策值依據：[Microsoft UAC 設定及組態](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/user-account-control/settings-and-configuration/)。
+## 休眠與快速啟動
+
+`windows.cmd` 第 3 階段除了把插電時的自動睡眠／休眠逾時設為永不，也會執行 `powercfg /hibernate off` 停用休眠：
+
+- 系統磁碟的 `hiberfil.sys` 會移除，大小通常是實體記憶體的一定比例（數 GB），可釋放磁碟空間。
+- 快速啟動依賴休眠，會一併停用。關機改為完整關機，冷開機可能比原本稍慢；重新開機與手動睡眠不受影響。
+- 雙系統環境中，快速啟動會讓 Windows 的 NTFS 分割區停在休眠狀態，另一個作業系統掛載時可能只能唯讀或有資料不一致風險；停用後分割區會正常卸載。
+
+在工具包根目錄可單獨執行：
+
+```cmd
+modules\power\apply_power_settings.cmd
+modules\power\apply_power_settings.cmd -VerifyOnly
+```
+
+套用後讀回 `HKLM\SYSTEM\CurrentControlSet\Control\Power` 的 `HibernateEnabled`（沒有時採用 `HibernateEnabledDefault`），須為 DWORD `0`，且 `hiberfil.sys` 已不存在；`powercfg` 失敗或被組織政策覆寫時回報失敗。`-VerifyOnly` 只讀取這兩項，不修改設定。結果在 `%ProgramData%\NUC8-Setup\Power-Result.json`；`windows.cmd -VerifyOnly` 與重開後驗收也核對本輪結果。
+
+本工具目前沒有休眠的 `-Restore` 入口。之後若要重新啟用休眠，以系統管理員身分開啟終端機執行：
+
+```cmd
+powercfg /hibernate on
+```
+
+`hiberfil.sys` 會重新建立；快速啟動是否恢復取決於「控制台 > 電源選項 > 選擇電源按鈕的功能」中的設定，本工具不修改該設定。重新啟用後，一鍵流程的「休眠停用」驗收會不通過，這代表目前採用自行啟用的設定。
+
 ## 非必要資料分享與隱私設定
 
 `windows.cmd` 會在原本的 Win11Debloat 清理階段末端套用下列隱私政策，主流程仍是 19 個階段。也可在工具包根目錄單獨執行；CMD 會沿用目前帳號並要求必要的管理員權限：
@@ -415,7 +440,7 @@ modules\start_menu\apply_start_menu_settings.cmd -ApplyPolicy
 | --- | --- |
 | 01 | 此電腦管理員提權免提示、目前帳號開機自動登入 |
 | 02 | 停用磁碟分頁檔（虛擬記憶體） |
-| 03 | 插電時停用自動睡眠／休眠 |
+| 03 | 插電時停用自動睡眠／休眠逾時；停用休眠、移除休眠檔並一併停用快速啟動 |
 | 04 | OpenSSH Server、區域網路防火牆、SSH 目錄與 hosts／SSH 同步框架 |
 | 05 | Windows Update 建議更新 |
 | 06 | 已選機型獨立包的驅動檢查與更新；未選包或 Generic 顯示略過 |
@@ -482,7 +507,7 @@ Windows 啟用由使用者另外處理；本工具不處理 Ubuntu 分割或安�
 | `modules\explorer` | 隱藏檔與副檔名 |
 | `modules\cleanup` | 舊系統與資料夾殘留 |
 
-主流程結果位於 `reports`；各模組的執行紀錄位於各自資料夾或畫面提示的 `%ProgramData%\NUC8-Setup`。既有程式碼不再全部平鋪在根目錄，請勿只取出其中一支腳本執行。
+主流程結果位於 `reports`；各模組的執行紀錄位於各自資料夾或畫面提示的 `%ProgramData%\NUC8-Setup`。電源模組的 `Power-Before-<時間>.txt` 與 `Power-After.txt` 也寫在這裡，不再寫入工具包；舊版已在工具包 `modules\power` 留下的同名檔案不會被自動刪除，它們屬於當時那臺電腦，確認不需要後可自行刪除，避免帶到其他電腦。既有程式碼不再全部平鋪在根目錄，請勿只取出其中一支腳本執行。
 
 ## 模組補充說明
 
@@ -490,7 +515,7 @@ Windows 啟用由使用者另外處理；本工具不處理 Ubuntu 分割或安�
 
 1. Apply-AutologonSettings：以目前帳號設定自動登入；密碼透過 Microsoft Autologon 儲存，不寫在工具包腳本。
 2. Apply-PagefileSettings：停用磁碟分頁檔；重開機後完全生效。
-3. Apply-PowerSettings：插電時停用自動睡眠和休眠；保留螢幕逾時設定。
+3. Apply-PowerSettings：插電時停用自動睡眠和休眠逾時；停用休眠並移除 `hiberfil.sys`，快速啟動一併停用；保留螢幕逾時設定。詳見[休眠與快速啟動](#休眠與快速啟動)。
 4. Apply-SSHSettings：安裝並啟用 OpenSSH Server；自動啟動，防火牆限制 LocalSubnet。
 5. Install-WindowsUpdates：執行本輪 Windows 建議更新，顯示心跳進度並記錄是否需要重開機。
 6. Install-Drivers：NUC8 且已選擇獨立包才核對機型與 SHA256 後安裝；未選包或 Generic 略過。異常裝置仍在驗收中檢查。
@@ -551,7 +576,7 @@ Hosts／SSH 獨立入口為 `modules\ssh\apply_hosts_sync.cmd`、`sync_hosts.cmd
 
 以下可以從全新的 Release 下載開始，不使用任何既有 Downloads／USB 資產。準備電腦需要 Windows 與網路；此階段只準備檔案，不執行 Init、Windows 設定或 Autologon。
 
-1. 開啟 [Releases](https://github.com/ycpss91255/windows_setup/releases)，選擇要使用的版本，先閱讀該版本說明與已知限制。標示 **Pre-release** 的版本是預覽版，不能當作已完成實機驗收。展開該版本的 **Assets**，下載 **Source code (zip)**。
+1. 開啟 [Releases](https://github.com/ycpss91255-lab/windows_setup/releases)，選擇要使用的版本，先閱讀該版本說明與已知限制。標示 **Pre-release** 的版本是預覽版，不能當作已完成實機驗收。展開該版本的 **Assets**，下載 **Source code (zip)**。
 2. 在檔案總管對下載的 ZIP 按右鍵 →「全部解壓縮」。打開解壓後資料夾，直到同一層可看到 `init.cmd`、`windows.cmd`、`readme.md`、`core` 與 `modules`；這一層就是工具包根目錄。可將它重新命名為 `windows_setup`，保留完整內容，**不要直接在 ZIP 視窗內執行**。解壓與執行位置必須可寫入，而且不能是稍後會被清理的桌面。
 3. 開啟 [Microsoft Sysinternals Autologon 官方頁](https://learn.microsoft.com/en-us/sysinternals/downloads/autologon)，按 **Download Autologon** 取得 `Autologon.zip`，另行「全部解壓縮」。從中找到 **`Autologon64.exe`**；不要選 `Autologon.exe` 或 `Autologon64a.exe`，這套工具使用 x64 版本。
 4. 在 `Autologon64.exe` 按右鍵 →「內容」→「數位簽章」，選擇 Microsoft Corporation 的簽章並按「詳細資料」，確認顯示此數位簽章正常。若沒有簽章、不是 Microsoft 或驗證失敗，先停止，重新從官方取得並排查驗證問題，不要略過。將核對後的 **`Autologon64.exe`** 複製到剛才工具包根目錄的 **`modules\accounts`**，最終位置為 `windows_setup\modules\accounts\Autologon64.exe`；不用雙擊 EXE。

@@ -51,6 +51,27 @@ func TestEventMetadataFailsClosed(t *testing.T) {
 	}
 }
 
+// TestEventRepositoryUsesCurrentOrganization pins literal names so a constant
+// edit cannot silently move both sides of the comparison together.
+func TestEventRepositoryUsesCurrentOrganization(t *testing.T) {
+	sha := strings.Repeat("a", 40)
+	base := strings.Repeat("b", 40)
+	event := func(repo string) []byte {
+		return []byte(fmt.Sprintf(`{"repository":{"full_name":"%s"},"number":3,"pull_request":{"number":3,"base":{"sha":"%s","ref":"main","repo":{"full_name":"%s"}},"head":{"sha":"%s"}}}`, repo, base, repo, sha))
+	}
+	if _, e := parseSourceEvent("pull_request", "refs/pull/3/merge", sha, base, event("ycpss91255-lab/windows_setup")); e != nil {
+		t.Fatalf("current organization event rejected: %v", e)
+	}
+	for _, old := range []string{"ycpss91255/windows_setup", "ycpss91255-docker/windows_setup"} {
+		if _, e := parseSourceEvent("pull_request", "refs/pull/3/merge", sha, base, event(old)); e == nil {
+			t.Fatalf("former repository name accepted: %s", old)
+		}
+	}
+	if fixedRemote != "https://github.com/ycpss91255-lab/windows_setup.git" {
+		t.Fatalf("fetch remote not on current organization: %s", fixedRemote)
+	}
+}
+
 // TestCurrentMainDispatchAdoption uses a local-only temporary repository; no tag or network is created.
 func TestCurrentMainDispatchAdoption(t *testing.T) {
 	if os.Getenv("WINDOWS_SETUP_VERIFY_ADOPTION_GRAPH") != "1" {

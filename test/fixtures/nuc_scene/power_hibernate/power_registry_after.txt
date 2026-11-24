@@ -1,0 +1,20 @@
+﻿
+
+HibernateEnabled        : 0
+HibernateEnabledDefault : 1
+HiberFileSizePercent    : 0
+
+
+
+
+HiberbootEnabled:
+
+
+HiberbootEnabled : 1
+
+
+
+
+
+Test-Path=False (note: may be hidden; see Get-Item above)
+

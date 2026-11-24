@@ -13,7 +13,7 @@ $entry=[Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'core
 Assert (@($entry.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Invoke-SetupVerification'},$true)).Count -eq 1) '正式入口呼叫具名驗收彙整一次'
 $fixture=Join-Path ([IO.Path]::GetTempPath()) ('verify_aggregate_'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($fixture)
 $script:fixtureScripts=Join-Path $fixture 'scripts';[void][IO.Directory]::CreateDirectory($script:fixtureScripts)
-foreach($name in @('apply_uac_settings.ps1','apply_debloat.ps1','audit_nuc.ps1','initialize_ssh_client.ps1','apply_lan_ping_settings.ps1','apply_hosts_sync.ps1','apply_privacy_settings.ps1','apply_display_settings.ps1','apply_theme_settings.ps1','desktop_icon_layout.ps1','apply_pagefile_settings.ps1','apply_copilot_settings.ps1','apply_amd_privacy_settings.ps1','apply_start_menu_settings.ps1','apply_input_method_settings.ps1','apply_terminal_hotkey.ps1','remove_setup_residue.ps1','remove_one_drive.ps1','apply_explorer_settings.ps1')){Copy-Item -LiteralPath (Join-Path $root 'test/powershell/fixtures/verification_module.ps1') -Destination (Join-Path $script:fixtureScripts $name)}
+foreach($name in @('apply_uac_settings.ps1','apply_debloat.ps1','audit_nuc.ps1','initialize_ssh_client.ps1','apply_lan_ping_settings.ps1','apply_hosts_sync.ps1','apply_privacy_settings.ps1','apply_display_settings.ps1','apply_theme_settings.ps1','desktop_icon_layout.ps1','apply_pagefile_settings.ps1','apply_copilot_settings.ps1','apply_amd_privacy_settings.ps1','apply_start_menu_settings.ps1','apply_input_method_settings.ps1','apply_terminal_hotkey.ps1','remove_setup_residue.ps1','remove_one_drive.ps1','apply_explorer_settings.ps1','apply_power_settings.ps1')){Copy-Item -LiteralPath (Join-Path $root 'test/powershell/fixtures/verification_module.ps1') -Destination (Join-Path $script:fixtureScripts $name)}
 Copy-Item -LiteralPath (Join-Path $root 'test/powershell/fixtures/mdns_verification_module.ps1') -Destination (Join-Path $script:fixtureScripts 'apply_mdns_settings.ps1')
 $global:MdnsVerificationCalls=0;$global:MdnsVerificationFixture='Pass'
 $script:fixtureApps=Join-Path $fixture 'apps.txt';[IO.File]::WriteAllText($script:fixtureApps,'Fixture.App')
@@ -60,6 +60,7 @@ try{
   $driverCheck=@($result.Checks|Where-Object Name -eq '已選驅動官方目標')
   Assert ($driverCheck.Count -eq 1 -and $driverCheck[0].Status -eq $(if($mode -in @('Pass','DebloatFeatureFailure')){'Passed'}else{'Failed'})) ('NUC已選包真正走freshdriver檢查而非被fixture誤略過 '+$mode)
   Assert (@($result.Checks|Where-Object Name -eq '非必要資料分享政策').Count -eq 1) ('保留隱私檢查 '+$mode)
+  $powerCheck=@($result.Checks|Where-Object Name -eq '休眠停用（含快速啟動）');Assert ($powerCheck.Count -eq 1 -and $powerCheck[0].Passed -eq ($mode -in @('Pass','DebloatFeatureFailure'))) ('每輪讀取本輪休眠結果 '+$mode)
   $mdnsCheck=@($result.Checks|Where-Object Name -eq 'mDNS 持續公告');Assert ($mdnsCheck.Count -eq 1 -and $mdnsCheck[0].Passed -eq $true) ('每輪真正fresh VerifyOnly公告檢查而非本機解析自證 '+$mode)
   $debloatCheck=@($result.Checks|Where-Object Name -eq '清理功能登錄讀回')
   Assert ($debloatCheck.Count -eq 1) ('每輪有真正Debloat功能fresh讀回 '+$mode)
