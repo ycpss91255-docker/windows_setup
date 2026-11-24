@@ -41,3 +41,98 @@ try{
  [IO.File]::WriteAllText((Join-Path $temp 'summary.json'),'{"Environment":"Windows host"}')
  Reject {Assert-CIContainerReport $temp} 'host報表不可充當container'
 }finally{Remove-Item -LiteralPath $temp -Recurse -Force}
+# PR 分類：只有對應選擇值明確為 false 且工作確實 skipped，才視為通過。
+$required=@('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage')
+$allSelected=@{};$noneSelected=@{};$allSkipped=@{Classify='success';DocChecks='success'};$allSuccess=@{Classify='success';DocChecks='success'}
+foreach($name in $required){$allSelected[$name]='true';$noneSelected[$name]='false';$allSkipped[$name]='skipped';$allSuccess[$name]='success'}
+$allSelected['DocChecks']='false';$noneSelected['DocChecks']='true'
+Assert-CIResults (Resolve-CIRollupStates -Results $allSuccess -Selection $allSelected -EventName pull_request)
+Assert $true '完整套件全部成功仍通過'
+$docOnlyResults=$allSkipped.Clone();$docOnlyResults['DocChecks']='success'
+Assert-CIResults (Resolve-CIRollupStates -Results $docOnlyResults -Selection $noneSelected -EventName pull_request)
+Assert $true '只改文件時重型工作 skipped 且對應選擇為 false 才通過'
+Reject {Assert-CIResults (Resolve-CIRollupStates -Results $allSkipped -Selection $allSelected -EventName pull_request)} '被選中的工作 skipped 不得通過'
+foreach($name in $required){
+ foreach($value in @('true','','True','FALSE',$null,'unknown')){
+  $selection=$noneSelected.Clone();if($null -eq $value){[void]$selection.Remove($name)}else{$selection[$name]=$value}
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $docOnlyResults -Selection $selection -EventName pull_request)} ($name+' 選擇值不是明確 false（'+$value+'）時 skipped 不得通過')
+ }
+ foreach($state in @('failure','cancelled')){
+  $results=$docOnlyResults.Clone();$results[$name]=$state
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $results -Selection $noneSelected -EventName pull_request)} ($name+' 失敗或取消即使選擇為 false 也不得通過')
+ }
+}
+$badDoc=$docOnlyResults.Clone();$badDoc['DocChecks']='failure'
+Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badDoc -Selection $noneSelected -EventName pull_request)} '被選中的文件檢查失敗不得通過'
+$skippedDoc=$docOnlyResults.Clone();$skippedDoc['DocChecks']='skipped'
+Reject {Assert-CIResults (Resolve-CIRollupStates -Results $skippedDoc -Selection $noneSelected -EventName pull_request)} '被選中的文件檢查 skipped 不得通過'
+$notNeeded=$allSuccess.Clone();$notNeeded['DocChecks']='skipped'
+Assert-CIResults (Resolve-CIRollupStates -Results $notNeeded -Selection $allSelected -EventName pull_request)
+Assert $true '完整套件時文件檢查依分類不執行仍通過'
+foreach($state in @('failure','cancelled','skipped','')){
+ $badClassify=$docOnlyResults.Clone();$badClassify['Classify']=$state
+ Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badClassify -Selection $noneSelected -EventName pull_request)} ('分類工作未成功（'+$state+'）時不採信任何跳過')
+}
+$missingClassify=$docOnlyResults.Clone();[void]$missingClassify.Remove('Classify')
+Reject {Assert-CIResults (Resolve-CIRollupStates -Results $missingClassify -Selection $noneSelected -EventName pull_request)} '缺少分類結果不採信任何跳過'
+# 程式碼 PR 只選受影響測試：覆蓋率、聚合、需求驗收與容器依分類略過。
+$scopedSelection=$allSelected.Clone()
+foreach($name in @('Requirements','Docker','PowerShellCoverage','Coverage')){$scopedSelection[$name]='false'}
+$scopedResults=$allSuccess.Clone()
+foreach($name in @('Requirements','Docker','PowerShellCoverage','Coverage')){$scopedResults[$name]='skipped'}
+$scopedResults['DocChecks']='skipped'
+Assert-CIResults (Resolve-CIRollupStates -Results $scopedResults -Selection $scopedSelection -EventName pull_request)
+Assert $true '程式碼 PR 縮小範圍時，依分類略過的重型工作計為通過'
+foreach($state in @('failure','cancelled','skipped')){
+ $badTests=$scopedResults.Clone();$badTests['Tests']=$state
+ Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badTests -Selection $scopedSelection -EventName pull_request)} ('縮小範圍時被選中的受影響測試 '+$state+' 不得通過')
+ $badPayload=$scopedResults.Clone();$badPayload['Payload']=$state
+ Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badPayload -Selection $scopedSelection -EventName pull_request)} ('縮小範圍時被選中的設定包驗證 '+$state+' 不得通過')
+}
+foreach($name in @('Requirements','Docker','PowerShellCoverage','Coverage')){
+ foreach($state in @('failure','cancelled')){
+  $bad=$scopedResults.Clone();$bad[$name]=$state
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $bad -Selection $scopedSelection -EventName pull_request)} ($name+' 已執行卻 '+$state+'，即使分類略過也不得通過')
+ }
+}
+# 沒有明確事件名稱時不得預設為 pull_request：呼叫端忘了帶入時必須失敗，而不是悄悄接受略過。
+$noEvent=$false;try{[void](Resolve-CIRollupStates -Results $scopedResults -Selection $scopedSelection)}catch{$noEvent=$true}
+Assert $noEvent '缺少事件名稱時 Resolve-CIRollupStates 直接拒絕'
+# 非 PR 事件不接受任何分類略過，即使分類輸出被竄改為 false。
+foreach($event in @('push','merge_group','workflow_dispatch','schedule','release','')){
+ foreach($name in $required){
+  $results=$allSuccess.Clone();$results[$name]='skipped'
+  $selection=$allSelected.Clone();$selection[$name]='false'
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $results -Selection $selection -EventName $event)} ('非 PR 事件（'+$event+'）的 '+$name+' 略過不得通過')
+ }
+ Assert-CIResults (Resolve-CIRollupStates -Results $allSuccess -Selection $allSelected -EventName $event)
+ Assert $true ('非 PR 事件（'+$event+'）全部成功仍通過')
+}
+# 非 PR 事件跑完整套件，文件輕量檢查依分類不執行（SELECT_DOC_CHECKS=false、結果 skipped）才是正常輸入。
+$fullNonPr=$allSuccess.Clone();$fullNonPr['DocChecks']='skipped'
+foreach($event in @('merge_group','push','workflow_dispatch','tag')){
+ Assert-CIResults (Resolve-CIRollupStates -Results $fullNonPr -Selection $allSelected -EventName $event)
+ Assert $true ('非 PR 事件（'+$event+'）文件檢查未選取且 skipped 仍通過')
+ $selectedSkipped=$fullNonPr.Clone()
+ $docSelected=$allSelected.Clone();$docSelected['DocChecks']='true'
+ Reject {Assert-CIResults (Resolve-CIRollupStates -Results $selectedSkipped -Selection $docSelected -EventName $event)} ('非 PR 事件（'+$event+'）文件檢查被選取卻 skipped 不得通過')
+ foreach($value in @('','True','FALSE','unknown')){
+  $sel=$allSelected.Clone();$sel['DocChecks']=$value
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $fullNonPr -Selection $sel -EventName $event)} ('非 PR 事件（'+$event+'）文件檢查選擇值不是明確 false（'+$value+'）時 skipped 不得通過')
+ }
+ $noSel=$allSelected.Clone();[void]$noSel.Remove('DocChecks')
+ Reject {Assert-CIResults (Resolve-CIRollupStates -Results $fullNonPr -Selection $noSel -EventName $event)} ('非 PR 事件（'+$event+'）缺少文件檢查選擇值時 skipped 不得通過')
+ foreach($state in @('failure','cancelled')){
+  $badDocNonPr=$fullNonPr.Clone();$badDocNonPr['DocChecks']=$state
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badDocNonPr -Selection $allSelected -EventName $event)} ('非 PR 事件（'+$event+'）文件檢查 '+$state+' 不得通過')
+ }
+ foreach($state in @('failure','cancelled','skipped')){
+  $badClassifyNonPr=$fullNonPr.Clone();$badClassifyNonPr['Classify']=$state
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $badClassifyNonPr -Selection $allSelected -EventName $event)} ('非 PR 事件（'+$event+'）分類工作 '+$state+' 時不採信文件檢查略過')
+ }
+ foreach($name in $required){
+  $other=$fullNonPr.Clone();$other[$name]='skipped'
+  $sel=$allSelected.Clone();$sel[$name]='false'
+  Reject {Assert-CIResults (Resolve-CIRollupStates -Results $other -Selection $sel -EventName $event)} ('非 PR 事件（'+$event+'）文件檢查略過時，其他工作 '+$name+' 略過仍不得通過')
+ }
+}

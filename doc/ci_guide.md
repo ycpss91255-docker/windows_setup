@@ -11,6 +11,33 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File script/test/verify_clien
 
 工作流程位於 .github/workflows/windows_tests.yml：使用 windows-2022、Windows PowerShell 5.1、唯讀 contents 權限，設定執行時間上限與併發控制。Action 固定到已核對的 commit。main 推送、版本標籤、Pull Request 與 workflow_dispatch 都可觸發；ci-rollup 統一呈現測試門檻。
 
+### PR、main 與 tag 的三個階段
+
+Windows 測試依事件分成三個階段，必要檢查名稱 `ci-rollup` 不變：
+
+| 階段 | 事件 | 內容 |
+| --- | --- | --- |
+| push-to-branch（PR） | `pull_request` | `classify` 比對 PR 與 base 的 diff 輸出 `select_*`；只改文件時僅跑 `doc-checks`；程式碼 PR 只跑受影響的 suite、合併標題核對與設定包唯讀驗證；共用路徑或無法判斷時跑完整套件 |
+| push-to-main | `push`（main）、`merge_group` | 一律完整套件，包含 isolated-tests、全源量測、docker-tests、覆蓋率聚合、requirements-gate 與部署 |
+| release | `push` tag | 完整套件加既有發布流程 |
+
+純文件 PR 指所有變更路徑都是根目錄 `*.md`、`license`、`doc/**/*.md` 或 `.github/pull_request_template.md`。第三方內容中的 `LICENSE`、含上層路徑或反斜線的路徑、非 Markdown 檔一律不算文件。文件檢查清單由 `script/test/ci_classify.ps1` 讀取現有 PowerShell 測試推導：列入引用被改文件路徑的測試，以及名稱屬於全域契約（architecture、layout、Markdown 換行）的測試，不在 workflow 內手寫路徑表，並以 `run_ci.ps1 -Suite` 在完整清單檢查之後只執行這些 suite。
+
+分類以 `git diff --no-renames` 取得變更，改名會同時列出舊路徑與新路徑，因此把程式碼改名成 Markdown 不會被當成文件。分類失敗、取不到 diff 或路徑無法判斷時，一律選完整套件（fail open）。
+
+程式碼 PR 的受影響 suite 由 `Get-CIScopedTests` 推導，不手寫路徑表：從每個變更路徑出發，找出文字內容引用它的檔案（完整相對路徑或獨立的檔名），再沿引用鏈往上追，直到碰到 `test/powershell/unit` 或 `integration` 的 suite；被改的測試檔自己一定執行，文件與 `architecture`、`layout`、`markdown_line_ending` 這類全域契約測試一併列入。刪除的檔案以測試中仍存在的引用判斷，改名視為舊路徑刪除加新路徑新增。下列情況一律完整套件：路徑含上層、反斜線或空段；`.github/`、`go.mod`、`go.sum`、`vendor/`、`.version`、容器與 `script/docker/`、`script/test/` 的 CI 與覆蓋率工具、`test/powershell/` 的 helpers／support／coverage 與 fixtures 根目錄的腳本（`fixtures/<目錄>/` 的重放資料與根目錄的資料檔改走引用鏈：suite 以 `fixtures/<目錄>` 或檔名引用時只選這些 suite，被測試輔助程式引用、無人引用或與共用輔助程式同時變更則維持完整套件）、`core/paths.*`；任何 Go 變更（Go 整合測試依賴完整 PowerShell 報告）；任一路徑沒有測試引用；引用鏈超過 300 個檔案，或受影響 suite 超過全部 suite 的一半（縮小收益有限）。登錄表或總入口（對外引用超過 30 個檔案，例如 `core/paths.json`）不當作引用鏈的中繼點，因為它只是列出檔案，不代表依賴。以最近 60 筆合併回放，約七分之一只改文件、近三成可縮小，其餘因 workflow、`core/paths.*`、Go 或共用輔助變動而維持完整套件。縮小範圍時 `isolated-tests` 只執行 `-Suite` 清單與 mergecheck，略過 Go 測試、報表排版、原生證據封裝與合成樣本；`powershell-coverage`、`coverage-aggregation`、`requirements-gate`、`docker-tests` 計為依分類略過。`ci-rollup` 帶入事件名稱，只在 `pull_request` 接受分類略過；`push`、`merge_group`、tag 與手動執行的任何略過都使整體失敗。
+分類工作在 Linux 執行，分類腳本與其載入的檔案不得呼叫 `.exe`（變更路徑以 `git` 取得）；工作內的 `Invoke-CIClassifierSmoke` 以暫時 git 倉庫真實執行 PR 自己的分類器，只改文件的變更必須得到輕量文件檢查，退回完整套件即失敗。分類失敗退回完整套件時，classify 與 ci-rollup 的 step summary 會明確標示「改跑完整套件」並附原因，`classify_fallback` 輸出為 `true`。
+
+無法縮小的程式碼 PR（共用路徑、沒有測試引用、受影響 suite 超過一半）在 PR 階段不再跑完整套件：分類結果改為 `pr_full=true`，`test_scope=scoped` 並以全部 suite 當作 `affected_tests`，`isolated-tests` 依 `shard_count`（受影響 suite 的實測權重總和除以 250 秒，限制在 1 到 4 片）以 `shard_matrix` 展開成矩陣，每片 `-Parallelism 2`；Go 維護工具單元測試（不含需要完整 PowerShell 報告的 `test/go/integration`）由獨立的 `go-tests` 工作以 `Invoke-CIGoUnitTests` 執行（`select_go_tests`）。`powershell-coverage`、`coverage-aggregation`、`requirements-gate`、`docker-tests` 在 PR 階段略過，留給 `merge_group`、main 與 tag；`ci-rollup` 只在 `pull_request` 接受這些分類略過，被選取卻 skipped 的 `go-tests` 仍使整體失敗。取不到 diff、沒有可讀取的根目錄、範圍判斷本身丟出例外或分類失敗仍是完整套件。代價：歷史上 116 次 PR 與合併佇列執行中，isolated-tests 通過但 docker-tests 失敗共 2 次（約 1.7%），這類問題改在合併佇列才被攔下並踢出佇列。
+
+共用規則在 `script/test/ci_classify.ps1` 的 `CISharedPathRules` 逐條命名（workflow、go_module、version、container、ci_tools、test_support、path_registry、go_source），每條各有只靠該規則才走完整的測試，單獨移除任一條就會讓對應路徑被判為可縮小。
+
+分類腳本取自 PR 的基底版本（獨立 checkout 到 `base-source`），PR 不能用自己修改過的規則判斷自己；基底還沒有該腳本、腳本失敗或事件不是 PR 時，由 workflow 內嵌的固定輸出改跑完整套件，不依賴任何 PR 可改的檔案。改到分類規則或 workflow 的 PR 因此一律完整。`ci-rollup` 帶入事件名稱且不設預設值，缺少時直接拒絕，只在 `pull_request` 接受分類略過；`push`、`merge_group`、tag 與手動執行的任何略過都使整體失敗。
+
+登錄表或總入口（對外引用超過 30 個檔案，例如 `core/paths.json`）不當作引用鏈的中繼點，因為它只是列出檔案，不代表依賴。已知限制：以字串拼接或動態組路徑載入的依賴看不到引用；只經由樞紐才與變更檔相連的 suite 會被漏掉。這兩類由 merge_group 完整套件補上；沒有任何測試引用的變更路徑則直接選完整套件，不會因此變成零測試。
+
+已知取捨：縮小範圍的 PR 不執行 Go 測試與全源覆蓋率，可能被引用鏈漏掉的跨檔影響由合併佇列的 merge_group 完整套件在進入 main 之前擋下（必要檢查 `ci-rollup`，無繞過），main 與 tag 再完整執行一次。文件檢查清單只由 PowerShell 測試內容推導，讀取 Markdown 的 Go 測試與 requirements-gate 在純文件 PR 不執行，改由 main、merge_group 與 tag 的完整套件補上，此為已知取捨。`ci-rollup` 只有在分類工作成功、對應 `select_*` 明確為 `false` 且該工作確實 skipped 時，才把略過視為通過；被選中的工作失敗、取消或略過都使整體失敗。這是政策語意變更：純文件 PR 不再於 PR 階段執行全來源量測與容器測試，完整驗證改由 main、merge_group 與 tag 強制。
+
 ### 平行測試與完整證據聚合
 
 原生完整測試、Go 維護工具測試與四片 PowerShell 量測平行執行。聚合核對本次提交、執行 ID、attempt 與來源雜湊後，結合 C# 量測，產生 runtime 覆蓋率及正式報告。
@@ -51,7 +78,7 @@ CI 使用與 base 相同的 GitHub Actions 原生徽章；runtime 覆蓋率使�
 
 每次測試從實際斷言事件及程序退出碼產生 JSON、Markdown、自含 HTML、JUnit XML 與徽章。程序崩潰、缺少斷言事件或任何失敗均不能標成通過。新增 `test/powershell/unit` 或 `integration` 測試會自動列入執行清單。公開報表只包含靜態檢查、單元與隔離整合結果。
 
-PR 的去識別測試附件保留七天；main 通過全部必要門檻後更新 Pages，失敗時公開徽章仍保留上次成功部署的證據。新版 Release 的報表 ZIP 長期保存 `repo_coverage.json`、`coverage_inventory.json`、`coverage.xml` 與兩種環境的測試摘要，核對來源、計量、雜湊及計數。歷史版本依原始證據整理頁面並連回不可變原始附件；缺紀錄就如實說明，不以目前測試回填。
+PR 的去識別測試附件保留七天；main 通過全部必要門檻後更新 Pages，失敗時公開徽章仍保留上次成功部署的證據。連續合併時，head 提交已是目前 main 祖先的舊 main run 會在建立索引時明確標示「main 已前進」並略過索引與發布（由不綁 `github-pages` 環境的 `pages-freshness` 工作在發布前確認，main 已前進時整個發布工作被略過，不留下部署紀錄；發布工作內於部署前再確認一次），由最新的 main run 建立；run 的 branch、event、attempt、id 不符或提交不是 main 祖先仍會失敗並列出差異。新版 Release 的報表 ZIP 長期保存 `repo_coverage.json`、`coverage_inventory.json`、`coverage.xml` 與兩種環境的測試摘要，核對來源、計量、雜湊及計數。歷史版本依原始證據整理頁面並連回不可變原始附件；缺紀錄就如實說明，不以目前測試回填。
 
 維護者接線依序為：產生三份 runtime 證據 → `script/test/attach_repo_coverage.ps1` 附加到測試報表 → `script/report/build_portal.ps1` 或 `publish_quality_release.ps1`。三個入口都使用已建置的 `repo_coverage_tool`，由 `-CoverageToolPath` 或 `WINDOWS_SETUP_COVERAGE_TOOL` 指定；缺工具、缺來源、未完整量測或未達精確 80% 都會停止。附加時以 `-SourceRoot` 核對真實 checkout。`build_portal.ps1 -Preview` 僅供本機合成樣本，不得用於正式 Pages 或 Release；本輪 publisher 不接受舊覆蓋率口徑。
 
@@ -107,7 +134,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\script\docker\docker.p
 
 預設使用 `process` 隔離；有相容 Hyper-V 環境時可明確加 `-Isolation hyperv`。`test` 自動建置，不會沿用不明版本映像。完整來源 checkout 以唯讀方式掛載，包含 `.git` 與被 Git 忽略的本機檔案，容器能讀取它們；這不是去識別的來源副本。建置 context 另由 `.dockerignore` 白名單限制。容器 shell 用於檢查與執行程式，不能直接編輯唯讀來源；請在主機編輯後重跑測試。報告寫入儲存庫以外的新目錄；預設位置會顯示在輸出，也可用 `-ReportDirectory` 指定一個尚不存在的絕對路徑。容器失敗會回傳非零退出碼，不會以空報告或略過當作通過。
 
-CI 的 Docker 工作總預算為 125 分鐘：就緒檢查 3 分鐘、映像建置 60 分鐘、健康與逾時驗證 4 分鐘、完整容器測試 35 分鐘、失敗負例與報告驗收各 5 分鐘，另留 13 分鐘供準備、程序清理及上傳。建置收據綁定來源提交、完整工具輸入、隔離模式與實際映像 ID；後續 `test-built` 將已驗證設定複製至來源外的私有暫存設定，只移除建置指令並鎖定映像 ID，重新使用真 Compose 解析及核對原有唯讀掛載、命令、隔離與其他設定，再以 `--pull never` 執行；缺少或不符即失敗，暫存設定於結束後清除。這是 CI 的分段入口；一般維護者仍可使用自動建置的 `-Action test`。官方下載與通過雜湊驗證後的解壓會分別輸出耗時，便於診斷，不把未完成的測試算作通過。
+CI 的 Docker 工作總預算為 125 分鐘：就緒檢查 3 分鐘、映像建置 60 分鐘、健康與逾時驗證 4 分鐘、完整容器測試 35 分鐘、失敗負例與報告驗收各 5 分鐘，另留 13 分鐘供準備、程序清理及上傳。建置收據綁定來源提交、完整工具輸入、隔離模式與實際映像 ID；後續 `test-built` 將已驗證設定複製至來源外的私有暫存設定，只移除建置指令並鎖定映像 ID，重新使用真 Compose 解析及核對原有唯讀掛載、命令、隔離與其他設定，再以 `--pull never` 執行；缺少或不符即失敗，暫存設定於結束後清除。這是 CI 的分段入口；一般維護者仍可使用自動建置的 `-Action test`。容器內完整測試以 `run_ci.ps1 -Parallelism 2` 同時執行兩個 suite 子程序，清單中的每個 suite 仍恰好執行一次，報告順序與序列相同，單一 suite 失敗仍使整體失敗；其他入口與 `isolated-tests` 預設仍為序列。這項調整只縮短牆鐘時間，不改變 suite 清單、報告格式或任何門檻。官方下載與通過雜湊驗證後的解壓會分別輸出耗時，便於診斷，不把未完成的測試算作通過。
 
 維護工具以 Go 為主要實作語言；Windows 原生設定與 PowerShell 5.1 測試保留 PowerShell，一般使用者執行設定不需要 Go。根目錄 `go.mod` 僅管理 `script/test` 工具與 `test/go` 案例，沒有改變交付程式的依賴方向。HTML5 解析使用固定版本的官方 `golang.org/x/net/html`，其餘驗收使用標準庫；必要上游原碼及授權保存在 `vendor`，離線容器不下載模組。
 
@@ -121,6 +148,6 @@ CI 的 `docker-tests` 使用真正的 `windows-2022` runner 執行 Docker build/
 
 每次 CI 將去識別的 HTML／JSON／Markdown／JUnit 與徽章上傳為 windows-test-reports artifact，保留 7 天；原始套件 log 不上傳。 完成的 PowerShell collector 另匯出 powershell-raw-evidence 附件保留 7 天，即使後續 runtime 彙整失敗也可重播原始命令計數；附件只含核對過的相對路徑 JSON／XML，不包含 stdout、Pester 原始 XML 或帶絕對路徑的收集清單。這是分項原始證據，不表示 runtime 覆蓋率門檻通過。另有 requirements-fixture artifact，只含程式明確建立的合成首頁樣本，固定假 SHA、示例執行網址及 Synthetic 環境標記，不含帳密或實機資料，同樣保留 7 天供需求門檻驗證。這份樣本不是正式測試證據，不混入 windows-test-reports、Release 或 Pages。其他測試副本、帳號 answer XML、每機 Reports 與秘密均不上傳。Actions 本身執行 log 的保留天數另由儲存庫設定控制，不是 YAML artifact 保留期。
 
-完整 PowerShell 量測由四個 Windows 工作平行執行，原生完整測試與 Go 測試另行同時執行；每片保留 runtime PowerShell 來源分母，聚合重新核對同一提交、執行 ID、attempt、原生測試及 wrapper 雜湊後才完成。重新量測時，在 Actions 選擇「重新執行所有工作」（Re-run all jobs），讓四片、原生 producer 與聚合使用新的同一次 attempt；只重跑失敗工作而混用舊片會被拒絕，不會沿用先前的計數補成通過。
+完整 PowerShell 量測由四個 Windows 工作平行執行，原生完整測試與 Go 測試另行同時執行；managed 原生程式量測也由獨立工作與分片同時執行，只上傳聚合所需的證據檔；聚合僅下載同次、同 attempt 的證據並照常核對來源雜湊，不再於串行尾段安裝 .NET 或重新量測；每片保留 runtime PowerShell 來源分母，聚合重新核對同一提交、執行 ID、attempt、原生測試及 wrapper 雜湊後才完成。重新量測時，在 Actions 選擇「重新執行所有工作」（Re-run all jobs），讓四片、原生 producer 與聚合使用新的同一次 attempt；只重跑失敗工作而混用舊片會被拒絕，不會沿用先前的計數補成通過。
 
 實機 Setup-Result.json、Setup-Progress.json、Acceptance-Result.json 與驗證結果是續跑或排錯資料，原有 Git 忽略規則保留；CI 不清理這些檔案。設定未完成時不要刪除 Setup-Result.json。

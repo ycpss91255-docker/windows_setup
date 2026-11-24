@@ -131,6 +131,7 @@ func TestActualCheckoutSource(t *testing.T) {
 	}
 }
 func TestRejectStaleMainRef(t *testing.T) {
+	t.Setenv("PREFLIGHT_EVENT_NAME", "merge_group")
 	d := t.TempDir()
 	event := filepath.Join(d, "event.json")
 	authority := filepath.Join(d, "authority.json")
@@ -162,54 +163,53 @@ func TestRejectStaleMainRef(t *testing.T) {
 	}
 }
 
-func TestWorkflowRejectsFailedMainQuery(t *testing.T) {
+func TestPullRequestIgnoresAdvancedMain(t *testing.T) {
+	d := t.TempDir()
+	event := filepath.Join(d, "event.json")
+	authority := filepath.Join(d, "authority.json")
+	base := strings.Repeat("a", 40)
+	head := strings.Repeat("b", 40)
+	identity := map[string]any{"number": 1, "state": "open", "base": map[string]any{"ref": "main", "sha": base, "repo": map[string]string{"full_name": "fixture/repo"}}, "head": map[string]string{"sha": head}}
+	eventData, _ := json.Marshal(map[string]any{"number": 1, "pull_request": identity})
+	authorityData, _ := json.Marshal(identity)
+	if err := os.WriteFile(event, eventData, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(authority, authorityData, 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PREFLIGHT_EVENT_NAME", "pull_request")
+	for _, main := range []string{"", strings.Repeat("c", 40)} {
+		t.Setenv("PREFLIGHT_MAIN_SHA", main)
+		if err := authorityCheck(event, authority); err != nil {
+			t.Fatalf("pull_request rejected for main %q: %v", main, err)
+		}
+	}
+	for name, mutate := range map[string]func(){
+		"head replaced": func() {
+			identity["head"] = map[string]string{"sha": strings.Repeat("d", 40)}
+			d, _ := json.Marshal(identity)
+			os.WriteFile(authority, d, 0600)
+		},
+	} {
+		mutate()
+		if err := authorityCheck(event, authority); err == nil {
+			t.Fatalf("pull_request accepted %s", name)
+		}
+	}
+}
+
+func TestWorkflowPullRequestDoesNotQueryMain(t *testing.T) {
 	workflow, err := os.ReadFile(filepath.Join("..", "..", "..", ".github", "workflows", "windows_tests.yml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	var commands []string
-	recording := false
-	for _, line := range strings.Split(string(workflow), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "set -euo pipefail" {
-			recording = true
-		}
-		if recording {
-			commands = append(commands, line)
-		}
-		if recording && strings.HasPrefix(line, "go run ./script/test/pr_source_preflight ") {
-			break
-		}
+	text := string(workflow)
+	if strings.Contains(text, "git/ref/heads/main") || strings.Contains(text, "PREFLIGHT_MAIN_SHA") {
+		t.Fatal("pull_request preflight must not depend on current main")
 	}
-	if len(commands) < 3 || !strings.HasPrefix(commands[len(commands)-1], "go run ") {
-		t.Fatal("preflight workflow commands not found")
-	}
-	gitPath, err := exec.Command("git", "--exec-path").Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-	bash, err := workflowShell(strings.TrimSpace(string(gitPath)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, tc := range []struct {
-		name        string
-		exit        string
-		wantSuccess bool
-	}{{"success", "0", true}, {"failure after valid output", "1", false}} {
-		t.Run(tc.name, func(t *testing.T) {
-			script := "gh() { if [[ $2 == */git/ref/heads/main ]]; then printf '%040d\\n' 1; return " + tc.exit + "; fi; printf '{}\\n'; }\ngit() { printf 'fixture\\n'; }\ngo() { printf 'reached-go\\n'; }\n" + strings.Join(commands, "\n")
-			c := exec.Command(bash, "-c", script)
-			c.Dir = t.TempDir()
-			c.Env = append(os.Environ(), "RUNNER_TEMP=.", "GITHUB_REPOSITORY=fixture/repo", "PR_NUMBER=1", "GITHUB_EVENT_PATH=event", "GITHUB_SHA=fixture", "EVENT_BASE=fixture", "EVENT_HEAD=fixture")
-			out, err := c.CombinedOutput()
-			if (err == nil) != tc.wantSuccess {
-				t.Fatalf("want success=%v, got %v: %s", tc.wantSuccess, err, out)
-			}
-			if strings.Contains(string(out), "reached-go") != tc.wantSuccess {
-				t.Fatalf("unexpected preflight invocation: %s", out)
-			}
-		})
+	if !strings.Contains(text, "PREFLIGHT_EVENT_NAME: ${{ github.event_name }}") {
+		t.Fatal("preflight must receive the event name")
 	}
 }
 
