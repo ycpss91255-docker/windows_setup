@@ -60,3 +60,34 @@ func TestSupersededMainRunSkipsPublication(t *testing.T) {
 		t.Error("deployment verification must only run when this run actually deployed")
 	}
 }
+
+// main 已前進時不得為 github-pages 環境留下部署紀錄：前進檢查須在不綁 environment 的前置工作完成，
+// 被取代時整個發布工作被略過；發布工作內仍保留最後一次檢查。
+func TestSupersededMainRunDoesNotCreateEnvironmentDeployment(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("../../..", ".github/workflows/windows_tests.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	workflow := strings.ReplaceAll(string(data), "\r\n", "\n")
+	fresh := coverageJob(workflow, "pages-freshness")
+	publish := coverageJob(workflow, "publish-reports")
+	if fresh == "" {
+		t.Fatal("a job without an environment must decide whether main has advanced")
+	}
+	if strings.Contains(fresh, "environment:") {
+		t.Fatal("the freshness job must not bind the github-pages environment")
+	}
+	if !strings.Contains(fresh, "Set-CIMainFreshness") || !regexp.MustCompile(`(?m)^    outputs:\n      current: \$\{\{ steps\.[a-z_]+\.outputs\.current \}\}`).MatchString(fresh) {
+		t.Error("the freshness job must run Set-CIMainFreshness and expose current")
+	}
+	if !regexp.MustCompile(`(?m)^    needs: \[[^\]]*pages-freshness[^\]]*\]`).MatchString(publish) {
+		t.Error("publish-reports must wait for the freshness decision")
+	}
+	m := regexp.MustCompile(`(?m)^    if: (.*)$`).FindStringSubmatch(publish)
+	if len(m) != 2 || !strings.Contains(m[1], "needs.pages-freshness.outputs.current == 'true'") {
+		t.Error("publish-reports must be skipped as a whole when main has advanced")
+	}
+	if !strings.Contains(publish, "id: fresh") || !strings.Contains(publish, "steps.fresh.outputs.current == 'true'") {
+		t.Error("the last-moment check before deploy-pages must remain")
+	}
+}

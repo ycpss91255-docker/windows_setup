@@ -78,7 +78,7 @@ CI 使用與 base 相同的 GitHub Actions 原生徽章；runtime 覆蓋率使�
 
 每次測試從實際斷言事件及程序退出碼產生 JSON、Markdown、自含 HTML、JUnit XML 與徽章。程序崩潰、缺少斷言事件或任何失敗均不能標成通過。新增 `test/powershell/unit` 或 `integration` 測試會自動列入執行清單。公開報表只包含靜態檢查、單元與隔離整合結果。
 
-PR 的去識別測試附件保留七天；main 通過全部必要門檻後更新 Pages，失敗時公開徽章仍保留上次成功部署的證據。連續合併時，head 提交已是目前 main 祖先的舊 main run 會在建立索引時明確標示「main 已前進」並略過索引與發布（Pages 發布前再確認一次），由最新的 main run 建立；run 的 branch、event、attempt、id 不符或提交不是 main 祖先仍會失敗並列出差異。新版 Release 的報表 ZIP 長期保存 `repo_coverage.json`、`coverage_inventory.json`、`coverage.xml` 與兩種環境的測試摘要，核對來源、計量、雜湊及計數。歷史版本依原始證據整理頁面並連回不可變原始附件；缺紀錄就如實說明，不以目前測試回填。
+PR 的去識別測試附件保留七天；main 通過全部必要門檻後更新 Pages，失敗時公開徽章仍保留上次成功部署的證據。連續合併時，head 提交已是目前 main 祖先的舊 main run 會在建立索引時明確標示「main 已前進」並略過索引與發布（由不綁 `github-pages` 環境的 `pages-freshness` 工作在發布前確認，main 已前進時整個發布工作被略過，不留下部署紀錄；發布工作內於部署前再確認一次），由最新的 main run 建立；run 的 branch、event、attempt、id 不符或提交不是 main 祖先仍會失敗並列出差異。新版 Release 的報表 ZIP 長期保存 `repo_coverage.json`、`coverage_inventory.json`、`coverage.xml` 與兩種環境的測試摘要，核對來源、計量、雜湊及計數。歷史版本依原始證據整理頁面並連回不可變原始附件；缺紀錄就如實說明，不以目前測試回填。
 
 維護者接線依序為：產生三份 runtime 證據 → `script/test/attach_repo_coverage.ps1` 附加到測試報表 → `script/report/build_portal.ps1` 或 `publish_quality_release.ps1`。三個入口都使用已建置的 `repo_coverage_tool`，由 `-CoverageToolPath` 或 `WINDOWS_SETUP_COVERAGE_TOOL` 指定；缺工具、缺來源、未完整量測或未達精確 80% 都會停止。附加時以 `-SourceRoot` 核對真實 checkout。`build_portal.ps1 -Preview` 僅供本機合成樣本，不得用於正式 Pages 或 Release；本輪 publisher 不接受舊覆蓋率口徑。
 

@@ -803,10 +803,34 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-  publish-reports:
-    name: 發布 Pages 品質入口
+  pages-freshness:
+    name: 確認 main 尚未前進
     needs: [build-portal]
     if: always() && needs.build-portal.result == 'success' && needs.build-portal.outputs.superseded != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      current: ${{ steps.fresh.outputs.current }}
+    permissions:
+      contents: read
+    steps:
+      - name: 取得本次來源
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: 確認 main 尚未前進
+        id: fresh
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          . ./script/test/ci_tasks.ps1
+          Set-CIMainFreshness -Repository $env:GITHUB_REPOSITORY -Ref $env:GITHUB_REF -RunSha $env:RUN_SHA -OutputPath $env:GITHUB_OUTPUT
+  publish-reports:
+    name: 發布 Pages 品質入口
+    needs: [build-portal, pages-freshness]
+    if: always() && needs.build-portal.result == 'success' && needs.build-portal.outputs.superseded != 'true' && needs.pages-freshness.outputs.current == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
