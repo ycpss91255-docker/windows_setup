@@ -4,7 +4,7 @@ if($env:ProgramData -notlike ($fixtureRoot+'verify_aggregate_*')){throw 'This fi
 if($global:AggregateFixtureMode -eq 'Throw'){throw 'fixture submodule failed'}
 if([IO.Path]::GetFileName($PSCommandPath) -eq 'apply_start_menu_settings.ps1'){[pscustomobject]@{Success=($global:AggregateFixtureMode -ne 'False' -and -not ($global:AggregateFixtureMode -eq 'DebloatFeatureFailure' -and [IO.Path]::GetFileName($PSCommandPath) -eq 'apply_debloat.ps1'));Status=$(if($global:AggregateFixtureMode -eq 'False'){'PendingSignIn'}else{'Confirmed'});PinCount=$(if($global:AggregateFixtureMode -eq 'False'){1}else{0})};return}
 if(-not $VerificationRunId -or $global:AggregateFixtureMode -eq 'Missing'){return}
-$names=@{'apply_debloat.ps1'='Debloat-Result.json';'apply_uac_settings.ps1'='UAC-Result.json';'apply_privacy_settings.ps1'='Privacy-Result.json';'apply_display_settings.ps1'='Display-Verification.json';'apply_theme_settings.ps1'='Theme-Verification.json';'desktop_icon_layout.ps1'='IconLayout-Result.json';'apply_pagefile_settings.ps1'='Pagefile-Result.json'}
+$names=@{'apply_debloat.ps1'='Debloat-Result.json';'apply_uac_settings.ps1'='UAC-Result.json';'apply_privacy_settings.ps1'='Privacy-Result.json';'apply_display_settings.ps1'='Display-Verification.json';'apply_theme_settings.ps1'='Theme-Verification.json';'desktop_icon_layout.ps1'='IconLayout-Result.json';'apply_pagefile_settings.ps1'='Pagefile-Result.json';'apply_power_settings.ps1'='Power-Result.json'}
 $path=Join-Path (Join-Path $env:ProgramData 'NUC8-Setup') $names[[IO.Path]::GetFileName($PSCommandPath)]
 $id=if($global:AggregateFixtureMode -eq 'Stale'){'old-id'}else{$VerificationRunId}
 $computer=if($global:AggregateFixtureMode -eq 'WrongComputer'){'different-computer'}else{$env:COMPUTERNAME}

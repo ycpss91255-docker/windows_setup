@@ -3,9 +3,22 @@
 本文件記錄使用者可見的行為、相容性及遷移要求。詳細實作與驗證紀錄見中文 Git 提交；發布版本與來源提交以 GitHub Release 為準。
 
 ## [Unreleased]
+### Changed（變更）
+
+- 倉庫已移至 `ycpss91255-lab` 組織：README、Release 下載與品質報表連結改用 `https://github.com/ycpss91255-lab/windows_setup` 及 `https://ycpss91255-lab.github.io/windows_setup/`，舊網址不保證持續轉址。
+
+- 第 03 模組停用休眠並移除 `hiberfil.sys`，快速啟動一併停用，冷開機可能稍慢；`-VerifyOnly` 與重開後驗收會核對。需要時可自行執行 `powercfg /hibernate on` 重新啟用。
+
 ### Fixed（修正）
 
-- 電源模組的 `Power-Before-*.txt` 與 `Power-After.txt` 改寫到 `%ProgramData%\NUC8-Setup`，不再留在可能放在 USB 的工具包；工具包內既有舊檔不會自動刪除。
+- 貢獻流程：已通過合併佇列的「更新分支」同步合併，合併後的 main 檢查改用與佇列相同的核對，不再因標題使 main 變紅。
+- NUC8 驅動最終核對不再把只宣告裝置名稱的 `SunrisePoint-HSystemLPSS.inf` 當成會綁定的驅動；同一硬體 ID 改由已驗證綁定的 Serial IO 驅動確認，供應商與版本比較條件不變，未綁定時仍標為未驗證。
+
+- 電源模組的 `Power-Before-*.txt` 與 `Power-After.txt` 改寫到 `%ProgramData%NUC8-Setup`，不再留在可能放在 USB 的工具包；工具包內既有舊檔不會自動刪除。
+
+### Fixed（修正）
+
+- 工作列自動隱藏改為同時寫入並讀回 `StuckRects3`；先前只改執行中狀態，重開機後會恢復為顯示。驗證需執行中與已持久化兩者皆為隱藏才算通過。
 
 ## [v0.2.6] — 2026-11-21
 ### Changed（變更）

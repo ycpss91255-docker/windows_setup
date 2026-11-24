@@ -23,9 +23,25 @@ function Export-CIPowerShellRawEvidence {
  if(-not(Test-Path -LiteralPath $tool -PathType Leaf)){throw 'Completed raw evidence has no export verification tool.'}
  Invoke-CINative -File $tool -Arguments @('export-powershell','--source-root',$SourceRoot,'--evidence-dir',$evidence,'--output-dir',(Join-Path $RunnerTemp 'powershell-raw-public'))
 }
+function Resolve-CIRollupStates {
+ # PR 分類只有在分類工作成功、對應選擇值明確為 false 且該工作確實 skipped 時，才把 skipped 視為通過。
+ param([Parameter(Mandatory=$true)][hashtable]$Results,[Parameter(Mandatory=$true)][hashtable]$Selection,[string]$EventName)
+ $resolved=$Results.Clone()
+ if(-not $PSBoundParameters.ContainsKey('EventName')){throw '必須明確指定事件名稱，才能判斷是否接受分類略過。'}
+ if(-not $Results.ContainsKey('Classify') -or $Results['Classify'] -cne 'success'){return $resolved}
+ # 文件輕量檢查只在純文件 PR 選取；其他事件跑完整套件，未選取且 skipped 才合格，被選取卻 skipped 仍失敗。
+ $skippable=@('DocChecks')
+ # 其餘重型工作的分類略過只存在於 pull_request；main、merge_group、tag 與手動執行任何一項略過都要失敗。
+ if($EventName -ceq 'pull_request'){$skippable=@('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage','DocChecks')}
+ foreach($name in $skippable){
+  if($Results.ContainsKey($name) -and $Results[$name] -ceq 'skipped' -and $Selection.ContainsKey($name) -and $Selection[$name] -ceq 'false'){$resolved[$name]='success'}
+ }
+ return $resolved
+}
 function Assert-CIResults {
  param([hashtable]$Results)
  foreach($name in @('Tests','Requirements','Docker','Payload','PowerShellCoverage','Coverage')){if(-not $Results.ContainsKey($name) -or $Results[$name] -cne 'success'){throw ('必要工作失敗、取消或跳過：'+$name)}}
+ foreach($name in @('Classify','DocChecks')){if($Results.ContainsKey($name) -and $Results[$name] -cne 'success'){throw ('必要工作失敗、取消或跳過：'+$name)}}
 }
 function Assert-CIRequiredTools {
  param([switch]$Managed)
@@ -58,6 +74,35 @@ function Get-CIPortalParameters {
  $parameters=@{Repository=$Repository;OutputDirectory=$OutputDirectory}
  if($EventRef -eq 'refs/heads/main'){$parameters.MainRunId=$RunId;if($EventName){$parameters.ExpectedMainEvent=$EventName;$parameters.ExpectedMainAttempt=$RunAttempt}}
  return $parameters
+}
+
+function Invoke-CIPortalBuild {
+ param([Parameter(Mandatory=$true)]$Inputs,[Parameter(Mandatory=$true)][string]$OutputDirectory,[Parameter(Mandatory=$true)][string]$OutputPath,[string]$SummaryPath,[string]$BuildScript=(Join-Path $PSScriptRoot '../report/build_portal.ps1'))
+ if($Inputs.Superseded){
+  # 被較新的 main 取代的 run 只記錄決定並結束，不建立索引，也不讓後續發布使用舊提交。
+  $message='main 已前進至 '+$Inputs.MainSha+'，此 run（'+$Inputs.RunSha+'）的索引由較新的 run 建立，略過索引與發布。'
+  Write-Host ('::notice::'+$message)
+  if($SummaryPath){Add-Content -LiteralPath $SummaryPath -Value $message}
+  Add-Content -LiteralPath $OutputPath -Value 'superseded=true'
+  return
+ }
+ Add-Content -LiteralPath $OutputPath -Value 'superseded=false'
+ & $BuildScript -CatalogPath $Inputs.CatalogPath -MainSnapshotPath $Inputs.MainSnapshotPath -ContainerSnapshotPath $Inputs.ContainerSnapshotPath -OutputDirectory $OutputDirectory
+}
+
+function Set-CIMainFreshness {
+ param([Parameter(Mandatory=$true)][string]$Repository,[Parameter(Mandatory=$true)][string]$Ref,[Parameter(Mandatory=$true)][string]$RunSha,[Parameter(Mandatory=$true)][string]$OutputPath)
+ # 發布前最後一次確認：main 已前進且本 run 的提交是其祖先才跳過發布；其餘不一致一律失敗。
+ if($Ref -cne 'refs/heads/main'){Add-Content -LiteralPath $OutputPath -Value 'current=true';return}
+ $mainSha=& gh api ('repos/'+$Repository+'/commits/main') --jq '.sha'
+ if($LASTEXITCODE -ne 0 -or $mainSha -cnotmatch '^[0-9a-f]{40}$'){throw '無法確認 main SHA。'}
+ if($mainSha -ceq $RunSha){Add-Content -LiteralPath $OutputPath -Value 'current=true';return}
+ $compareJson=& gh api ('repos/'+$Repository+'/compare/'+$RunSha+'...'+$mainSha)
+ if($LASTEXITCODE -ne 0){throw ('無法確認 run 提交 '+$RunSha+' 與 main '+$mainSha+' 的祖先關係。')}
+ $compare=$compareJson|ConvertFrom-Json
+ if($compare.status -cne 'ahead' -or $compare.behind_by -ne 0){throw ('run 提交 '+$RunSha+' 不是目前 main '+$mainSha+' 的祖先（比較結果 '+[string]$compare.status+'）。')}
+ Write-Host ('::notice::main 已前進至 '+$mainSha+'，此 run（'+$RunSha+'）不發布 Pages，由較新的 run 發布。')
+ Add-Content -LiteralPath $OutputPath -Value 'current=false'
 }
 
 function Get-CINestedCoverageDiagnostic {
