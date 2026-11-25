@@ -1,0 +1,75 @@
+{
+ "Source": "NUC reinstall driver phase 2026-11-25 00:04:54 onward; de-identified",
+ "SignerName": "Microsoft Windows Hardware Compatibility Publisher",
+ "Children": [
+  {
+   "Id": "uwppair",
+   "InstanceId": "SWD\\DRIVERENUM\\AMDUWP&5&FIXTURE&0",
+   "InfPath": "Packages/Drivers/Display/WT6A_INF/UWPPair/UWPPair.inf",
+   "HardwareIds": [
+    "SWC\\VID1002&PID0001"
+   ],
+   "Provider": "Advanced Micro Devices, Inc.",
+   "TargetVersion": "31.2310.0.0",
+   "PublishedName": "oem16.inf",
+   "OlderVersion": "30.0.0.0"
+  },
+  {
+   "Id": "amdwin",
+   "InstanceId": "SWD\\DRIVERENUM\\AMDWIN&5&FIXTURE&0",
+   "InfPath": "Packages/Drivers/Display/WT6A_INF/AMDWIN/amdwin-u0393589.inf",
+   "HardwareIds": [
+    "SWC\\AMDWIN-23.10"
+   ],
+   "Provider": "Advanced Micro Devices, Inc.",
+   "TargetVersion": "31.0.21001.46001",
+   "PublishedName": "oem18.inf",
+   "OlderVersion": "30.0.0.0"
+  },
+  {
+   "Id": "amdocl",
+   "InstanceId": "SWD\\DRIVERENUM\\AMDOCL&5&FIXTURE&0",
+   "InfPath": "Packages/Drivers/Display/WT6A_INF/AMDOCL/amdocl.inf",
+   "HardwareIds": [
+    "SWC\\AMDOCL-23.10"
+   ],
+   "Provider": "Advanced Micro Devices, Inc.",
+   "TargetVersion": "31.0.21001.46001",
+   "PublishedName": "oem17.inf",
+   "OlderVersion": "30.0.0.0"
+  },
+  {
+   "Id": "amdfendr",
+   "InstanceId": "ROOT\\AMDLOG\\0000",
+   "InfPath": "Packages/Drivers/Display/WT6A_INF/amdfendr/amdfendr.inf",
+   "HardwareIds": [
+    "ROOT\\AMDLOG"
+   ],
+   "Provider": "AMD",
+   "TargetVersion": "23.10.0.6",
+   "PublishedName": "oem21.inf",
+   "OlderVersion": "22.0.0.0"
+  },
+  {
+   "Id": "mei_wmi",
+   "InstanceId": "SWD\\DRIVERENUM\\OEM_WMI_COMPONENT&4&FIXTURE&0",
+   "InfPath": "INF/WMIProvider/MEWMIProv.inf",
+   "HardwareIds": [
+    "SWC\\06657A6D-FE0F-4C90-8DDA-A1501C74CE4B"
+   ],
+   "Provider": "Intel",
+   "TargetVersion": "2219.3.0.0",
+   "PublishedName": "oem31.inf",
+   "OlderVersion": "2000.0.0.0"
+  }
+ ],
+ "Measured": {
+  "SamplerWindowSeconds": 763,
+  "DevpkeyChangedDevices": 12,
+  "CimCaughtUpWithinSamplerWindow": 0,
+  "SecondsObservedAfterDevpkeyChangeMin": 82,
+  "SecondsObservedAfterDevpkeyChangeMax": 275,
+  "CimRowsAtEndOfRunForChildren": 0,
+  "PnputilSignerAtEndOfRun": "Microsoft Windows Hardware Compatibility Publisher"
+ }
+}
