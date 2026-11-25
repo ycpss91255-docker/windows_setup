@@ -38,6 +38,15 @@ function Get-SetupInitPreparationFacts {
   return @{ReadSucceeded=$true;Build=[int]$os.BuildNumber;ProductType=[int]$os.ProductType;IsWinPE=[bool](Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\MiniNT' -ErrorAction Stop);OobeApiSucceeded=$completion.Succeeded;OobeComplete=$completion.Complete;SetupInProgress=$setup.SystemSetupInProgress;OobeInProgress=$setup.OOBEInProgress;OobeProcessInSession=$oobe;SetupProcessInSession=$setupBusy;ProfileMatches=[bool]$profileMatches;LocalBuiltin=[bool]$localBuiltin}
  }catch{return @{ReadSucceeded=$false}}
 }
+function Test-SetupInitInteractiveHost {
+ try {return [Environment]::UserInteractive -and $Host.Name -ceq 'ConsoleHost' -and -not [Console]::IsInputRedirected} catch {return $false}
+}
+function Request-SetupInitConsent {
+ if(-not (Test-SetupInitInteractiveHost)){return $false}
+ try {$answer=Read-Host '是否準備新本機帳號與 OOBE？將建立受保護的 answer file 並執行 Sysprep /oobe /quit，不自動重開；Y/YES 或 Enter 同意（預設 Enter 同意），N 拒絕'} catch {return $false}
+ if($answer -isnot [string]){return $false}
+ return ($answer -ceq '' -or $answer -ieq 'y' -or $answer -ieq 'yes')
+}
 function Invoke-SetupInit {
  param([Parameter(Mandatory=$true)][string]$EntryPath,[Parameter(Mandatory=$true)][string]$ModuleRoot,[string]$SshScriptPath,[string]$ExpectedUserSID,[string]$ResumeStatePath)
 if($SshScriptPath){$SshScriptPath=$ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($SshScriptPath)}
@@ -84,7 +93,7 @@ $stage=Join-Path $env:ProgramData 'NUC-Init'
 Assert-InitPlainPath $stage
 if(Test-Path -LiteralPath $stage){throw ('已有 Init 暫存資料，請先查看 '+$stage+'，不要重複產生帳號設定。')}
 Write-Host '已自動確認可準備新帳號與 Windows 初始設定。'
-if((Read-Host '是否準備新本機帳號與 OOBE？將建立受保護的 answer file 並執行 Sysprep /oobe /quit，不自動重開；同意請輸入 YES') -cne 'YES'){throw '未同意帳號與 OOBE 準備，本次未更改設定。'}
+if(-not (Request-SetupInitConsent)){throw '未同意帳號與 OOBE 準備，本次未更改設定。'}
 $existingNames=@((Get-LocalUser).Name)
 $name=Read-Host '新的本機管理員帳號（最多 20 字；不可使用現有帳號或 Windows 保留符號）'
 if(-not(Test-InitUserName -Name $name -ExistingNames $existingNames)){throw '帳號名稱無效、已存在或保留，請重新執行並使用另一個名稱。'}

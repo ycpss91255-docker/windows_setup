@@ -5,7 +5,7 @@
 ## 已用 Ctrl+Shift+F3，Init 跑完接著做什麼？
 
 1. `Ctrl+Shift+F3` 會重新啟動到稽核模式的 Administrator 桌面；先取消自動出現的 Sysprep 視窗。
-2. 從 USB 執行 `windows_setup\init.cmd`，Init 自動檢查帳號與 OOBE 準備條件，不需要輸入 `AUDIT`；同意受限的帳號／OOBE 變更並輸入 `YES` 後，再輸入新正式本機帳號、密碼及確認密碼。
+2. 從 USB 執行 `windows_setup\init.cmd`，Init 自動檢查帳號與 OOBE 準備條件，不需要輸入 `AUDIT`；確認受限的帳號／OOBE 變更後，輸入 `Y`、`YES`（不分大小寫）或按 Enter 同意，再輸入新正式本機帳號、密碼及確認密碼。
 3. 看到 **「帳號設定已準備完成」**，表示這一階段成功，接著才手動重新啟動。可由開始選單操作，或在 CMD 輸入 `shutdown /r /t 0`。腳本不會自行替你重新啟動。
 4. 重開後完成剩餘 OOBE，登入新正式本機帳號；不要在稽核模式 Administrator 身分直接套用 Windows 設定。
 5. 在新帳號桌面接上網路，直接從完整工具包執行 `windows.cmd`；不需要第二次 Init。SSH 由 Windows 第 4 階段安裝。

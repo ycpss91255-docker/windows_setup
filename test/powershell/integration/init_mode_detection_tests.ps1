@@ -12,6 +12,7 @@ function Get-SetupInitContext {
 function Get-Process {return @()}
 function Get-ItemProperty {return [pscustomobject]@{SkuPolicyRequired=0;UnattendFile=$null}}
 function Test-Path {param($LiteralPath,$Path,$PathType);return [bool]($LiteralPath -like '*Sysprep.exe')}
+function Test-SetupInitInteractiveHost {return $true}
 function Read-Host {param($Prompt,[switch]$AsSecureString);$script:prompts+=@($Prompt);return 'NO'}
 function New-Item {$script:writes++;throw 'SAFE_MUTATION_SENTINEL'}
 function Start-Process {$script:writes++;throw 'SAFE_NATIVE_SENTINEL'}
