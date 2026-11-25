@@ -10,7 +10,9 @@ $report.CPU=@(Get-CimInstance Win32_Processor|Select-Object Name)
 $report.OS=Get-CimInstance Win32_OperatingSystem|Select-Object Caption,Version,BuildNumber,LastBootUpTime
 $report.Board=Get-CimInstance Win32_BaseBoard|Select-Object Manufacturer,Product
 $report.BIOS=Get-CimInstance Win32_BIOS|Select-Object SMBIOSBIOSVersion,ReleaseDate
-$report.SSH=Get-CimInstance Win32_Service -Filter "Name='sshd'"|Select-Object State,StartMode
+$report.SSH=$null
+$sshQueryFailed=$false
+try{$report.SSH=Get-CimInstance Win32_Service -Filter "Name='sshd'" -ErrorAction Stop|Select-Object State,StartMode}catch{$sshQueryFailed=$true;$report.SSHError=$_.Exception.Message}
 $report.SSHFirewall=@(Get-NetFirewallRule -Name OpenSSH-Server-In-TCP -ErrorAction SilentlyContinue|Select-Object Enabled,Direction,Action,Profile)
 $report.SSHScope=@(Get-NetFirewallRule -Name OpenSSH-Server-In-TCP -ErrorAction SilentlyContinue|Get-NetFirewallAddressFilter|Select-Object RemoteAddress)
 $report.FirewallProfiles=@(Get-NetFirewallProfile|Select-Object Name,Enabled)
@@ -35,7 +37,14 @@ try{
 }catch{$report.UpdateResultError=$_.Exception.Message}
 $report|ConvertTo-Json -Depth 7|Set-Content $ReportPath -Encoding utf8
 Write-Host '=== Windows 檢查結果 ===' -ForegroundColor Cyan
-Write-Host ('SSH：'+$report.SSH.State+'；啟動方式：'+$report.SSH.StartMode)
+if($sshQueryFailed){Write-Host 'SSH：狀態未知；啟動方式：未知'}
+elseif($null -eq $report.SSH){Write-Host 'SSH：未安裝；啟動方式：不適用'}
+else{
+ $sshState=if([string]::IsNullOrWhiteSpace([string]$report.SSH.State)){'未知'}else{$report.SSH.State}
+ $sshStart=if([string]::IsNullOrWhiteSpace([string]$report.SSH.StartMode)){'未知'}else{$report.SSH.StartMode}
+ Write-Host ('SSH：'+$sshState+'；啟動方式：'+$sshStart)
+}
+if($null -eq $report.UpdateResult){Write-Host 'Windows Update：沒有本輪更新結果，或無法確認結果。'}
 Write-Host ('自動登入：'+$report.AutoLogon.DefaultUserName+'；啟用值：'+$report.AutoLogon.AutoAdminLogon)
 Write-Host ('異常裝置數：'+$report.ProblemDevices.Count)
 $report.Displays|Format-Table|Out-Host

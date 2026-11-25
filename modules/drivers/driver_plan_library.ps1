@@ -334,7 +334,12 @@ function Invoke-SetupDriverTarget {
   $readbacks=@(Get-SetupDriverSettledReadback -Target $Target -Plans $plans -Poll ($native.ExitCode -in @(0,259,3010)))
   $index=0
   foreach($plan in $plans){
-   if($plan.Status -eq 'UpdateRequired'){$result=$readbacks[$index];$index++;$results+=$result;if($result.Status -eq 'Unverified'){$failures+=($Target.InfPath+': 安裝後版本尚未核實')}}
+   if($plan.Status -eq 'UpdateRequired'){
+    $result=$readbacks[$index];$index++
+    if($native.ExitCode -notin @(0,259,3010)){$readbackNote='；讀回：'+$result.Status+'（'+$result.Reason+'）';$result.Status='InstallFailed';$result.Reason='原生安裝失敗，退出碼 '+$native.ExitCode+$readbackNote}
+    $results+=$result
+    if($result.Status -eq 'Unverified'){$failures+=($Target.InfPath+': 安裝後版本尚未核實')}
+   }
    else{$results+=$plan}
   }
  }else{$results=$plans}
