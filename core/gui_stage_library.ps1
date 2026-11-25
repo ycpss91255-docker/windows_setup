@@ -352,8 +352,14 @@ function New-SetupGuiExitException {
 }
 function Get-SetupGuiDesktopFacts {
  Add-Type -AssemblyName System.Windows.Forms
- $size=[System.Windows.Forms.SystemInformation]::PrimaryMonitorSize
- [pscustomobject]@{MonitorCount=[int][System.Windows.Forms.SystemInformation]::MonitorCount;Width=[int]$size.Width;Height=[int]$size.Height}
+ [pscustomobject]@{MonitorCount=[int][System.Windows.Forms.SystemInformation]::MonitorCount}
+}
+function Get-SetupGuiCurrentResolution {
+ # 桌面尺寸在縮放不是 100% 時會被 DPI 換算；改讀顯示介面目前的模式。
+ $modes=@(foreach($adapter in @(Get-CimInstance -ClassName Win32_VideoController -ErrorAction Stop)){
+  if([int]$adapter.CurrentHorizontalResolution -gt 0 -and [int]$adapter.CurrentVerticalResolution -gt 0){[string]$adapter.CurrentHorizontalResolution+'×'+[string]$adapter.CurrentVerticalResolution}
+ })
+ return (@($modes|Select-Object -Unique) -join '、')
 }
 function Get-SetupGuiDisplayGate {
  # 唯讀；有螢幕時不回傳任何內容，由葉節點照原規則判定。沒有螢幕與查詢失敗分開，兩者都是未驗證。
@@ -365,16 +371,16 @@ function Get-SetupGuiDisplayGate {
   else{$physical=@($devices|Where-Object {$_.Present}).Count}
  }catch{$category=$_.Exception.GetType().Name;if($_.Exception.PSObject.Properties['NativeErrorCode']){$category+='/'+[string]$_.Exception.NativeErrorCode}}
  if($physical -gt 0){return}
- # 只在不會進入葉節點時才讀桌面尺寸，避免影響葉節點的 DPI 狀態。
+ # 只在不會進入葉節點時才載入 Windows Forms，避免影響葉節點的 DPI 狀態。
  $facts=$null;try{$facts=Get-SetupGuiDesktopFacts}catch{}
  $resolution='未知';$monitors='未知';$present='未知'
- if($null -ne $facts -and $facts.Width -gt 0 -and $facts.Height -gt 0){$resolution=[string]$facts.Width+'×'+[string]$facts.Height}
+ try{$current=Get-SetupGuiCurrentResolution;if($current){$resolution=$current}}catch{}
  if($null -ne $facts -and $null -ne $facts.MonitorCount){$monitors=[string]$facts.MonitorCount}
  if($null -ne $physical){$present=[string]$physical}
  $state=if($null -eq $physical){'QueryFailed'}else{'NoDisplay'}
  $message=if($state -ceq 'NoDisplay'){'未偵測到螢幕，無法驗收解析度與圖示'}else{'螢幕查詢失敗（'+$category+'），無法判斷是否有螢幕，未驗收解析度與圖示'}
  $message+='；未變更解析度、圖示排列或範本。目前解析度 '+$resolution+'，實體螢幕 '+$present+'，Windows 螢幕數 '+$monitors+'。'
- [pscustomobject][ordered]@{Success=$false;Status='Unverified';DisplayState=$state;PhysicalMonitorCount=$physical;MonitorCount=$facts.MonitorCount;Width=$facts.Width;Height=$facts.Height;CheckedAt=(Get-Date).ToString('o');Error=$message}
+ [pscustomobject][ordered]@{Success=$false;Status='Unverified';DisplayState=$state;PhysicalMonitorCount=$physical;MonitorCount=$facts.MonitorCount;CurrentResolution=$resolution;CheckedAt=(Get-Date).ToString('o');Error=$message}
 }
 function Assert-SetupGuiDisplayResult {
  # 螢幕與圖示結果只有未驗證時帶 Status；未驗證必須是失敗結果，並有固定分類與原因。

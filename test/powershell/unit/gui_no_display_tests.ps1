@@ -1,11 +1,12 @@
 ﻿#Requires -Version 5.1
-# 現場型態重放（#448）：沒有螢幕時，螢幕與圖示入口只顯示 worker 退出碼。型態與限制見 fixtures/nuc_no_display_scene/readme.md。
+# 現場重放（#448）：沒有螢幕時，螢幕與圖示入口只顯示 worker 退出碼。NUC 實機擷取、來源與限制見 fixtures/nuc_no_display_scene/readme.md。
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $script:failures=@()
 function Assert([bool]$Condition,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Condition}|ConvertTo-Json -Compress));if(-not $Condition){$script:failures+=$Name}}
 . (Join-Path $root 'core/gui_stage_library.ps1')
-$scene=Get-Content -LiteralPath (Join-Path $root 'test/powershell/fixtures/nuc_no_display_scene/scene.json') -Raw -Encoding UTF8|ConvertFrom-Json
+$scenes=@((Get-Content -LiteralPath (Join-Path $root 'test/powershell/fixtures/nuc_no_display_scene/scene.json') -Raw -Encoding UTF8|ConvertFrom-Json).Scenes)
+$scene=$scenes[0]
 Add-Type -TypeDefinition @'
 using System;
 namespace NUC8Display{public static class Display{public static uint W=1920,H=1080,Scale=100;public static int Applied,Scaled,Reads;public static uint[] ReadSnapshot(){Reads++;return new uint[]{W,H,Scale};}public static uint[] Apply(){Applied++;return new uint[]{W,H,1920,1080,0,96};}public static uint[] NativeScales(bool apply){Scaled++;return new uint[]{100};}}}
@@ -13,9 +14,9 @@ namespace NUC8Icons{public class Icon{public int Index;public string Name;public
 '@
 $script:ids=@('{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}','{20D04FE0-3AEA-1069-A2D8-08002B30309D}','{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}','{645FF040-5081-101B-9F08-00AA002F954E}')
 $template=Get-Content -LiteralPath (Join-Path $root 'modules/desktop/desktop_layout.json') -Raw -Encoding UTF8|ConvertFrom-Json
-function Set-Frame([int]$Width,[int]$Height){
+function Set-Frame([int]$Width,[int]$Height,$Icons=$template.Icons){
  $layout=New-Object NUC8Icons.Layout;$layout.Width=$Width;$layout.Height=$Height;$i=0
- $layout.Icons=@(foreach($icon in $template.Icons){New-Object NUC8Icons.Icon -Property @{Index=$i;Name=$icon.Name;X=$icon.X;Y=$icon.Y};$i++})
+ $layout.Icons=@(foreach($icon in $Icons){New-Object NUC8Icons.Icon -Property @{Index=$i;Name=$icon.Name;X=$icon.X;Y=$icon.Y};$i++})
  [NUC8Icons.Desktop]::Frame=$layout
 }
 $temp=Join-Path ([IO.Path]::GetTempPath()) ('gui_no_display_'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($temp)
@@ -28,24 +29,25 @@ function Get-SetupGuiIdentity {[pscustomobject]@{CommonDataRoot=$temp;UserSID=$s
 function Assert-SetupGuiAncestors {param($CommonDataRoot) if($CommonDataRoot -ne $temp){throw 'wrong fixture parent'}}
 function New-SetupGuiProtectedDirectory {param($Path,$UserSid) if(-not $Path.StartsWith($temp)){throw 'outside TEMP'};[void][IO.Directory]::CreateDirectory($Path)}
 function Assert-SetupGuiProtectedPath {param($Path,[switch]$Directory,$UserSid) if(-not $Path.StartsWith($temp) -or -not(Microsoft.PowerShell.Management\Test-Path -LiteralPath $Path)){throw 'outside protected fixture'}}
-# PnP 查詢替身：Present=有螢幕，None=沒有任何螢幕裝置，Phantom=只有目前不在的裝置，Fail=查詢失敗，Malformed=裝置沒有可用的存在狀態。
+# PnP 查詢替身：Present=有螢幕，None=實機查到 0 筆，Phantom=回傳目前不在的裝置，Fail=查詢失敗，Malformed=裝置沒有可用的存在狀態。
 function Get-CimInstance {param($ClassName,$Filter,$ErrorAction)
  if($ClassName -eq 'Win32_PnPEntity'){
   $script:pnpQueries++
   if($Filter -notlike '*4d36e96e-e325-11ce-bfc1-08002be10318*' -or [string]$ErrorAction -ne 'Stop'){throw 'unexpected monitor query'}
   switch($script:pnp){
    Present{return [pscustomobject]@{Present=$true;Status='OK'}}
-   None{return $scene.PnpMonitors}
-   Phantom{return $scene.PhantomMonitors}
+   None{return}
+   Phantom{return $scene.PnpDevices}
    Fail{throw [InvalidOperationException]('C:\Users\someone\secret '+$sid)}
    Malformed{return [pscustomobject]@{Present=$null;Status='OK'}}
   }
  }
+ if($ClassName -eq 'Win32_VideoController'){if($script:factsFail){throw 'facts unavailable'};return @(foreach($mode in $script:video){$size=$mode.Split('x');[pscustomobject]@{CurrentHorizontalResolution=$size[0];CurrentVerticalResolution=$size[1]}})}
  if($Filter -eq "Name='powershell.exe'"){return @()}
  [pscustomobject]@{SessionId=4}
 }
-# 現場未擷取 Windows 螢幕數，以未知處理。
-function Get-SetupGuiDesktopFacts {if($script:factsFail){throw 'facts unavailable'};[pscustomobject]@{MonitorCount=$null;Width=$scene.PrimaryWidth;Height=$scene.PrimaryHeight}}
+# 互動桌面讀到的值；縮放不是 100% 時寬高是 DPI 換算後的值，不能當成實際解析度。
+function Get-SetupGuiDesktopFacts {if($script:factsFail){throw 'facts unavailable'};[pscustomobject]@{MonitorCount=$scene.MonitorCount;Width=$scene.PrimaryWidth;Height=$scene.PrimaryHeight}}
 function Invoke-CimMethod {param($InputObject,$MethodName,$ErrorAction) [pscustomobject]@{ReturnValue=0;Sid=$sid}}
 function Get-ScheduledTask {param($TaskName,$ErrorAction) if($script:tasks.ContainsKey($TaskName)){[pscustomobject]@{State='Ready'}}}
 function Get-ScheduledTaskInfo {param($TaskName,$ErrorAction) [pscustomobject]@{LastTaskResult=$script:exitCode}}
@@ -77,10 +79,13 @@ function New-Object {param($TypeName,$ComObject,$ArgumentList,$Property)
 function Set-Scene($Pnp,[int]$Width=1920,[int]$Height=1080){
  $script:pnp=$Pnp;$script:forceExit=$null;$script:mutate=$null;$script:factsFail=$false;$script:writes=0;$script:pnpQueries=0;$script:session=0;$script:exitCode=0
  [NUC8Display.Display]::W=$Width;[NUC8Display.Display]::H=$Height;[NUC8Display.Display]::Applied=0;[NUC8Display.Display]::Scaled=0
- [NUC8Icons.Desktop]::Moves=0;[NUC8Icons.Desktop]::Captures=0;Set-Frame $Width $Height
+ [NUC8Icons.Desktop]::Moves=0;[NUC8Icons.Desktop]::Captures=0;Set-Frame $Width $Height;[NUC8Display.Display]::Scale=100;$script:video=@($scene.Video)
  [IO.File]::WriteAllText($templatePath,$templateText,[Text.UTF8Encoding]::new($true))
 }
-function Set-Headless($Pnp='None'){Set-Scene $Pnp $scene.PrimaryWidth $scene.PrimaryHeight}
+function Set-Headless($Pnp='None'){
+ $size=$scene.Video[0].Split('x');Set-Scene $Pnp ([int]$size[0]) ([int]$size[1]);[NUC8Display.Display]::Scale=$scene.ScalePercent
+ if($scene.DesktopIcons){Set-Frame ([int]$size[0]) ([int]$size[1]) $scene.DesktopIcons}
+}
 function Invoke-Case($Role,$Mode='Verify'){
  $script:failure=$null;$script:result=$null;$script:rawResult=$null
  try{$script:result=if($Role -eq 'Display'){Invoke-SetupGuiRole -PackageRoot $package -Role Display -VerifyOnly:($Mode -eq 'Verify')}else{Invoke-SetupGuiRole -PackageRoot $package -Role Icons -VerifyOnly:($Mode -eq 'Verify') -IconMode $Mode}}catch{$script:failure=$_}
@@ -89,21 +94,33 @@ function Invoke-Case($Role,$Mode='Verify'){
 function Test-Typed {$null -ne $script:failure -and $script:failure.Exception.Data['SetupGuiStatus'] -ceq 'Unverified'}
 $noDisplay='未偵測到螢幕，無法驗收解析度與圖示';$exitText='GUI worker排程退出碼不是0：1'
 
-# 1. 現場型態：沒有螢幕、主畫面 640x480、worker 退出碼 1。
-foreach($kind in 'None','Phantom'){foreach($case in @(,@('Display','Verify'))+@(,@('Display','Load'))+@(,@('Icons','Verify'))+@(,@('Icons','Load'))+@(,@('Icons','Save'))){
- Set-Headless $kind;$m=Invoke-Case $case[0] $case[1];$label=$kind+' '+$case[0]+' '+$case[1]
+# 1. 兩個實機擷取：沒有螢幕、worker 退出碼 1；640x480 縮放 100%，以及 1920x1080 縮放 150%。
+foreach($scene in $scenes){foreach($kind in 'None','Phantom'){foreach($case in @(,@('Display','Verify'))+@(,@('Display','Load'))+@(,@('Icons','Verify'))+@(,@('Icons','Load'))+@(,@('Icons','Save'))){
+ Set-Headless $kind;$m=Invoke-Case $case[0] $case[1];$label=$scene.Name+' '+$kind+' '+$case[0]+' '+$case[1]
  Write-Host ('scene '+$label+' exit='+$script:exitCode+' message='+$m)
  Assert ($script:exitCode -eq $scene.WorkerExitCode) ('現場型態：worker 以非零退出，不算通過：'+$label)
  Assert ($m.Contains($noDisplay) -and $m -cne $scene.UnfixedMessage) ('沒有螢幕時入口明確顯示未偵測到螢幕：'+$label)
- Assert ($m.Contains('解析度 640×480') -and $m.Contains('實體螢幕 0') -and $m.Contains('螢幕數 未知')) ('沒有螢幕時列出實際解析度、實體螢幕數與未知的螢幕數：'+$label)
+ Assert ($m.Contains('目前解析度 '+$scene.Video[0].Replace('x','×')+'，') -and $m.Contains('實體螢幕 0') -and $m.Contains('Windows 螢幕數 1')) ('沒有螢幕時列出實際解析度（不是 DPI 換算值）、實體螢幕數與 Windows 螢幕數：'+$label)
  Assert (Test-Typed) ('沒有螢幕時入口標示未驗證：'+$label)
  Assert ($script:rawResult.Success -eq $false -and $script:rawResult.Status -ceq 'Unverified' -and $script:rawResult.DisplayState -ceq 'NoDisplay' -and $null -eq $script:result) ('本輪結果為未驗證且沒有成功結果：'+$label)
  Assert ([NUC8Display.Display]::Applied -eq 0 -and [NUC8Display.Display]::Scaled -eq 0 -and [NUC8Icons.Desktop]::Moves -eq 0 -and [NUC8Icons.Desktop]::Captures -eq 0 -and $script:writes -eq 0) ('沒有螢幕時不套用解析度、不移動圖示、不寫登錄：'+$label)
  Assert ([IO.File]::ReadAllText($templatePath) -ceq $templateText) ('沒有螢幕時不覆寫圖示範本：'+$label)
+}}}
+# 同一擷取改為有螢幕：worker 原因必須和實機未修版結果檔記錄的一致，且入口帶得出來。
+foreach($scene in $scenes){foreach($role in 'Display','Icons'){
+ $captured=if($role -eq 'Display'){$scene.UnfixedDisplayResult}else{$scene.UnfixedIconsResult}
+ Set-Headless 'Present';$m=Invoke-Case $role;Write-Host ('captured '+$scene.Name+' '+$role+' message='+$m)
+ Assert ($script:exitCode -eq $scene.WorkerExitCode -and $script:rawResult.Success -eq $false -and $script:rawResult.Error -ceq $captured.Error) ('重放 worker 寫出與實機相同的原因：'+$scene.Name+' '+$role)
+ Assert ($m -ceq ($scene.UnfixedMessage+'；原因：'+$captured.Error)) ('入口帶出實機記錄的原因：'+$scene.Name+' '+$role)
+ if($role -eq 'Icons'){Assert ($script:rawResult.Mode -ceq 'Verify') ('圖示失敗結果帶本輪模式：'+$scene.Name)}
 }}
+$scene=$scenes[0]
+Assert ($null -eq $scene.UnfixedIconsResult.PSObject.Properties['Mode']) '實機未修版的圖示例外結果確實缺少模式'
+Set-Headless;$script:video=@('640x480','x','1920x1080','640x480');$m=Invoke-Case 'Display';Assert ($m.Contains('目前解析度 640×480、1920×1080，')) '多個顯示介面列出各自解析度，略過沒有值的介面並去除重複'
+Set-Headless;$script:video=@('x');$m=Invoke-Case 'Display';Assert ($m.Contains('目前解析度 未知')) '顯示介面都沒有解析度時標示未知'
 foreach($role in 'Display','Icons'){Set-Scene 'None';$m=Invoke-Case $role;Assert ($m.Contains($noDisplay) -and $null -eq $script:result) ('沒有螢幕時即使解析度相符也不標通過：'+$role)}
 foreach($role in 'Display','Icons'){Set-Headless;$script:session=4;$m=Invoke-Case $role;Assert ($m.Contains($noDisplay) -and (Test-Typed)) ('互動工作階段同樣回報未偵測到螢幕：'+$role)}
-Set-Headless;$script:factsFail=$true;$m=Invoke-Case 'Display';Assert ($m.Contains($noDisplay) -and $m.Contains('解析度 未知')) '讀不到目前解析度時標示未知，仍回報未偵測到螢幕'
+Set-Headless;$script:factsFail=$true;$m=Invoke-Case 'Display';Assert ($m.Contains($noDisplay) -and $m.Contains('解析度 未知') -and $m.Contains('螢幕數 未知')) '讀不到目前解析度與螢幕數時標示未知，仍回報未偵測到螢幕'
 
 # 2. 查詢失敗與沒有螢幕分開。
 foreach($kind in 'Fail','Malformed'){foreach($case in @(,@('Display','Verify'))+@(,@('Display','Load'))+@(,@('Icons','Verify'))+@(,@('Icons','Load'))){
