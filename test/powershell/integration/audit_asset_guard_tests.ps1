@@ -18,6 +18,7 @@ function Get-InitAnswerCandidates {param($WindowsPath) @()}
 function Assert-InitPlainPath {param($Path)}
 function Test-Path {param($LiteralPath,$PathType,$ErrorAction) if($LiteralPath -like '*Sysprep.exe'){return $true}; Microsoft.PowerShell.Management\Test-Path @PSBoundParameters}
 function Get-ProvisioningPackage {param($PackagePath,$LogsDirectoryPath,$ErrorAction) $script:calls.Add('metadata');if($script:metadata -eq 'throw'){throw 'native unavailable'};[pscustomobject]@{PackageID='1c2605ea-96ae-42fc-8f11-45fc0cb9d133';PackageName=$(if($script:metadata -eq 'bad'){'bad'}else{'windows_setup_hide_oobe'});Version='1.0';Rank=0;OwnerType=5000} }
+function Test-SetupInitInteractiveHost {return $true}
 function Read-Host {param($Prompt,[switch]$AsSecureString) $script:calls.Add('prompt');throw 'prompt sentinel'}
 function Get-LocalUser { $script:calls.Add('account');throw 'unexpected account' }
 function New-Item { $script:calls.Add('write');throw 'unexpected write' }
@@ -25,7 +26,7 @@ function Start-Process { $script:calls.Add('start');throw 'unexpected process' }
 function Invoke-Case {param($Name,[bool]$Valid)
  $script:calls.Clear();$errorText=''
  try{Invoke-SetupInit -EntryPath (Join-Path $module 'entry.ps1') -ModuleRoot $module}catch{$errorText=$_.Exception.Message}
- $ok=if($Valid){$errorText -eq 'prompt sentinel' -and ($script:calls -join ',') -eq 'metadata,prompt'}else{$errorText -ne 'prompt sentinel' -and $script:calls -notcontains 'prompt' -and $script:calls -notcontains 'account' -and $script:calls -notcontains 'write' -and $script:calls -notcontains 'start'}
+ $ok=if($Valid){$errorText -eq '未同意帳號與 OOBE 準備，本次未更改設定。' -and ($script:calls -join ',') -eq 'metadata,prompt'}else{$errorText -ne 'prompt sentinel' -and $script:calls -notcontains 'prompt' -and $script:calls -notcontains 'account' -and $script:calls -notcontains 'write' -and $script:calls -notcontains 'start'}
  Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$ok;Calls=($script:calls -join ',')}|ConvertTo-Json -Compress))
  if(-not $ok){throw $Name}
 }

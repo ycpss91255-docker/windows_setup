@@ -10,3 +10,13 @@ function Get-SetupSshConnectionInfo {
  }catch{'目前無法讀取 IPv4；請查看 Windows 網路設定。'}
  try{$mdns=Get-SetupMdnsStatus -ComputerName $ComputerName;Format-SetupMdnsConnectionInfo -Status $mdns -UserName $UserName}catch{'名稱觀測無法完成：'+$_.Exception.Message+'；可先用上列 IPv4 連線。'}
 }
+
+# Preserve failure after printing the direct connection guidance.
+function Invoke-SetupSshMdnsAndInfo {
+ param([scriptblock]$Mdns,[scriptblock]$Hosts,[scriptblock]$Info,[scriptblock]$Write)
+ $failure=$null
+ try{& $Mdns|Out-Null}catch{$failure=$_}
+ if(-not $failure){& $Hosts|Out-Null}
+ & $Info|Where-Object {-not $failure -or $_ -match '^IPv4：|^目前沒有可用 IPv4|^目前無法讀取 IPv4'}|ForEach-Object {& $Write $_|Out-Null}
+ if($failure){throw $failure}
+}

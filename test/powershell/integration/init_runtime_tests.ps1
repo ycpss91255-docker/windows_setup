@@ -26,6 +26,7 @@ function Invoke-InitProvisioningEntry {param($SourceRoot,$StageRoot,$ResumeState
 function Assert-InitProvisioningAsset {param($AssetRoot);return @{PackageSHA256='fixture'}}
 function Get-LocalUser {param($SID,$ErrorAction);if($SID){[pscustomobject]@{Name='fixture';Enabled=$script:userEnabled}}else{[pscustomobject]@{Name='existing'}}}
 function Get-Process {param($Name,$ErrorAction);if($script:runningSysprep){[pscustomobject]@{Name='sysprep'}}}
+function Test-SetupInitInteractiveHost {return $true}
 function Read-Host {param($Prompt,[switch]$AsSecureString);if(-not $script:queue.Count){throw 'unexpected prompt'};return $script:queue.Dequeue()}
 function Protect-InitFolder {param($Path);if(-not $Path.StartsWith($fixture)){throw 'outside TEMP'};$script:protected=$Path}
 function Start-Process {param($FilePath,$Verb,$ArgumentList,[switch]$Wait,[switch]$PassThru,$WindowStyle);$script:starts+=@{FilePath=$FilePath;Verb=$Verb;ArgumentList=$ArgumentList};[pscustomobject]@{ExitCode=$script:processExit}}
