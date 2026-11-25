@@ -6,6 +6,7 @@ $fixture=Join-Path $env:TEMP ('driver_choice_'+[guid]::NewGuid().ToString('N'))
 $package=Join-Path $fixture 'windows_setup';$core=Join-Path $package 'core';$stub=Join-Path $package 'stub';$reports=Join-Path $package 'reports';$init=Join-Path $package 'modules/init'
 $payload=Join-Path $fixture 'windows_driver_packages\nuc8'
 foreach($dir in @($core,$stub,$reports,$init)){[void][IO.Directory]::CreateDirectory($dir)}
+function Same-Package([string]$Left,[string]$Right){[bool]$Left -and (Get-Item -LiteralPath $Left).FullName -eq (Get-Item -LiteralPath $Right).FullName}
 $utf=[Text.UTF8Encoding]::new($true)
 function Assert([bool]$Value,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Name;Passed=$Value}|ConvertTo-Json -Compress));if(-not $Value){throw $Name}}
 function Put([string]$Path,[string]$Text){[IO.File]::WriteAllText($Path,$Text,$utf)}
@@ -49,7 +50,7 @@ function Get-CimInstance {param($ClassName,$ErrorAction) foreach($b in $global:c
 function Get-NetConnectionProfile {param($ErrorAction) [pscustomobject]@{IPv4Connectivity='Internet';IPv6Connectivity='NoTraffic'}}
 function Get-PnpDevice {param([switch]$PresentOnly)}
 function Get-ItemProperty {param($Path,$ErrorAction) [pscustomobject]@{DefaultUserName='fixture';AutoAdminLogon='1'}}
-function Read-Host {param($Prompt) $global:choiceFixture.Prompts++;if($global:choiceFixture.ReadFails){throw 'fixture read failure C:\Users\typed-secret'};if(-not $global:choiceFixture.Answers.Count){throw ('Unexpected prompt: '+$Prompt)};return $global:choiceFixture.Answers.Dequeue()}
+function Read-Host {param($Prompt) $global:choiceFixture.Prompts++;if($global:choiceFixture.ReadFails){throw 'fixture read failure C:\Users\typed-secret'};if(-not $global:choiceFixture.Answers.Count){throw ('Unexpected prompt: '+$Prompt)};$answer=$global:choiceFixture.Answers.Dequeue();if($answer -ceq '<EOF>'){return};return $answer}
 $profileFile=Join-Path $root 'drivers/nuc8i7hvk_hnk/profile.json';$profileHash=(Get-FileHash -LiteralPath $profileFile -Algorithm SHA256).Hash
 function Set-Package([string]$Kind,[object[]]$Boards=@('NUC8i7HVB','NUC8i7HNB')){
  if(Test-Path -LiteralPath $payload){Remove-Item -LiteralPath $payload -Recurse -Force}
@@ -111,9 +112,8 @@ try{
   @{Name='非互動未選包';Arguments=@{NonInteractive=$true};Answers=@();Line=(Line '未詢問' '未檢查' 'NUC8i7HVB' '未知' '否')}
   @{Name='明確傳入空路徑';Arguments=@{DriverPackagePath=''};Answers=@();Line=(Line '未詢問' '未檢查' 'NUC8i7HVB' '未知' '否')}
   @{Name='參數指定包';Arguments=@{NonInteractive=$true;DriverPackagePath=$payload};Answers=@();Line=(Line '選用' '檢查通過' 'NUC8i7HVB' $both '否');Installs=$true}
-  @{Name='驅動包提示沒有讀到輸入';Boards=@('NUC8i7HNB');Answers=@($null);Line=(Line '讀取輸入失敗' '型號未對上' 'NUC8i7HVB' 'NUC8i7HNB' '否')}
-  @{Name='找不到包且沒有讀到輸入';Kind='none';Answers=@($null);Line=(Line '讀取輸入失敗' '找不到包' 'NUC8i7HVB' '無' '否')}
-  @{Name='型號提示沒有讀到輸入';Detected=@('');Answers=@($null);Line=(Line '讀取輸入失敗' '沒有對應的驅動設定檔' '未知' '未知' '否')}
+  @{Name='找不到包且沒有讀到輸入';Kind='none';Answers=@('<EOF>');Line=(Line '讀取輸入失敗' '找不到包' 'NUC8i7HVB' '無' '否')}
+  @{Name='型號提示沒有讀到輸入';Detected=@('');Answers=@('<EOF>');Line=(Line '讀取輸入失敗' '沒有對應的驅動設定檔' '未知' '未知' '否')}
   @{Name='包支援型號含路徑或引號';Boards=@('C:\Users\typed-secret',"a';b");Answers=@('');Line=(Line 'Enter 略過' '型號未對上' 'NUC8i7HVB' '未知' '否')}
   @{Name='包支援型號過多';Boards=@(1..9|ForEach-Object {'BOARD'+$_});Answers=@('');Line=(Line 'Enter 略過' '型號未對上' 'NUC8i7HVB' '未知' '否')}
  )
@@ -156,7 +156,7 @@ try{
  foreach($pair in @(@('選用結果換成略過',$skip),@('選用結果換成手動確認',$pick.Replace('manual=0','manual=1')))){
   Reset-Run;Invoke-Elevated $pickCommand.Replace("'"+$pick+"'","'"+$pair[1]+"'")
   Assert-Log $unknownLine $pair[0]
-  Assert ($global:choiceFixture.Installed -eq $payload) ($pair[0]+'：紀錄不可信仍依實際選包安裝')
+  Assert (Same-Package $global:choiceFixture.Installed $payload) ($pair[0]+'：紀錄不可信仍依實際選包安裝')
  }
  # 提權後讀不到型號只是無法比對，不代表紀錄不可信。
  Reset-Run;$global:choiceFixture.Boards=@('');Invoke-Elevated $skipCommand;$global:choiceFixture.Boards=@('NUC8i7HVB')
@@ -167,6 +167,13 @@ try{
  foreach($value in @("x'; throw 'injected' #",('x'+[char]0x2019+'; throw injected #'),'$(throw 1)',($skip+"`n"),'typed-secret')){
   Reset-Run;& (Join-Path $core 'configure_setup.ps1') -SelectionRecord $value *>$null
   Assert ($global:choiceFixture.Command -and -not $global:choiceFixture.Command.Contains('SelectionRecord') -and -not $global:choiceFixture.Command.Contains('injected')) '不合法內容不帶入提權命令列'
+ }
+ # 找到相鄰包的提示讀到輸入結尾：中止、不提權、不選用，分類為讀取輸入失敗。
+ foreach($case in @(@{Name='完全相符';Boards=@('NUC8i7HVB','NUC8i7HNB');Answers=@('<EOF>');Package='型號與身分相符';Supported=$both},@{Name='型號未對上';Boards=@('NUC8i7HNB');Answers=@('<EOF>');Package='型號未對上';Supported='NUC8i7HNB'},@{Name='無法辨識的輸入之後';Boards=@('NUC8i7HVB','NUC8i7HNB');Answers=@('x','<EOF>');Package='型號與身分相符';Supported=$both})){
+  Set-Package 'good' $case.Boards;$global:choiceFixture.Boards=@('NUC8i7HVB');Reset-Run $case.Answers;$caught='';try{& (Join-Path $core 'start_windows.ps1') *>$null}catch{$caught=$_.Exception.Message}
+  Assert ([bool]$caught -and -not $global:choiceFixture.Command -and $global:choiceFixture.Prompts -eq $case.Answers.Count) ('輸入結尾中止且不提權 '+$case.Name)
+  Assert (@(Get-ChoiceLine (Get-RunLog)).Count -eq 1 -and @(Get-ChoiceLine (Get-RunLog))[0] -ceq (Line '讀取輸入失敗' $case.Package 'NUC8i7HVB' $case.Supported '否')) ('輸入結尾寫入讀取輸入失敗 '+$case.Name+'；實際='+((Get-ChoiceLine (Get-RunLog)) -join ' | '))
+  Assert ($caught -match '沒有讀到輸入') ('輸入結尾的中止原因清楚 '+$case.Name+'；實際='+$caught)
  }
  # 選包階段讀取輸入失敗維持中止，不提權；只補一份可查的紀錄。
  foreach($stage in @('驅動包提示','型號提示')){
@@ -198,6 +205,40 @@ try{Select-SetupDriverRequest -PackageRoot $PackageRoot -Interactive $true|Out-N
 '@)
  Reset-Run;$old=$ErrorActionPreference;$ErrorActionPreference='Continue';try{& powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $child -Hardware (Join-Path $core 'hardware.ps1') -PackageRoot $package *>$null}finally{$ErrorActionPreference=$old}
  Assert (@(Get-ChoiceLine (Get-RunLog))[0] -ceq (Line '讀取輸入失敗' '型號與身分相符' 'NUC8i7HVB' $both '否')) '真 Read-Host 讀取失敗寫入分類'
+ # 真 Read-Host 加上會結束的重導輸入：每個提示讀到結尾的分類。替身的「沒有輸出物件」須與此一致。
+ $eofChild=Join-Path $fixture 'eof_child.ps1'
+ Put $eofChild (@'
+param($Hardware,$PackageRoot,$Board,$Out)
+$ErrorActionPreference='Stop'
+$script:board=if($Board -eq 'none'){''}else{$Board}
+function Get-CimInstance {param($ClassName,$ErrorAction) [pscustomobject]@{Product=$script:board}}
+. $Hardware
+try{
+ $request=Select-SetupDriverRequest -PackageRoot $PackageRoot -Interactive $true
+ [IO.File]::WriteAllText($Out,'done|'+[bool]$request.DriverPackagePath+'|'+(Resolve-SetupDriverChoice -Record $request.SelectionRecord).Text)
+}catch{
+ Write-SetupAbortedDriverChoice -PackageRoot $PackageRoot -ErrorRecord $_
+ $log=@(Get-ChildItem -LiteralPath (Join-Path $PackageRoot 'reports') -Filter 'Setup-*.log')[0]
+ [IO.File]::WriteAllText($Out,'stopped|False|'+@([IO.File]::ReadAllLines($log.FullName))[0])
+}
+'@)
+ foreach($case in @(
+  @{Name='相鄰包';Kind='good';Board='NUC8i7HVB';Keys='';Expected=('stopped|False|'+(Line '讀取輸入失敗' '型號與身分相符' 'NUC8i7HVB' $both '否'))}
+  @{Name='相鄰包型號未對上';Kind='good';Boards=@('NUC8i7HNB');Board='NUC8i7HVB';Keys='';Expected=('stopped|False|'+(Line '讀取輸入失敗' '型號未對上' 'NUC8i7HVB' 'NUC8i7HNB' '否'))}
+  @{Name='P 之後';Kind='good';Board='NUC8i7HVB';Keys="p`r`n";Expected=('done|False|'+(Line '讀取輸入失敗' '型號與身分相符' 'NUC8i7HVB' $both '否'))}
+  @{Name='重新輸入路徑';Kind='badzip';Board='NUC8i7HVB';Keys="y`r`n";Expected=('done|False|'+(Line '讀取輸入失敗' '內容檢查失敗' 'NUC8i7HVB' $both '否'))}
+  @{Name='找不到包';Kind='none';Board='NUC8i7HVB';Keys='';Expected=('done|False|'+(Line '讀取輸入失敗' '找不到包' 'NUC8i7HVB' '無' '否'))}
+  @{Name='型號提示';Kind='good';Board='none';Keys='';Expected=('done|False|'+(Line '讀取輸入失敗' '沒有對應的驅動設定檔' '未知' '未知' '否'))}
+  @{Name='型號確認';Kind='good';Board='none';Keys="1`r`n";Expected=('done|False|'+(Line '讀取輸入失敗' '沒有對應的驅動設定檔' '未知' '未知' '否'))}
+  @{Name='對照：真 Enter 不是輸入結尾';Kind='good';Board='NUC8i7HVB';Keys="`r`n";Expected=('done|True|'+(Line '選用' '檢查通過' 'NUC8i7HVB' $both '否'))}
+ )){
+  Set-Package $case.Kind $(if($case.Boards){$case.Boards}else{@('NUC8i7HVB','NUC8i7HNB')});Reset-Run
+  $keys=Join-Path $fixture 'keys.txt';$out=Join-Path $fixture 'eof_result.txt';[IO.File]::WriteAllBytes($keys,[Text.Encoding]::ASCII.GetBytes($case.Keys));[IO.File]::Delete($out)
+  $line='"powershell.exe -NoProfile -ExecutionPolicy Bypass -File "'+$eofChild+'" -Hardware "'+(Join-Path $core 'hardware.ps1')+'" -PackageRoot "'+$package+'" -Board '+$case.Board+' -Out "'+$out+'" < "'+$keys+'" > nul 2>&1"'
+  $null=(Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\cmd.exe') -ArgumentList ('/d /s /c '+$line) -NoNewWindow -PassThru -Wait)
+  $actual=if(Test-Path -LiteralPath $out){[IO.File]::ReadAllText($out)}else{'沒有結果'}
+  Assert ($actual -ceq $case.Expected) ('真 Read-Host 讀到輸入結尾 '+$case.Name+'；實際='+$actual)
+ }
  # 續跑：不重新詢問；沿用同機同帳號紀錄，缺少或被改就寫未知。
  function Invoke-Restart{$global:choiceFixture.Admin=$true;$global:choiceFixture.Prompts=0;$script:restartError='';$script:restartOutput='';try{$script:restartOutput=(@(& (Join-Path $core 'start_windows.ps1') -AfterRestart *>&1)|ForEach-Object {[string]$_}) -join "`n"}catch{$script:restartError=$_.Exception.Message}}
  $result=Join-Path $reports 'Setup-Result.json'

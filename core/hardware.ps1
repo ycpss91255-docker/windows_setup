@@ -303,9 +303,15 @@ function Get-SetupSavedDriverChoice {
 }
 function Read-SetupDriverAnswer {
  # A failed read keeps stopping the run; the exception only carries the classification, never the message or input.
- param([string]$Prompt,[hashtable]$Facts)
+ param([string]$Prompt,[hashtable]$Facts,[switch]$Required)
  try{$answer=Read-Host $Prompt}catch{$Facts.Choice='InputFailed';$_.Exception.Data['SetupDriverChoice']=ConvertTo-SetupDriverChoiceRecord -Facts $Facts;throw}
  $Facts.InputMissing=($null -eq $answer)
+ if($Required -and $Facts.InputMissing){
+  # End of input is not an Enter: this prompt may install on Enter, so stop as before but say why.
+  $Facts.Choice='InputFailed';$failure=New-Object InvalidOperationException '沒有讀到輸入，已停止選包，沒有選用驅動包。'
+  $failure.Data['SetupDriverChoice']=ConvertTo-SetupDriverChoiceRecord -Facts $Facts
+  throw $failure
+ }
  return $answer
 }
 function Get-SetupDriverSkipChoice {
@@ -354,8 +360,8 @@ function Select-SetupDriverRequest {
     $match=Test-SetupDriverExactMatch -Hardware $hardware -DriverPackagePath $candidate
     $facts.Package=$match.Code;$facts.Supported=Get-SetupDriverChoicePackageBoards -DriverPackagePath $candidate
     while($true){
-     if($match.Matched){$choice=Read-SetupDriverAnswer -Facts $facts -Prompt ('找到獨立包 '+$candidate+'；偵測到的型號 '+$hardware.DriverBoard+' 與驅動包支援的型號完全相符。Enter 或 Y 安裝，N 略過，P 指定其他位置')}
-     else{$choice=Read-SetupDriverAnswer -Facts $facts -Prompt ('找到獨立包 '+$candidate+'；但無法確認完全對上：'+$match.Reason+' 為安全起見 Enter 略過；Y 明確選用（仍會嚴格檢查），P 指定其他位置')}
+     if($match.Matched){$choice=Read-SetupDriverAnswer -Required -Facts $facts -Prompt ('找到獨立包 '+$candidate+'；偵測到的型號 '+$hardware.DriverBoard+' 與驅動包支援的型號完全相符。Enter 或 Y 安裝，N 略過，P 指定其他位置')}
+     else{$choice=Read-SetupDriverAnswer -Required -Facts $facts -Prompt ('找到獨立包 '+$candidate+'；但無法確認完全對上：'+$match.Reason+' 為安全起見 Enter 略過；Y 明確選用（仍會嚴格檢查），P 指定其他位置')}
      $choice=([string]$choice).Trim()
      if($choice -eq 'p'){$DriverPackagePath=Read-SetupDriverAnswer -Facts $facts -Prompt '獨立驅動包完整路徑，Enter 略過';$notifySkip=-not $DriverPackagePath;$facts.Choice=Get-SetupDriverSkipChoice -Facts $facts;break}
      if($choice -eq 'y' -or ($match.Matched -and $choice -eq '')){$DriverPackagePath=$candidate;break}
