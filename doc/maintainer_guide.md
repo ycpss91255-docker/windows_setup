@@ -52,7 +52,7 @@ git push origin "refs/tags/$version"
 
 從 GitHub Release 使用內建 **Source code (zip)** 或 **Source code (tar.gz)** 下載來源，不額外上傳重複來源 ZIP／SHA256。內建來源封存檔的根目錄名稱由 GitHub 決定。若使用快速開始的 USB 自動尋找指令，請改名為 `windows_setup` 並放在 USB 根目錄；腳本本身可放任意路徑，手動呼叫該位置的 `init.cmd` 即可。
 
-Release 不一定提供驅動資產；所有電腦（包括 NUC）都可在 `windows.cmd` 選包提示按 Enter 略過。若該版提供適合本機型號的獨立驅動包且需要安裝，依 [準備獨立驅動包](../readme.md#準備獨立驅動包) 下載同版 ZIP、解壓後選取該資料夾。資產檔名、大小、SHA256、機型設定檔與包內 manifest 雜湊，列在該版來源的 [驅動資產清單](../script/release/driver_release_assets.json)；只選擇自己機型對應的包，不把其他型號包套用到本機。
+Release 不一定提供驅動資產；所有電腦（包括 NUC）都可在 `windows.cmd` 選包提示輸入 N 略過；只有自動偵測型號與驅動包完全對上時 Enter 才是安裝，其餘情況 Enter 略過。若該版提供適合本機型號的獨立驅動包且需要安裝，依 [準備獨立驅動包](../readme.md#準備獨立驅動包) 下載同版 ZIP、解壓後選取該資料夾。資產檔名、大小、SHA256、機型設定檔與包內 manifest 雜湊，列在該版來源的 [驅動資產清單](../script/release/driver_release_assets.json)；只選擇自己機型對應的包，不把其他型號包套用到本機。
 
 - 來源不包含 `.git`、驅動 ZIP、Autologon EXE、實機 Reports 或密碼暫存；來源檢查會拒絕錯誤追蹤的敏感檔案。
 - 依 [來源包準備說明](../readme.md#從原始碼準備完整工具包) 補齊所選功能需要的二進位，不能把來源 ZIP 當成完整離線安裝包。
@@ -74,7 +74,7 @@ New-DeterministicDriverArchive -PackageDirectory '已驗證的獨立包資料夾
 推送標籤後，立即從該標籤的來源目錄建立一次性草稿：
 
 ```powershell
-.\script\release\stage_driver_release.ps1 -Version vX.Y.Z -Repository ycpss91255/windows_setup -AssetDirectory '已封存的資產資料夾'
+.\script\release\stage_driver_release.ps1 -Version vX.Y.Z -Repository ycpss91255-lab/windows_setup -AssetDirectory '已封存的資產資料夾'
 ```
 
 此命令只建立尚未公開的暫時草稿，先核對標籤位於 main、遠端提交一致以及本地資產雜湊。標籤 CI 全綠後，CD 才會核對草稿身分、既有驅動與全部品質附件，最後一次發布為不可變 Release。已有其他草稿、上傳不完整或雜湊不符會停止，保留現場供維護者檢查，不覆寫或刪除既有版本。若建立草稿太晚造成 CD 失敗，先核對草稿完整，再選擇該次執行的「重新執行所有工作」，重新產生同 attempt 的分片及品質證據；勿只重跑發布工作、移動標籤或跳過品質門檻。

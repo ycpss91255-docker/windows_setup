@@ -31,13 +31,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: 取得此事件的實際快照
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: 準備固定 Go 工具鏈
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
         with:
           go-version: '1.27.3'
@@ -47,18 +47,102 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREFLIGHT_EVENT_NAME: ${{ github.event_name }}
           EVENT_BASE: ${{ github.event.pull_request.base.sha }}
           EVENT_HEAD: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -euo pipefail
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > "$RUNNER_TEMP/pr-authority.json"
-          PREFLIGHT_MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
-          export PREFLIGHT_MAIN_SHA
           go run ./script/test/pr_source_preflight -repo . -event "$GITHUB_EVENT_PATH" -authority "$RUNNER_TEMP/pr-authority.json" -checkout "$(git rev-parse HEAD)" -run-sha "$GITHUB_SHA" -base "$EVENT_BASE" -head "$EVENT_HEAD"
 
-  oobe_payload_inspection:
+      - name: 嚴格核對合併佇列分組（同倉庫、由 base 合成、實際 tree）
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2016
+          gh api graphql -f query='query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { mergeQueue(branch: "main") { entries(first: 100) { nodes { position headCommit { oid } pullRequest { number isCrossRepository headRepository { nameWithOwner } } } } } } }' -F owner="${GITHUB_REPOSITORY%%/*}" -F name="${GITHUB_REPOSITORY#*/}" > "$RUNNER_TEMP/merge-queue.json"
+          go run ./script/test/pr_source_preflight -mode merge-group -repo . -event "$GITHUB_EVENT_PATH" -queue "$RUNNER_TEMP/merge-queue.json" -repository "$GITHUB_REPOSITORY" -checkout "$(git rev-parse HEAD)" -run-sha "$GITHUB_SHA"
+
+  classify:
+    name: PR 變更分類
     needs: [source-preflight]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      select_tests: ${{ steps.classify.outputs.select_tests || steps.fallback.outputs.select_tests }}
+      select_powershell_coverage: ${{ steps.classify.outputs.select_powershell_coverage || steps.fallback.outputs.select_powershell_coverage }}
+      select_coverage_aggregation: ${{ steps.classify.outputs.select_coverage_aggregation || steps.fallback.outputs.select_coverage_aggregation }}
+      select_requirements_gate: ${{ steps.classify.outputs.select_requirements_gate || steps.fallback.outputs.select_requirements_gate }}
+      select_docker_tests: ${{ steps.classify.outputs.select_docker_tests || steps.fallback.outputs.select_docker_tests }}
+      select_oobe_payload: ${{ steps.classify.outputs.select_oobe_payload || steps.fallback.outputs.select_oobe_payload }}
+      select_doc_checks: ${{ steps.classify.outputs.select_doc_checks || steps.fallback.outputs.select_doc_checks }}
+      select_go_tests: ${{ steps.classify.outputs.select_go_tests || steps.fallback.outputs.select_go_tests || 'false' }}
+      shard_count: ${{ steps.classify.outputs.shard_count || steps.fallback.outputs.shard_count || '1' }}
+      shard_matrix: ${{ steps.classify.outputs.shard_matrix || steps.fallback.outputs.shard_matrix || '[0]' }}
+      pr_full: ${{ steps.classify.outputs.pr_full || steps.fallback.outputs.pr_full || 'false' }}
+      test_scope: ${{ steps.classify.outputs.test_scope || steps.fallback.outputs.test_scope }}
+      affected_tests: ${{ steps.classify.outputs.affected_tests }}
+      doc_tests: ${{ steps.classify.outputs.doc_tests }}
+      classify_fallback: ${{ steps.classify.outputs.classify_fallback || steps.fallback.outputs.classify_fallback || 'false' }}
+    steps:
+      - name: 取得完整歷史以計算 PR 變更
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 取得基底版本的分類規則
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: base-source
+          persist-credentials: false
+      - name: 在 Linux 以暫時倉庫確認分類器不會退回完整套件
+        shell: pwsh
+        run: |
+          . ./script/test/ci_classify_smoke.ps1
+          Invoke-CIClassifierSmoke -ClassifierPath ./script/test/ci_classify.ps1 | Out-Null
+      - name: 以基底版本的規則依 diff 選出受影響的工作
+        id: classify
+        continue-on-error: true
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          & ./base-source/script/test/ci_classify.ps1 -EventName $env:EVENT_NAME -BaseRef ('origin/' + $env:BASE_REF) -Root $PWD.Path -OutputPath $env:GITHUB_OUTPUT
+      - name: 分類失敗時改跑完整套件
+        id: fallback
+        if: steps.classify.outcome != 'success'
+        shell: pwsh
+        run: |
+          Add-Content -LiteralPath $env:GITHUB_OUTPUT -Value @('select_tests=true','select_powershell_coverage=true','select_coverage_aggregation=true','select_requirements_gate=true','select_docker_tests=true','select_oobe_payload=true','select_doc_checks=false','select_go_tests=false','shard_count=1','shard_matrix=[0]','pr_full=false','test_scope=full','classify_fallback=true')
+          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value @('## PR 變更分類步驟失敗，改跑完整套件','','CI 加速未生效；請查看 classify 工作的記錄。')
+
+  doc-checks:
+    name: 文件輕量檢查
+    needs: [classify]
+    if: needs.classify.outputs.select_doc_checks == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: 取得原始碼
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: 只執行引用被改文件的測試與全域契約測試
+        shell: powershell
+        env:
+          DOC_TESTS: ${{ needs.classify.outputs.doc_tests }}
+        run: |
+          & .\script\test\run_ci.ps1 -Layer All -ReportDirectory (Join-Path $env:RUNNER_TEMP 'doc-checks') -Suite ($env:DOC_TESTS -split ',')
+
+  oobe_payload_inspection:
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_oobe_payload == 'true'
     name: 設定包唯讀內容驗證
     runs-on: windows-2022
     timeout-minutes: 5
@@ -109,7 +193,8 @@ jobs:
           if-no-files-found: warn
 
   powershell-coverage:
-    needs: [source-preflight]
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_powershell_coverage == 'true'
     name: PowerShell 全源量測分片 ${{ matrix.shard }}
     runs-on: windows-2022
     timeout-minutes: 60
@@ -168,7 +253,12 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   isolated-tests:
-    needs: [source-preflight]
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_tests == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.classify.outputs.shard_matrix) }}
     runs-on: windows-2022
     timeout-minutes: 90
     defaults:
@@ -203,22 +293,34 @@ jobs:
           Install-ContainerToolArtifact -Artifact $artifact -Destination $directory -ArchiveDirectory (Join-Path $env:RUNNER_TEMP 'actionlint-download')
           "WINDOWS_SETUP_ACTIONLINT=$(Join-Path $directory 'actionlint.exe')" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
       - name: 執行 Windows PowerShell 5.1 隔離測試
+        if: needs.classify.outputs.test_scope != 'scoped'
         run: |
           & .\script\test\run_ci.ps1 -ReportDirectory (Join-Path $env:RUNNER_TEMP 'NUC-CI-Results')
+      - name: 只執行受影響的 Windows PowerShell 5.1 隔離測試
+        if: needs.classify.outputs.test_scope == 'scoped'
+        env:
+          AFFECTED_TESTS: ${{ needs.classify.outputs.affected_tests }}
+          SHARD_INDEX: ${{ matrix.shard }}
+          SHARD_COUNT: ${{ needs.classify.outputs.shard_count }}
+        run: |
+          & .\script\test\run_ci.ps1 -Layer All -ReportDirectory (Join-Path $env:RUNNER_TEMP 'NUC-CI-Results') -Parallelism 2 -ShardIndex ([int]$env:SHARD_INDEX) -ShardCount ([int]$env:SHARD_COUNT) -Suite ($env:AFFECTED_TESTS -split ',')
       - name: 顯示固定失敗測試的有限診斷
-        if: failure()
+        if: failure() && needs.classify.outputs.test_scope != 'scoped'
         run: |
           . .\script\test\ci_tasks.ps1
           Write-CIFailureDiagnostics -ReportDirectory (Join-Path $env:RUNNER_TEMP 'NUC-CI-Results') -SuiteNames @('Unit.uac_helpers','Integration.managed_catalog','Unit.driver_cache_cleanup','Integration.init_runtime','Integration.driver_full_source_coverage','Integration.report_bundle_publication','Integration.ci_runner_coverage')
       - name: 產生明確標示的合成首頁驗收樣本
-        if: always()
+        if: always() && needs.classify.outputs.test_scope != 'scoped'
         run: |
           & .\script\test\create_portal_fixture.ps1 -OutputDirectory (Join-Path $env:RUNNER_TEMP 'requirements-fixture')
       - name: 核對本次新增合併提交標題
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('run','./script/test/commitlint/mergecheck')
       - name: 執行全部 Go 維護工具測試
+        if: needs.classify.outputs.test_scope != 'scoped'
         env:
           WINDOWS_SETUP_ARTIFACT_DIR: ${{ runner.temp }}/NUC-CI-Results/public
           WINDOWS_SETUP_PORTAL_FIXTURE_DIR: ${{ runner.temp }}/requirements-fixture/portal
@@ -226,14 +328,17 @@ jobs:
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('test','-mod=vendor','-count=1','./...')
       - name: 驗證手機與桌面報表明細排版
+        if: needs.classify.outputs.test_scope != 'scoped'
         run: |
           . .\script\test\ci_tasks.ps1
           Invoke-CIReportLayout
       - name: 封裝尚未完成 runtime 覆蓋率的原生證據
+        if: needs.classify.outputs.test_scope != 'scoped'
         run: |
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('run','./script/test/repo_coverage_tool','native-stage-pack','--runtime','--source-root',$PWD.Path,'--report-dir',(Join-Path $env:RUNNER_TEMP 'NUC-CI-Results/public'),'--output-dir',(Join-Path $env:RUNNER_TEMP 'native-stage'),'--expected-sha',$env:GITHUB_SHA,'--expected-run-url',("https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"),'--run-attempt',$env:GITHUB_RUN_ATTEMPT)
       - name: 僅保留不可發布的同次原生中介證據七天
+        if: needs.classify.outputs.test_scope != 'scoped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: native-stage-${{ github.run_id }}-${{ github.run_attempt }}
@@ -241,16 +346,81 @@ jobs:
           retention-days: 7
           if-no-files-found: error
       - name: 保留合成驗收樣本七天
-        if: always()
+        if: always() && needs.classify.outputs.test_scope != 'scoped'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: requirements-fixture-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/requirements-fixture/portal/
           retention-days: 7
           if-no-files-found: error
+  go-tests:
+    name: Go 維護工具單元測試
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_go_tests == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: 取得原始碼
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 準備固定 Go 覆蓋率工具鏈
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: 執行 Go 維護工具單元測試（不含整合測試）
+        run: |
+          . .\script\test\ci_tasks.ps1
+          Invoke-CIGoUnitTests
+  managed-coverage:
+    name: managed 原生程式量測
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_coverage_aggregation == 'true'
+    runs-on: windows-2022
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: 取得相同量測來源
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: 準備本次 managed 量測編譯器
+        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: '10.0.300'
+          cache: false
+      - name: 當地量測 managed 原生程式完整計數點
+        run: |
+          & .\script\test\managed_coverage.ps1 -SourceRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'managed-coverage') -Runtime
+      - name: 僅保留聚合所需的 managed 證據七天
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: managed-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/managed-coverage/evidence.json
+            ${{ runner.temp }}/managed-coverage/catalog.json
+            ${{ runner.temp }}/managed-coverage/merged.coverage
+            ${{ runner.temp }}/managed-coverage/merged.xml
+            ${{ runner.temp }}/managed-coverage/bin/windows_setup_managed.dll
+            ${{ runner.temp }}/managed-coverage/bin/windows_setup_managed.pdb
+            ${{ runner.temp }}/managed-coverage/shards/*.coverage
+            ${{ runner.temp }}/managed-coverage/shards/*.xml
+          retention-days: 7
+          if-no-files-found: error
+
   coverage-aggregation:
     name: 同次完整覆蓋率聚合
-    needs: [isolated-tests, powershell-coverage]
+    needs: [classify, isolated-tests, powershell-coverage, managed-coverage]
+    if: needs.classify.outputs.select_coverage_aggregation == 'true'
     runs-on: windows-2022
     timeout-minutes: 30
     defaults:
@@ -266,13 +436,6 @@ jobs:
         with:
           go-version: '1.27.3'
           cache: false
-      - name: 準備本次 managed 量測編譯器
-        uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1
-        env:
-          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
-        with:
-          dotnet-version: '10.0.300'
-          cache: false
       - name: 下載同次與同 attempt 的原生中介證據
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -282,9 +445,11 @@ jobs:
         run: |
           . .\script\test\ci_tasks.ps1
           Invoke-CINative -File go.exe -Arguments @('run','./script/test/repo_coverage_tool','native-stage-restore','--runtime','--source-root',$PWD.Path,'--input-dir',(Join-Path $env:RUNNER_TEMP 'native-stage-input'),'--output-dir',(Join-Path $env:RUNNER_TEMP 'native-stage-import'),'--expected-sha',$env:GITHUB_SHA,'--expected-run-url',("https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"),'--run-attempt',$env:GITHUB_RUN_ATTEMPT)
-      - name: 當地量測 managed 原生程式完整計數點
-        run: |
-          & .\script\test\managed_coverage.ps1 -SourceRoot $PWD.Path -OutputDirectory (Join-Path $env:RUNNER_TEMP 'managed-coverage') -Runtime
+      - name: 下載同次與同 attempt 的 managed 原生量測證據
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: managed-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/managed-coverage
       - name: 下載同次與同 attempt 的完整 PowerShell 四片
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
@@ -346,8 +511,8 @@ jobs:
 
   requirements-gate:
     name: requirements-gate
-    if: always() && needs.coverage-aggregation.result != 'cancelled'
-    needs: [coverage-aggregation]
+    if: always() && needs.classify.outputs.select_requirements_gate == 'true' && needs.coverage-aggregation.result != 'cancelled'
+    needs: [classify, coverage-aggregation]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -392,7 +557,8 @@ jobs:
           go run ./script/test/repo_coverage_tool verify --runtime --artifact-dir acceptance-artifact --source-root . --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --require-complete --minimum-percent 80
 
   docker-tests:
-    needs: [source-preflight]
+    needs: [source-preflight, classify]
+    if: needs.classify.outputs.select_docker_tests == 'true'
     name: docker-tests
     runs-on: windows-2022
     timeout-minutes: 125
@@ -465,7 +631,7 @@ jobs:
   ci-rollup:
     name: ci-rollup
     if: always()
-    needs: [isolated-tests, requirements-gate, docker-tests, oobe_payload_inspection, powershell-coverage, coverage-aggregation]
+    needs: [classify, doc-checks, isolated-tests, go-tests, requirements-gate, docker-tests, oobe_payload_inspection, powershell-coverage, coverage-aggregation]
     runs-on: windows-2022
     timeout-minutes: 5
     steps:
@@ -482,11 +648,27 @@ jobs:
           OOBE_PAYLOAD_RESULT: ${{ needs.oobe_payload_inspection.result }}
           POWERSHELL_COVERAGE_RESULT: ${{ needs.powershell-coverage.result }}
           COVERAGE_RESULT: ${{ needs.coverage-aggregation.result }}
+          EVENT_NAME: ${{ github.event_name }}
+          CLASSIFY_RESULT: ${{ needs.classify.result }}
+          CLASSIFY_FALLBACK: ${{ needs.classify.outputs.classify_fallback }}
+          DOC_CHECKS_RESULT: ${{ needs.doc-checks.result }}
+          GO_TESTS_RESULT: ${{ needs.go-tests.result }}
+          SELECT_TESTS: ${{ needs.classify.outputs.select_tests }}
+          SELECT_REQUIREMENTS: ${{ needs.classify.outputs.select_requirements_gate }}
+          SELECT_DOCKER: ${{ needs.classify.outputs.select_docker_tests }}
+          SELECT_PAYLOAD: ${{ needs.classify.outputs.select_oobe_payload }}
+          SELECT_POWERSHELL_COVERAGE: ${{ needs.classify.outputs.select_powershell_coverage }}
+          SELECT_COVERAGE: ${{ needs.classify.outputs.select_coverage_aggregation }}
+          SELECT_DOC_CHECKS: ${{ needs.classify.outputs.select_doc_checks }}
+          SELECT_GO_TESTS: ${{ needs.classify.outputs.select_go_tests }}
         run: |
           . .\script\test\ci_tasks.ps1
           . .\script\test\ci_quality_summary.ps1
-          $states=@{Tests=$env:TEST_RESULT;Requirements=$env:REQUIREMENTS_RESULT;Docker=$env:DOCKER_RESULT;Payload=$env:OOBE_PAYLOAD_RESULT;PowerShellCoverage=$env:POWERSHELL_COVERAGE_RESULT;Coverage=$env:COVERAGE_RESULT}
+          $states=@{Tests=$env:TEST_RESULT;Requirements=$env:REQUIREMENTS_RESULT;Docker=$env:DOCKER_RESULT;Payload=$env:OOBE_PAYLOAD_RESULT;PowerShellCoverage=$env:POWERSHELL_COVERAGE_RESULT;Coverage=$env:COVERAGE_RESULT;Classify=$env:CLASSIFY_RESULT;DocChecks=$env:DOC_CHECKS_RESULT;GoTests=$env:GO_TESTS_RESULT}
+          $selection=@{Tests=$env:SELECT_TESTS;Requirements=$env:SELECT_REQUIREMENTS;Docker=$env:SELECT_DOCKER;Payload=$env:SELECT_PAYLOAD;PowerShellCoverage=$env:SELECT_POWERSHELL_COVERAGE;Coverage=$env:SELECT_COVERAGE;DocChecks=$env:SELECT_DOC_CHECKS;GoTests=$env:SELECT_GO_TESTS}
+          $states=Resolve-CIRollupStates -Results $states -Selection $selection -EventName $env:EVENT_NAME
           Write-CIQualityFailureSummary -States $states -SummaryPath $env:GITHUB_STEP_SUMMARY
+          Write-CIClassifyFallbackNotice -Fallback $env:CLASSIFY_FALLBACK -SummaryPath $env:GITHUB_STEP_SUMMARY
           Assert-CIResults $states
 
   release:
@@ -567,6 +749,8 @@ jobs:
     needs: [coverage-aggregation, requirements-gate, docker-tests, release, ci-rollup]
     runs-on: windows-2022
     timeout-minutes: 15
+    outputs:
+      superseded: ${{ steps.portal.outputs.superseded }}
     permissions:
       contents: read
       actions: read
@@ -594,6 +778,7 @@ jobs:
           go build -o $env:WINDOWS_SETUP_COVERAGE_TOOL ./script/test/repo_coverage_tool
           go build -o $env:WINDOWS_SETUP_REPORT_BUNDLE_TOOL ./script/test/report_bundle_tool
       - name: 核對版本品質附件並本地產生索引
+        id: portal
         shell: powershell
         env:
           WINDOWS_SETUP_COVERAGE_TOOL: ${{ runner.temp }}/repo_coverage_tool.exe
@@ -608,8 +793,9 @@ jobs:
           . .\script\test\ci_tasks.ps1
           $parameters = Get-CIPortalParameters -Repository $env:GH_REPO -OutputDirectory "$env:RUNNER_TEMP\portal-inputs" -EventRef $env:EVENT_REF -RunId $env:CURRENT_RUN -EventName $env:EVENT_NAME -RunAttempt ([int]$env:CURRENT_ATTEMPT)
           $inputs = .\script\report\get_portal_inputs.ps1 @parameters
-          .\script\report\build_portal.ps1 -CatalogPath $inputs.CatalogPath -MainSnapshotPath $inputs.MainSnapshotPath -ContainerSnapshotPath $inputs.ContainerSnapshotPath -OutputDirectory "$env:RUNNER_TEMP\quality-portal"
+          Invoke-CIPortalBuild -Inputs $inputs -OutputDirectory "$env:RUNNER_TEMP\quality-portal" -OutputPath $env:GITHUB_OUTPUT -SummaryPath $env:GITHUB_STEP_SUMMARY
       - name: 保存去識別 portal 供 Linux 部署
+        if: steps.portal.outputs.superseded != 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: quality-portal-${{ github.run_id }}-${{ github.run_attempt }}
@@ -617,12 +803,38 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-  publish-reports:
-    name: 發布 Pages 品質入口
+  pages-freshness:
+    name: 確認 main 尚未前進
     needs: [build-portal]
-    if: always() && needs.build-portal.result == 'success'
+    if: always() && needs.build-portal.result == 'success' && needs.build-portal.outputs.superseded != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      current: ${{ steps.fresh.outputs.current }}
+    permissions:
+      contents: read
+    steps:
+      - name: 取得本次來源
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: 確認 main 尚未前進
+        id: fresh
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          . ./script/test/ci_tasks.ps1
+          Set-CIMainFreshness -Repository $env:GITHUB_REPOSITORY -Ref $env:GITHUB_REF -RunSha $env:RUN_SHA -OutputPath $env:GITHUB_OUTPUT
+  publish-reports:
+    name: 發布 Pages 品質入口
+    needs: [build-portal, pages-freshness]
+    if: always() && needs.build-portal.result == 'success' && needs.build-portal.outputs.superseded != 'true' && needs.pages-freshness.outputs.current == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deployed: ${{ steps.fresh.outputs.current == 'true' }}
     permissions:
       contents: read
       actions: read
@@ -673,7 +885,17 @@ jobs:
         with:
           script: |
             require('child_process').execFileSync('go', ['run', '-mod=vendor', './script/test/pages_artifact_visibility'], {stdio:'inherit'})
+      - name: 確認 main 尚未前進再發布
+        id: fresh
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_SHA: ${{ github.sha }}
+        run: |
+          . ./script/test/ci_tasks.ps1
+          Set-CIMainFreshness -Repository $env:GITHUB_REPOSITORY -Ref $env:GITHUB_REF -RunSha $env:RUN_SHA -OutputPath $env:GITHUB_OUTPUT
       - name: 發布 Pages
+        if: steps.fresh.outputs.current == 'true'
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
         with:
@@ -681,7 +903,7 @@ jobs:
   verify-deployment:
     name: 公開部署需求驗收
     needs: [publish-reports]
-    if: always() && ((github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && needs.publish-reports.result == 'success'
+    if: always() && ((github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')) || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))) && needs.publish-reports.result == 'success' && needs.publish-reports.outputs.deployed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 7
     permissions:
@@ -717,7 +939,7 @@ jobs:
           EXPECTED_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           LATEST_RELEASE_METADATA: ${{ github.event_name == 'workflow_dispatch' && format('{0}/latest-release.json', runner.temp) || '' }}
         run: |
-          go run ./script/test/verify_deployment --base-url https://ycpss91255.github.io/windows_setup/ --readme readme.md --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --portal-dir "$RUNNER_TEMP/verified-portal" --latest-release-metadata "$LATEST_RELEASE_METADATA"
+          go run ./script/test/verify_deployment --base-url https://ycpss91255-lab.github.io/windows_setup/ --readme readme.md --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --portal-dir "$RUNNER_TEMP/verified-portal" --latest-release-metadata "$LATEST_RELEASE_METADATA"
 
       - name: 匿名核對公開版本與不可變證據
         if: startsWith(github.ref, 'refs/tags/v')
@@ -730,4 +952,4 @@ jobs:
         run: |
           gh api "repos/$RELEASE_REPO/releases/tags/$RELEASE_TAG" > "$RUNNER_TEMP/release-metadata.json"
           go build -o "$RUNNER_TEMP/report-bundle-tool" ./script/test/report_bundle_tool
-          go run ./script/test/verify_deployment --mode release --require-runtime --base-url https://ycpss91255.github.io/windows_setup/ --readme readme.md --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --tag "$RELEASE_TAG" --release-metadata "$RUNNER_TEMP/release-metadata.json" --report-bundle-tool "$RUNNER_TEMP/report-bundle-tool" --report-archive "$RUNNER_TEMP/tag-report-download/windows_setup_report_${RELEASE_TAG}.zip" --run-attempt "$GITHUB_RUN_ATTEMPT" --download-release-asset --release-repository "$RELEASE_REPO"
+          go run ./script/test/verify_deployment --mode release --require-runtime --base-url https://ycpss91255-lab.github.io/windows_setup/ --readme readme.md --expected-sha "$EXPECTED_SHA" --expected-run-url "$EXPECTED_RUN_URL" --tag "$RELEASE_TAG" --release-metadata "$RUNNER_TEMP/release-metadata.json" --report-bundle-tool "$RUNNER_TEMP/report-bundle-tool" --report-archive "$RUNNER_TEMP/tag-report-download/windows_setup_report_${RELEASE_TAG}.zip" --run-attempt "$GITHUB_RUN_ATTEMPT" --download-release-asset --release-repository "$RELEASE_REPO"

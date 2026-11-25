@@ -35,6 +35,7 @@ $guardCalls=@($guardLoop.Body.FindAll({param($node) $node -is [Management.Automa
 Assert ($guardCalls.Count -eq 1) 'source file and fixture both use shared ancestor guard'
 $core=Join-Path $fixture 'core';[void][IO.Directory]::CreateDirectory($core)
 $entry=Join-Path $core 'start_windows.ps1';Copy-Item -LiteralPath $source -Destination $entry
+Copy-Item -LiteralPath (Join-Path $repo 'core/network_preflight_library.ps1') -Destination $core
 Assert ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ceq (Get-FileHash -LiteralPath $entry -Algorithm SHA256).Hash) 'Windows entry fixture copies exact source'
 $hardware=@'
 function Test-SetupInteractiveHost { $true }

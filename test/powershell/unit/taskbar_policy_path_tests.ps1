@@ -14,6 +14,8 @@ $advanced='HKCU:\Software\Microsoft\Windows\CurrentVersion\explorer\Advanced';$s
 $canonical='HKLM:\SOFTWARE\Policies\Microsoft\Dsh';$wrong='HKLM:\SOFTWARE\Policies\Microsoft\Windows\Dsh'
 $script:policyNativeApply=@()
 function Invoke-SetupTaskbarNativeAutoHide {param($ModuleRoot,[bool]$Apply) $script:policyNativeApply+=@($Apply);return [uint32]1}
+function Get-SetupTaskbarPersistedAutoHide {return $true}
+function Set-SetupTaskbarPersistedAutoHide {}
 $r=Invoke-SetupTaskbarSettings -OutputRoot $fixture -LayoutPath $layout
 Assert ($r.Success -and $r.WidgetsPolicy -eq 0 -and $null -eq $r.TaskbarDa -and $script:registry[$canonical].AllowNewsAndInterests -eq 0 -and -not $script:registry.ContainsKey($wrong)) 'Apply從官方Dsh精確路徑讀回自己剛寫入的政策，個人鍵受保護仍可確認機器政策'
 $writes=$script:writes;$r=Invoke-SetupTaskbarSettings -OutputRoot $fixture -LayoutPath $layout -VerifyOnly
