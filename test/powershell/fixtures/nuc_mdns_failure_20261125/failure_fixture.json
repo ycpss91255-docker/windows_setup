@@ -1,0 +1,8 @@
+{
+  "Note": "2026-11-25 在 NUC 測試複本以未修正的原生註冊程式（#452 之前）實測：Begin 失敗時 PowerShell 外層例外文字。主機名稱為測試用名稱，不含個人或網路識別資料；失敗為原生程式本身行為，非人為注入。",
+  "NativeMessage": "Native registration callback schema differs or has no instance.",
+  "WrappedEnglish": "Exception calling \"Begin\" with \"3\" argument(s): \"Native registration callback schema differs or has no instance.\"",
+  "WrappedChinese": "以 3 個引數呼叫 \"Begin\" 時發生例外狀況：「Native registration callback schema differs or has no instance.」",
+  "ExpectedSafeError": "callback-schema",
+  "MainBehavior": "未保留診斷的版本把外層文字直接寫成 Error：Exception calling \"Begin\" with \"3\" argument(s): \"Native registration callback schema differs or has no instance.\""
+}
