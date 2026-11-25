@@ -1,0 +1,2248 @@
+[
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\\3&00000000&0&40",
+    "Status": "Error",
+    "Problem": "CM_PROB_FAILED_INSTALL",
+    "ProblemCode": 28,
+    "HardwareID": [
+      "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00",
+      "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086",
+      "PCI\\VEN_8086&DEV_1911&CC_088000",
+      "PCI\\VEN_8086&DEV_1911&CC_0880"
+    ],
+    "Props": [
+      {
+        "K": "DEVPKEY_Device_DeviceDesc",
+        "T": "String",
+        "D": "基本系統裝置"
+      },
+      {
+        "K": "DEVPKEY_Device_HardwareIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00",
+          "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086",
+          "PCI\\VEN_8086&DEV_1911&CC_088000",
+          "PCI\\VEN_8086&DEV_1911&CC_0880"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_CompatibleIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_1911&REV_00",
+          "PCI\\VEN_8086&DEV_1911",
+          "PCI\\VEN_8086&CC_088000",
+          "PCI\\VEN_8086&CC_0880",
+          "PCI\\VEN_8086",
+          "PCI\\CC_088000",
+          "PCI\\CC_0880"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigFlags",
+        "T": "UInt32",
+        "D": "64"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationInfo",
+        "T": "String",
+        "D": "PCI bus 0, device 8, function 0"
+      },
+      {
+        "K": "DEVPKEY_Device_PDOName",
+        "T": "String",
+        "D": "\\Device\\NTPNP_PCI0004"
+      },
+      {
+        "K": "DEVPKEY_Device_Capabilities",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusTypeGuid",
+        "T": "Guid",
+        "D": "{C8EBDFB0-B510-11D0-80E5-00A0C92542E3}"
+      },
+      {
+        "K": "DEVPKEY_Device_LegacyBusType",
+        "T": "UInt32",
+        "D": "5"
+      },
+      {
+        "K": "DEVPKEY_Device_BusNumber",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_EnumeratorName",
+        "T": "String",
+        "D": "PCI"
+      },
+      {
+        "K": "DEVPKEY_Device_Address",
+        "T": "UInt32",
+        "D": "524288"
+      },
+      {
+        "K": "DEVPKEY_Device_PowerData",
+        "T": "Binary",
+        "D": [
+          "56",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "9",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicy",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicyDefault",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallState",
+        "T": "UInt32",
+        "D": "2"
+      },
+      {
+        "K": "DEVPKEY_Device_BaseContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_NAME",
+        "T": "String",
+        "D": "基本系統裝置"
+      },
+      {
+        "K": "DEVPKEY_Device_InstanceId",
+        "T": "String",
+        "D": "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\\3&00000000&0&40"
+      },
+      {
+        "K": "DEVPKEY_Device_DevNodeStatus",
+        "T": "UInt32",
+        "D": "25175040"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemCode",
+        "T": "UInt32",
+        "D": "28"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemStatus",
+        "T": "NTStatus",
+        "D": "3221226640"
+      },
+      {
+        "K": "DEVPKEY_Device_Parent",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_Siblings",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_5910&SUBSYS_20738086&REV_05\\3&00000000&0&00",
+          "PCI\\VEN_8086&DEV_1901&SUBSYS_20738086&REV_05\\3&00000000&0&08",
+          "PCI\\VEN_8086&DEV_1905&SUBSYS_20738086&REV_05\\3&00000000&0&09",
+          "PCI\\VEN_8086&DEV_1909&SUBSYS_20738086&REV_05\\3&00000000&0&0A",
+          "PCI\\VEN_8086&DEV_A12F&SUBSYS_20738086&REV_31\\3&00000000&0&A0",
+          "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&00000000&0&A2",
+          "PCI\\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\\3&00000000&0&A8",
+          "PCI\\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\\3&00000000&0&A9",
+          "PCI\\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\\3&00000000&0&AA",
+          "PCI\\VEN_8086&DEV_A13A&SUBSYS_20738086&REV_31\\3&00000000&0&B0",
+          "PCI\\VEN_8086&DEV_A110&SUBSYS_20738086&REV_F1\\3&00000000&0&E0",
+          "PCI\\VEN_8086&DEV_A111&SUBSYS_20738086&REV_F1\\3&00000000&0&E1",
+          "PCI\\VEN_8086&DEV_A112&SUBSYS_20738086&REV_F1\\3&00000000&0&E2",
+          "PCI\\VEN_8086&DEV_A114&SUBSYS_20738086&REV_F1\\3&00000000&0&E4",
+          "PCI\\VEN_8086&DEV_A118&SUBSYS_20738086&REV_F1\\3&00000000&0&E8",
+          "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\\3&00000000&0&F0",
+          "PCI\\VEN_8086&DEV_A152&SUBSYS_20738086&REV_31\\3&00000000&0&F8",
+          "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA",
+          "PCI\\VEN_8086&DEV_A171&SUBSYS_20738086&REV_31\\3&00000000&0&FB",
+          "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC",
+          "PCI\\VEN_8086&DEV_15B7&SUBSYS_00008086&REV_31\\3&00000000&0&FE",
+          "ACPI\\PNP0C02\\1",
+          "ACPI\\PNP0C02\\PCHRESV",
+          "ACPI\\PNP0C02\\IoTraps",
+          "ACPI\\PNP0C02\\5",
+          "ACPI\\INT345D\\3&00000000&0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_SafeRemovalRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_Device_IsPresent",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_HasProblem",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 15",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_IsRebootRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ReportedDeviceIdsHash",
+        "T": "UInt32",
+        "D": "1206474502"
+      },
+      {
+        "K": "DEVPKEY_Device_InLocalMachineContainer",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_Stack",
+        "T": "StringList",
+        "D": "\\Driver\\pci"
+      },
+      {
+        "K": "{A8B865DD-2E3D-4094-AD97-E593A70C75D6} 26",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "{3464F7A4-2444-40B1-980A-E0903CB6D912} 10",
+        "T": "UInt32",
+        "D": "3"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_DeviceType",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_CurrentSpeedAndMode",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BaseClass",
+        "T": "UInt32",
+        "D": "8"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SubClass",
+        "T": "UInt32",
+        "D": "128"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_ProgIf",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_InterruptSupport",
+        "T": "UInt32",
+        "D": "3"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_InterruptMessageMaximum",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BarTypes",
+        "T": "UInt32",
+        "D": "256"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_S0WakeupSupported",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_RequiresReservedMemoryRegion",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SupportedLinkSubState",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusReportedDeviceDesc",
+        "T": "String",
+        "D": "Base System Device"
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigurationId",
+        "T": "String",
+        "D": ""
+      },
+      {
+        "K": "{80497100-8C73-48B9-AAD9-CE387E19C56E} 6",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 5",
+        "T": "Error",
+        "D": "3758096936"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 10",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_FirstInstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_LastArrivalDate",
+        "T": "FileTime",
+        "D": "11/24/2026 23:14:51"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationPaths",
+        "T": "StringList",
+        "D": [
+          "PCIROOT(0)#PCI(0800)",
+          "ACPI(_SB_)#ACPI(PCI0)#PCI(0800)"
+        ]
+      }
+    ]
+  },
+  {
+    "InstanceId": "ACPI\\INT3515\\0",
+    "Status": "Error",
+    "Problem": "CM_PROB_FAILED_INSTALL",
+    "ProblemCode": 28,
+    "HardwareID": [
+      "ACPI\\VEN_INT&DEV_3515",
+      "ACPI\\INT3515",
+      "*INT3515"
+    ],
+    "Props": [
+      {
+        "K": "DEVPKEY_Device_HardwareIds",
+        "T": "StringList",
+        "D": [
+          "ACPI\\VEN_INT&DEV_3515",
+          "ACPI\\INT3515",
+          "*INT3515"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigFlags",
+        "T": "UInt32",
+        "D": "64"
+      },
+      {
+        "K": "DEVPKEY_Device_PDOName",
+        "T": "String",
+        "D": "\\Device\\00000048"
+      },
+      {
+        "K": "DEVPKEY_Device_Capabilities",
+        "T": "UInt32",
+        "D": "48"
+      },
+      {
+        "K": "DEVPKEY_Device_BusTypeGuid",
+        "T": "Guid",
+        "D": "{D7B46895-001A-4942-891F-A7D46610A843}"
+      },
+      {
+        "K": "DEVPKEY_Device_LegacyBusType",
+        "T": "UInt32",
+        "D": "17"
+      },
+      {
+        "K": "DEVPKEY_Device_BusNumber",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_EnumeratorName",
+        "T": "String",
+        "D": "ACPI"
+      },
+      {
+        "K": "DEVPKEY_Device_PowerData",
+        "T": "Binary",
+        "D": [
+          "56",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "9",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicy",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicyDefault",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallState",
+        "T": "UInt32",
+        "D": "2"
+      },
+      {
+        "K": "DEVPKEY_Device_BaseContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_Device_InstanceId",
+        "T": "String",
+        "D": "ACPI\\INT3515\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_DevNodeStatus",
+        "T": "UInt32",
+        "D": "25175040"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemCode",
+        "T": "UInt32",
+        "D": "28"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemStatus",
+        "T": "NTStatus",
+        "D": "3221226640"
+      },
+      {
+        "K": "DEVPKEY_Device_Parent",
+        "T": "String",
+        "D": "PCI\\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\\3&00000000&0&A8"
+      },
+      {
+        "K": "DEVPKEY_Device_SafeRemovalRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_Device_IsPresent",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_HasProblem",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 15",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_IsRebootRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ReportedDeviceIdsHash",
+        "T": "UInt32",
+        "D": "915897319"
+      },
+      {
+        "K": "DEVPKEY_Device_InLocalMachineContainer",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_Stack",
+        "T": "StringList",
+        "D": "\\Driver\\ACPI"
+      },
+      {
+        "K": "DEVPKEY_Device_DependencyProviders",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\\3&00000000&0&AA",
+          "PCI\\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\\3&00000000&0&A9"
+        ]
+      },
+      {
+        "K": "{A8B865DD-2E3D-4094-AD97-E593A70C75D6} 26",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "{3464F7A4-2444-40B1-980A-E0903CB6D912} 10",
+        "T": "UInt32",
+        "D": "3"
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigurationId",
+        "T": "String",
+        "D": ""
+      },
+      {
+        "K": "DEVPKEY_Device_BiosDeviceName",
+        "T": "String",
+        "D": "\\_SB.PCI0.I2C0.UCM1"
+      },
+      {
+        "K": "{80497100-8C73-48B9-AAD9-CE387E19C56E} 6",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 5",
+        "T": "Error",
+        "D": "3758096936"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 10",
+        "T": "String",
+        "D": "PCI\\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\\3&00000000&0&A8"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_FirstInstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_LastArrivalDate",
+        "T": "FileTime",
+        "D": "11/24/2026 23:14:52"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationPaths",
+        "T": "StringList",
+        "D": "ACPI(_SB_)#ACPI(PCI0)#ACPI(I2C0)#ACPI(UCM1)"
+      }
+    ]
+  },
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\\3&00000000&0&F0",
+    "Status": "Error",
+    "Problem": "CM_PROB_FAILED_INSTALL",
+    "ProblemCode": 28,
+    "HardwareID": [
+      "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31",
+      "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086",
+      "PCI\\VEN_8086&DEV_A127&CC_118000",
+      "PCI\\VEN_8086&DEV_A127&CC_1180"
+    ],
+    "Props": [
+      {
+        "K": "DEVPKEY_Device_DeviceDesc",
+        "T": "String",
+        "D": "PCI 資料擷取以及訊號處理控制器"
+      },
+      {
+        "K": "DEVPKEY_Device_HardwareIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31",
+          "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086",
+          "PCI\\VEN_8086&DEV_A127&CC_118000",
+          "PCI\\VEN_8086&DEV_A127&CC_1180"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_CompatibleIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A127&REV_31",
+          "PCI\\VEN_8086&DEV_A127",
+          "PCI\\VEN_8086&CC_118000",
+          "PCI\\VEN_8086&CC_1180",
+          "PCI\\VEN_8086",
+          "PCI\\CC_118000",
+          "PCI\\CC_1180"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigFlags",
+        "T": "UInt32",
+        "D": "64"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationInfo",
+        "T": "String",
+        "D": "PCI bus 0, device 30, function 0"
+      },
+      {
+        "K": "DEVPKEY_Device_PDOName",
+        "T": "String",
+        "D": "\\Device\\NTPNP_PCI0016"
+      },
+      {
+        "K": "DEVPKEY_Device_Capabilities",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusTypeGuid",
+        "T": "Guid",
+        "D": "{C8EBDFB0-B510-11D0-80E5-00A0C92542E3}"
+      },
+      {
+        "K": "DEVPKEY_Device_LegacyBusType",
+        "T": "UInt32",
+        "D": "5"
+      },
+      {
+        "K": "DEVPKEY_Device_BusNumber",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_EnumeratorName",
+        "T": "String",
+        "D": "PCI"
+      },
+      {
+        "K": "DEVPKEY_Device_Address",
+        "T": "UInt32",
+        "D": "1966080"
+      },
+      {
+        "K": "DEVPKEY_Device_PowerData",
+        "T": "Binary",
+        "D": [
+          "56",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "9",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicy",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicyDefault",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallState",
+        "T": "UInt32",
+        "D": "2"
+      },
+      {
+        "K": "DEVPKEY_Device_BaseContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_NAME",
+        "T": "String",
+        "D": "PCI 資料擷取以及訊號處理控制器"
+      },
+      {
+        "K": "DEVPKEY_Device_InstanceId",
+        "T": "String",
+        "D": "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\\3&00000000&0&F0"
+      },
+      {
+        "K": "DEVPKEY_Device_DevNodeStatus",
+        "T": "UInt32",
+        "D": "25175040"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemCode",
+        "T": "UInt32",
+        "D": "28"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemStatus",
+        "T": "NTStatus",
+        "D": "3221226640"
+      },
+      {
+        "K": "DEVPKEY_Device_Parent",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_Siblings",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_5910&SUBSYS_20738086&REV_05\\3&00000000&0&00",
+          "PCI\\VEN_8086&DEV_1901&SUBSYS_20738086&REV_05\\3&00000000&0&08",
+          "PCI\\VEN_8086&DEV_1905&SUBSYS_20738086&REV_05\\3&00000000&0&09",
+          "PCI\\VEN_8086&DEV_1909&SUBSYS_20738086&REV_05\\3&00000000&0&0A",
+          "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\\3&00000000&0&40",
+          "PCI\\VEN_8086&DEV_A12F&SUBSYS_20738086&REV_31\\3&00000000&0&A0",
+          "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&00000000&0&A2",
+          "PCI\\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\\3&00000000&0&A8",
+          "PCI\\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\\3&00000000&0&A9",
+          "PCI\\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\\3&00000000&0&AA",
+          "PCI\\VEN_8086&DEV_A13A&SUBSYS_20738086&REV_31\\3&00000000&0&B0",
+          "PCI\\VEN_8086&DEV_A110&SUBSYS_20738086&REV_F1\\3&00000000&0&E0",
+          "PCI\\VEN_8086&DEV_A111&SUBSYS_20738086&REV_F1\\3&00000000&0&E1",
+          "PCI\\VEN_8086&DEV_A112&SUBSYS_20738086&REV_F1\\3&00000000&0&E2",
+          "PCI\\VEN_8086&DEV_A114&SUBSYS_20738086&REV_F1\\3&00000000&0&E4",
+          "PCI\\VEN_8086&DEV_A118&SUBSYS_20738086&REV_F1\\3&00000000&0&E8",
+          "PCI\\VEN_8086&DEV_A152&SUBSYS_20738086&REV_31\\3&00000000&0&F8",
+          "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA",
+          "PCI\\VEN_8086&DEV_A171&SUBSYS_20738086&REV_31\\3&00000000&0&FB",
+          "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC",
+          "PCI\\VEN_8086&DEV_15B7&SUBSYS_00008086&REV_31\\3&00000000&0&FE",
+          "ACPI\\PNP0C02\\1",
+          "ACPI\\PNP0C02\\PCHRESV",
+          "ACPI\\PNP0C02\\IoTraps",
+          "ACPI\\PNP0C02\\5",
+          "ACPI\\INT345D\\3&00000000&0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_SafeRemovalRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_Device_IsPresent",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_HasProblem",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 15",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_IsRebootRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ReportedDeviceIdsHash",
+        "T": "UInt32",
+        "D": "1039728940"
+      },
+      {
+        "K": "DEVPKEY_Device_InLocalMachineContainer",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_Stack",
+        "T": "StringList",
+        "D": [
+          "\\Driver\\ACPI",
+          "\\Driver\\pci"
+        ]
+      },
+      {
+        "K": "{A8B865DD-2E3D-4094-AD97-E593A70C75D6} 26",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "{3464F7A4-2444-40B1-980A-E0903CB6D912} 10",
+        "T": "UInt32",
+        "D": "3"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_DeviceType",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_CurrentSpeedAndMode",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BaseClass",
+        "T": "UInt32",
+        "D": "17"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SubClass",
+        "T": "UInt32",
+        "D": "128"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_ProgIf",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_InterruptSupport",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BarTypes",
+        "T": "UInt32",
+        "D": "256"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_S0WakeupSupported",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_RequiresReservedMemoryRegion",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SupportedLinkSubState",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusReportedDeviceDesc",
+        "T": "String",
+        "D": "PCI Data Acquisition and Signal Processing Controller"
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigurationId",
+        "T": "String",
+        "D": ""
+      },
+      {
+        "K": "DEVPKEY_Device_BiosDeviceName",
+        "T": "String",
+        "D": "\\_SB.PCI0.UA00"
+      },
+      {
+        "K": "{80497100-8C73-48B9-AAD9-CE387E19C56E} 6",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 5",
+        "T": "Error",
+        "D": "3758096936"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 10",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_FirstInstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_LastArrivalDate",
+        "T": "FileTime",
+        "D": "11/24/2026 23:14:51"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationPaths",
+        "T": "StringList",
+        "D": [
+          "PCIROOT(0)#PCI(1E00)",
+          "ACPI(_SB_)#ACPI(PCI0)#ACPI(UA00)"
+        ]
+      }
+    ]
+  },
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA",
+    "Status": "Error",
+    "Problem": "CM_PROB_FAILED_INSTALL",
+    "ProblemCode": 28,
+    "HardwareID": [
+      "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31",
+      "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086",
+      "PCI\\VEN_8086&DEV_A121&CC_058000",
+      "PCI\\VEN_8086&DEV_A121&CC_0580"
+    ],
+    "Props": [
+      {
+        "K": "DEVPKEY_Device_DeviceDesc",
+        "T": "String",
+        "D": "PCI 記憶體控制器"
+      },
+      {
+        "K": "DEVPKEY_Device_HardwareIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31",
+          "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086",
+          "PCI\\VEN_8086&DEV_A121&CC_058000",
+          "PCI\\VEN_8086&DEV_A121&CC_0580"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_CompatibleIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A121&REV_31",
+          "PCI\\VEN_8086&DEV_A121",
+          "PCI\\VEN_8086&CC_058000",
+          "PCI\\VEN_8086&CC_0580",
+          "PCI\\VEN_8086",
+          "PCI\\CC_058000",
+          "PCI\\CC_0580"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigFlags",
+        "T": "UInt32",
+        "D": "64"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationInfo",
+        "T": "String",
+        "D": "PCI bus 0, device 31, function 2"
+      },
+      {
+        "K": "DEVPKEY_Device_PDOName",
+        "T": "String",
+        "D": "\\Device\\NTPNP_PCI0018"
+      },
+      {
+        "K": "DEVPKEY_Device_Capabilities",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusTypeGuid",
+        "T": "Guid",
+        "D": "{C8EBDFB0-B510-11D0-80E5-00A0C92542E3}"
+      },
+      {
+        "K": "DEVPKEY_Device_LegacyBusType",
+        "T": "UInt32",
+        "D": "5"
+      },
+      {
+        "K": "DEVPKEY_Device_BusNumber",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_EnumeratorName",
+        "T": "String",
+        "D": "PCI"
+      },
+      {
+        "K": "DEVPKEY_Device_Address",
+        "T": "UInt32",
+        "D": "2031618"
+      },
+      {
+        "K": "DEVPKEY_Device_PowerData",
+        "T": "Binary",
+        "D": [
+          "56",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "9",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicy",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicyDefault",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallState",
+        "T": "UInt32",
+        "D": "2"
+      },
+      {
+        "K": "DEVPKEY_Device_BaseContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_NAME",
+        "T": "String",
+        "D": "PCI 記憶體控制器"
+      },
+      {
+        "K": "DEVPKEY_Device_InstanceId",
+        "T": "String",
+        "D": "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA"
+      },
+      {
+        "K": "DEVPKEY_Device_DevNodeStatus",
+        "T": "UInt32",
+        "D": "25175040"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemCode",
+        "T": "UInt32",
+        "D": "28"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemStatus",
+        "T": "NTStatus",
+        "D": "3221226640"
+      },
+      {
+        "K": "DEVPKEY_Device_EjectionRelations",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A152&SUBSYS_20738086&REV_31\\3&00000000&0&F8",
+          "PCI\\VEN_8086&DEV_A171&SUBSYS_20738086&REV_31\\3&00000000&0&FB",
+          "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC",
+          "PCI\\VEN_8086&DEV_15B7&SUBSYS_00008086&REV_31\\3&00000000&0&FE"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_Parent",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_Siblings",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_5910&SUBSYS_20738086&REV_05\\3&00000000&0&00",
+          "PCI\\VEN_8086&DEV_1901&SUBSYS_20738086&REV_05\\3&00000000&0&08",
+          "PCI\\VEN_8086&DEV_1905&SUBSYS_20738086&REV_05\\3&00000000&0&09",
+          "PCI\\VEN_8086&DEV_1909&SUBSYS_20738086&REV_05\\3&00000000&0&0A",
+          "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\\3&00000000&0&40",
+          "PCI\\VEN_8086&DEV_A12F&SUBSYS_20738086&REV_31\\3&00000000&0&A0",
+          "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&00000000&0&A2",
+          "PCI\\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\\3&00000000&0&A8",
+          "PCI\\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\\3&00000000&0&A9",
+          "PCI\\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\\3&00000000&0&AA",
+          "PCI\\VEN_8086&DEV_A13A&SUBSYS_20738086&REV_31\\3&00000000&0&B0",
+          "PCI\\VEN_8086&DEV_A110&SUBSYS_20738086&REV_F1\\3&00000000&0&E0",
+          "PCI\\VEN_8086&DEV_A111&SUBSYS_20738086&REV_F1\\3&00000000&0&E1",
+          "PCI\\VEN_8086&DEV_A112&SUBSYS_20738086&REV_F1\\3&00000000&0&E2",
+          "PCI\\VEN_8086&DEV_A114&SUBSYS_20738086&REV_F1\\3&00000000&0&E4",
+          "PCI\\VEN_8086&DEV_A118&SUBSYS_20738086&REV_F1\\3&00000000&0&E8",
+          "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\\3&00000000&0&F0",
+          "PCI\\VEN_8086&DEV_A152&SUBSYS_20738086&REV_31\\3&00000000&0&F8",
+          "PCI\\VEN_8086&DEV_A171&SUBSYS_20738086&REV_31\\3&00000000&0&FB",
+          "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC",
+          "PCI\\VEN_8086&DEV_15B7&SUBSYS_00008086&REV_31\\3&00000000&0&FE",
+          "ACPI\\PNP0C02\\1",
+          "ACPI\\PNP0C02\\PCHRESV",
+          "ACPI\\PNP0C02\\IoTraps",
+          "ACPI\\PNP0C02\\5",
+          "ACPI\\INT345D\\3&00000000&0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_SafeRemovalRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_Device_IsPresent",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_HasProblem",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 15",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_IsRebootRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ReportedDeviceIdsHash",
+        "T": "UInt32",
+        "D": "2546138942"
+      },
+      {
+        "K": "DEVPKEY_Device_InLocalMachineContainer",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_Stack",
+        "T": "StringList",
+        "D": [
+          "\\Driver\\ACPI",
+          "\\Driver\\pci"
+        ]
+      },
+      {
+        "K": "{A8B865DD-2E3D-4094-AD97-E593A70C75D6} 26",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "{3464F7A4-2444-40B1-980A-E0903CB6D912} 10",
+        "T": "UInt32",
+        "D": "3"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_DeviceType",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_CurrentSpeedAndMode",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BaseClass",
+        "T": "UInt32",
+        "D": "5"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SubClass",
+        "T": "UInt32",
+        "D": "128"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_ProgIf",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BarTypes",
+        "T": "UInt32",
+        "D": "256"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_S0WakeupSupported",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_RequiresReservedMemoryRegion",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SupportedLinkSubState",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusReportedDeviceDesc",
+        "T": "String",
+        "D": "PCI Memory Controller"
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigurationId",
+        "T": "String",
+        "D": ""
+      },
+      {
+        "K": "DEVPKEY_Device_BiosDeviceName",
+        "T": "String",
+        "D": "\\_SB.PCI0.PPMC"
+      },
+      {
+        "K": "{80497100-8C73-48B9-AAD9-CE387E19C56E} 6",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 5",
+        "T": "Error",
+        "D": "3758096936"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 10",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_FirstInstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_LastArrivalDate",
+        "T": "FileTime",
+        "D": "11/24/2026 23:14:51"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationPaths",
+        "T": "StringList",
+        "D": [
+          "PCIROOT(0)#PCI(1F02)",
+          "ACPI(_SB_)#ACPI(PCI0)#ACPI(PPMC)"
+        ]
+      }
+    ]
+  },
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC",
+    "Status": "Error",
+    "Problem": "CM_PROB_FAILED_INSTALL",
+    "ProblemCode": 28,
+    "HardwareID": [
+      "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31",
+      "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086",
+      "PCI\\VEN_8086&DEV_A123&CC_0C0500",
+      "PCI\\VEN_8086&DEV_A123&CC_0C05"
+    ],
+    "Props": [
+      {
+        "K": "DEVPKEY_Device_DeviceDesc",
+        "T": "String",
+        "D": "SM 匯流排控制器"
+      },
+      {
+        "K": "DEVPKEY_Device_HardwareIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31",
+          "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086",
+          "PCI\\VEN_8086&DEV_A123&CC_0C0500",
+          "PCI\\VEN_8086&DEV_A123&CC_0C05"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_CompatibleIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A123&REV_31",
+          "PCI\\VEN_8086&DEV_A123",
+          "PCI\\VEN_8086&CC_0C0500",
+          "PCI\\VEN_8086&CC_0C05",
+          "PCI\\VEN_8086",
+          "PCI\\CC_0C0500",
+          "PCI\\CC_0C05"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigFlags",
+        "T": "UInt32",
+        "D": "64"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationInfo",
+        "T": "String",
+        "D": "PCI bus 0, device 31, function 4"
+      },
+      {
+        "K": "DEVPKEY_Device_PDOName",
+        "T": "String",
+        "D": "\\Device\\NTPNP_PCI0020"
+      },
+      {
+        "K": "DEVPKEY_Device_Capabilities",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusTypeGuid",
+        "T": "Guid",
+        "D": "{C8EBDFB0-B510-11D0-80E5-00A0C92542E3}"
+      },
+      {
+        "K": "DEVPKEY_Device_LegacyBusType",
+        "T": "UInt32",
+        "D": "5"
+      },
+      {
+        "K": "DEVPKEY_Device_BusNumber",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_EnumeratorName",
+        "T": "String",
+        "D": "PCI"
+      },
+      {
+        "K": "DEVPKEY_Device_Address",
+        "T": "UInt32",
+        "D": "2031620"
+      },
+      {
+        "K": "DEVPKEY_Device_PowerData",
+        "T": "Binary",
+        "D": [
+          "56",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "9",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicy",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicyDefault",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallState",
+        "T": "UInt32",
+        "D": "2"
+      },
+      {
+        "K": "DEVPKEY_Device_BaseContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_NAME",
+        "T": "String",
+        "D": "SM 匯流排控制器"
+      },
+      {
+        "K": "DEVPKEY_Device_InstanceId",
+        "T": "String",
+        "D": "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC"
+      },
+      {
+        "K": "DEVPKEY_Device_DevNodeStatus",
+        "T": "UInt32",
+        "D": "25175040"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemCode",
+        "T": "UInt32",
+        "D": "28"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemStatus",
+        "T": "NTStatus",
+        "D": "3221226640"
+      },
+      {
+        "K": "DEVPKEY_Device_EjectionRelations",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A152&SUBSYS_20738086&REV_31\\3&00000000&0&F8",
+          "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA",
+          "PCI\\VEN_8086&DEV_A171&SUBSYS_20738086&REV_31\\3&00000000&0&FB",
+          "PCI\\VEN_8086&DEV_15B7&SUBSYS_00008086&REV_31\\3&00000000&0&FE"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_Parent",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_Siblings",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_5910&SUBSYS_20738086&REV_05\\3&00000000&0&00",
+          "PCI\\VEN_8086&DEV_1901&SUBSYS_20738086&REV_05\\3&00000000&0&08",
+          "PCI\\VEN_8086&DEV_1905&SUBSYS_20738086&REV_05\\3&00000000&0&09",
+          "PCI\\VEN_8086&DEV_1909&SUBSYS_20738086&REV_05\\3&00000000&0&0A",
+          "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\\3&00000000&0&40",
+          "PCI\\VEN_8086&DEV_A12F&SUBSYS_20738086&REV_31\\3&00000000&0&A0",
+          "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&00000000&0&A2",
+          "PCI\\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\\3&00000000&0&A8",
+          "PCI\\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\\3&00000000&0&A9",
+          "PCI\\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\\3&00000000&0&AA",
+          "PCI\\VEN_8086&DEV_A13A&SUBSYS_20738086&REV_31\\3&00000000&0&B0",
+          "PCI\\VEN_8086&DEV_A110&SUBSYS_20738086&REV_F1\\3&00000000&0&E0",
+          "PCI\\VEN_8086&DEV_A111&SUBSYS_20738086&REV_F1\\3&00000000&0&E1",
+          "PCI\\VEN_8086&DEV_A112&SUBSYS_20738086&REV_F1\\3&00000000&0&E2",
+          "PCI\\VEN_8086&DEV_A114&SUBSYS_20738086&REV_F1\\3&00000000&0&E4",
+          "PCI\\VEN_8086&DEV_A118&SUBSYS_20738086&REV_F1\\3&00000000&0&E8",
+          "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\\3&00000000&0&F0",
+          "PCI\\VEN_8086&DEV_A152&SUBSYS_20738086&REV_31\\3&00000000&0&F8",
+          "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA",
+          "PCI\\VEN_8086&DEV_A171&SUBSYS_20738086&REV_31\\3&00000000&0&FB",
+          "PCI\\VEN_8086&DEV_15B7&SUBSYS_00008086&REV_31\\3&00000000&0&FE",
+          "ACPI\\PNP0C02\\1",
+          "ACPI\\PNP0C02\\PCHRESV",
+          "ACPI\\PNP0C02\\IoTraps",
+          "ACPI\\PNP0C02\\5",
+          "ACPI\\INT345D\\3&00000000&0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_SafeRemovalRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_Device_IsPresent",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_HasProblem",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 15",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_IsRebootRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ReportedDeviceIdsHash",
+        "T": "UInt32",
+        "D": "2151567204"
+      },
+      {
+        "K": "DEVPKEY_Device_InLocalMachineContainer",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_Stack",
+        "T": "StringList",
+        "D": [
+          "\\Driver\\ACPI",
+          "\\Driver\\pci"
+        ]
+      },
+      {
+        "K": "{A8B865DD-2E3D-4094-AD97-E593A70C75D6} 26",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "{3464F7A4-2444-40B1-980A-E0903CB6D912} 10",
+        "T": "UInt32",
+        "D": "3"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_DeviceType",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_CurrentSpeedAndMode",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BaseClass",
+        "T": "UInt32",
+        "D": "12"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SubClass",
+        "T": "UInt32",
+        "D": "5"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_ProgIf",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_InterruptSupport",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BarTypes",
+        "T": "UInt32",
+        "D": "257"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_S0WakeupSupported",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_RequiresReservedMemoryRegion",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SupportedLinkSubState",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusReportedDeviceDesc",
+        "T": "String",
+        "D": "SM Bus Controller"
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigurationId",
+        "T": "String",
+        "D": ""
+      },
+      {
+        "K": "DEVPKEY_Device_BiosDeviceName",
+        "T": "String",
+        "D": "\\_SB.PCI0.SBUS"
+      },
+      {
+        "K": "{80497100-8C73-48B9-AAD9-CE387E19C56E} 6",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 5",
+        "T": "Error",
+        "D": "3758096936"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 10",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_FirstInstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_LastArrivalDate",
+        "T": "FileTime",
+        "D": "11/24/2026 23:14:51"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationPaths",
+        "T": "StringList",
+        "D": [
+          "PCIROOT(0)#PCI(1F04)",
+          "ACPI(_SB_)#ACPI(PCI0)#ACPI(SBUS)"
+        ]
+      }
+    ]
+  },
+  {
+    "InstanceId": "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&00000000&0&A2",
+    "Status": "Error",
+    "Problem": "CM_PROB_FAILED_INSTALL",
+    "ProblemCode": 28,
+    "HardwareID": [
+      "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31",
+      "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086",
+      "PCI\\VEN_8086&DEV_A131&CC_118000",
+      "PCI\\VEN_8086&DEV_A131&CC_1180"
+    ],
+    "Props": [
+      {
+        "K": "DEVPKEY_Device_DeviceDesc",
+        "T": "String",
+        "D": "PCI 資料擷取以及訊號處理控制器"
+      },
+      {
+        "K": "DEVPKEY_Device_HardwareIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31",
+          "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086",
+          "PCI\\VEN_8086&DEV_A131&CC_118000",
+          "PCI\\VEN_8086&DEV_A131&CC_1180"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_CompatibleIds",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_A131&REV_31",
+          "PCI\\VEN_8086&DEV_A131",
+          "PCI\\VEN_8086&CC_118000",
+          "PCI\\VEN_8086&CC_1180",
+          "PCI\\VEN_8086",
+          "PCI\\CC_118000",
+          "PCI\\CC_1180"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigFlags",
+        "T": "UInt32",
+        "D": "64"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationInfo",
+        "T": "String",
+        "D": "PCI bus 0, device 20, function 2"
+      },
+      {
+        "K": "DEVPKEY_Device_PDOName",
+        "T": "String",
+        "D": "\\Device\\NTPNP_PCI0006"
+      },
+      {
+        "K": "DEVPKEY_Device_Capabilities",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusTypeGuid",
+        "T": "Guid",
+        "D": "{C8EBDFB0-B510-11D0-80E5-00A0C92542E3}"
+      },
+      {
+        "K": "DEVPKEY_Device_LegacyBusType",
+        "T": "UInt32",
+        "D": "5"
+      },
+      {
+        "K": "DEVPKEY_Device_BusNumber",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_EnumeratorName",
+        "T": "String",
+        "D": "PCI"
+      },
+      {
+        "K": "DEVPKEY_Device_Address",
+        "T": "UInt32",
+        "D": "1310722"
+      },
+      {
+        "K": "DEVPKEY_Device_PowerData",
+        "T": "Binary",
+        "D": [
+          "56",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "9",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "1",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "4",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0",
+          "0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicy",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_RemovalPolicyDefault",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallState",
+        "T": "UInt32",
+        "D": "2"
+      },
+      {
+        "K": "DEVPKEY_Device_BaseContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_NAME",
+        "T": "String",
+        "D": "PCI 資料擷取以及訊號處理控制器"
+      },
+      {
+        "K": "DEVPKEY_Device_InstanceId",
+        "T": "String",
+        "D": "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&00000000&0&A2"
+      },
+      {
+        "K": "DEVPKEY_Device_DevNodeStatus",
+        "T": "UInt32",
+        "D": "25175040"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemCode",
+        "T": "UInt32",
+        "D": "28"
+      },
+      {
+        "K": "DEVPKEY_Device_ProblemStatus",
+        "T": "NTStatus",
+        "D": "3221226640"
+      },
+      {
+        "K": "DEVPKEY_Device_EjectionRelations",
+        "T": "StringList",
+        "D": "PCI\\VEN_8086&DEV_A12F&SUBSYS_20738086&REV_31\\3&00000000&0&A0"
+      },
+      {
+        "K": "DEVPKEY_Device_Parent",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_Siblings",
+        "T": "StringList",
+        "D": [
+          "PCI\\VEN_8086&DEV_5910&SUBSYS_20738086&REV_05\\3&00000000&0&00",
+          "PCI\\VEN_8086&DEV_1901&SUBSYS_20738086&REV_05\\3&00000000&0&08",
+          "PCI\\VEN_8086&DEV_1905&SUBSYS_20738086&REV_05\\3&00000000&0&09",
+          "PCI\\VEN_8086&DEV_1909&SUBSYS_20738086&REV_05\\3&00000000&0&0A",
+          "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\\3&00000000&0&40",
+          "PCI\\VEN_8086&DEV_A12F&SUBSYS_20738086&REV_31\\3&00000000&0&A0",
+          "PCI\\VEN_8086&DEV_A160&SUBSYS_20738086&REV_31\\3&00000000&0&A8",
+          "PCI\\VEN_8086&DEV_A161&SUBSYS_20738086&REV_31\\3&00000000&0&A9",
+          "PCI\\VEN_8086&DEV_A162&SUBSYS_20738086&REV_31\\3&00000000&0&AA",
+          "PCI\\VEN_8086&DEV_A13A&SUBSYS_20738086&REV_31\\3&00000000&0&B0",
+          "PCI\\VEN_8086&DEV_A110&SUBSYS_20738086&REV_F1\\3&00000000&0&E0",
+          "PCI\\VEN_8086&DEV_A111&SUBSYS_20738086&REV_F1\\3&00000000&0&E1",
+          "PCI\\VEN_8086&DEV_A112&SUBSYS_20738086&REV_F1\\3&00000000&0&E2",
+          "PCI\\VEN_8086&DEV_A114&SUBSYS_20738086&REV_F1\\3&00000000&0&E4",
+          "PCI\\VEN_8086&DEV_A118&SUBSYS_20738086&REV_F1\\3&00000000&0&E8",
+          "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\\3&00000000&0&F0",
+          "PCI\\VEN_8086&DEV_A152&SUBSYS_20738086&REV_31\\3&00000000&0&F8",
+          "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA",
+          "PCI\\VEN_8086&DEV_A171&SUBSYS_20738086&REV_31\\3&00000000&0&FB",
+          "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC",
+          "PCI\\VEN_8086&DEV_15B7&SUBSYS_00008086&REV_31\\3&00000000&0&FE",
+          "ACPI\\PNP0C02\\1",
+          "ACPI\\PNP0C02\\PCHRESV",
+          "ACPI\\PNP0C02\\IoTraps",
+          "ACPI\\PNP0C02\\5",
+          "ACPI\\INT345D\\3&00000000&0"
+        ]
+      },
+      {
+        "K": "DEVPKEY_Device_SafeRemovalRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ContainerId",
+        "T": "Guid",
+        "D": "{00000000-0000-0000-FFFF-FFFFFFFFFFFF}"
+      },
+      {
+        "K": "DEVPKEY_Device_IsPresent",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_HasProblem",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 15",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_IsRebootRequired",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_Device_ReportedDeviceIdsHash",
+        "T": "UInt32",
+        "D": "695089310"
+      },
+      {
+        "K": "DEVPKEY_Device_InLocalMachineContainer",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_Device_Stack",
+        "T": "StringList",
+        "D": "\\Driver\\pci"
+      },
+      {
+        "K": "{A8B865DD-2E3D-4094-AD97-E593A70C75D6} 26",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "{3464F7A4-2444-40B1-980A-E0903CB6D912} 10",
+        "T": "UInt32",
+        "D": "3"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_DeviceType",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_CurrentSpeedAndMode",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BaseClass",
+        "T": "UInt32",
+        "D": "17"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SubClass",
+        "T": "UInt32",
+        "D": "128"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_ProgIf",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_InterruptSupport",
+        "T": "UInt32",
+        "D": "3"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_InterruptMessageMaximum",
+        "T": "UInt32",
+        "D": "1"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_BarTypes",
+        "T": "UInt32",
+        "D": "256"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_S0WakeupSupported",
+        "T": "Boolean",
+        "D": "True"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_RequiresReservedMemoryRegion",
+        "T": "Boolean",
+        "D": "False"
+      },
+      {
+        "K": "DEVPKEY_PciDevice_SupportedLinkSubState",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "DEVPKEY_Device_BusReportedDeviceDesc",
+        "T": "String",
+        "D": "PCI Data Acquisition and Signal Processing Controller"
+      },
+      {
+        "K": "DEVPKEY_Device_ConfigurationId",
+        "T": "String",
+        "D": ""
+      },
+      {
+        "K": "{80497100-8C73-48B9-AAD9-CE387E19C56E} 6",
+        "T": "UInt32",
+        "D": "0"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 5",
+        "T": "Error",
+        "D": "3758096936"
+      },
+      {
+        "K": "{83DA6326-97A6-4088-9453-A1923F573B29} 10",
+        "T": "String",
+        "D": "ACPI\\PNP0A08\\0"
+      },
+      {
+        "K": "DEVPKEY_Device_InstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_FirstInstallDate",
+        "T": "FileTime",
+        "D": "11/24/2026 22:56:04"
+      },
+      {
+        "K": "DEVPKEY_Device_LastArrivalDate",
+        "T": "FileTime",
+        "D": "11/24/2026 23:14:51"
+      },
+      {
+        "K": "DEVPKEY_Device_LocationPaths",
+        "T": "StringList",
+        "D": [
+          "PCIROOT(0)#PCI(1402)",
+          "ACPI(_SB_)#ACPI(PCI0)#PCI(1402)"
+        ]
+      }
+    ]
+  }
+]

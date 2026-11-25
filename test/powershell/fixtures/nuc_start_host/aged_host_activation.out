@@ -1,0 +1,21 @@
+start 2026-11-23T23:36:16.9841954+08:00 explorer=7848
+[initial] hosts=1
+  pid=5200 ppid=1336(svchost.exe) sess=1 created=2026-11-23T23:34:47.5930910+08:00 age=89.7s
+  cmd="C:\Windows\SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe" -ServerName:FullTrustApp.AppXykjsye98af63ez2annt9djke8trg8stn.mca
+idle 60s to age it (host pid=5200)
+[aged] hosts=1
+  pid=5200 ppid=1336(svchost.exe) sess=1 created=2026-11-23T23:34:47.5930910+08:00 age=149.9s
+  cmd="C:\Windows\SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe" -ServerName:FullTrustApp.AppXykjsye98af63ez2annt9djke8trg8stn.mca
+threads=25 responding=True :: Wait, Suspended=25
+export(aged): TIMEOUT>20s elapsed=20.1s
+--- ActivateApplication on existing aged host: Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy!FullTrustApp
+result: hr=0x00000000 pid=5200
+[after-activate] hosts=1
+  pid=5200 ppid=1336(svchost.exe) sess=1 created=2026-11-23T23:34:47.5930910+08:00 age=172.2s
+  cmd="C:\Windows\SystemApps\Microsoft.Windows.StartMenuExperienceHost_cw5n1h2txyewy\StartMenuExperienceHost.exe" -ServerName:FullTrustApp.AppXykjsye98af63ez2annt9djke8trg8stn.mca
+threads=25 responding=True :: Wait, UserRequest=20; Wait, EventPairLow=5
+export(after activate): OK elapsed=1.2s pins=0
+threads=25 responding=True :: Wait, UserRequest=20; Wait, EventPairLow=5
+desktop: explorer responding=True
+done 2026-11-23T23:37:41.0477731+08:00
+

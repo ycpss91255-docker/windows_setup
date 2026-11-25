@@ -15,9 +15,9 @@ $keys=@('GITHUB_SHA','GITHUB_REF_TYPE','GITHUB_HEAD_REF','GITHUB_REF_NAME','GITH
 $saved=@{};foreach($key in $keys){$saved[$key]=[Environment]::GetEnvironmentVariable($key,'Process');[Environment]::SetEnvironmentVariable($key,$null,'Process')}
 function Put([string]$Relative,[string]$Content){$path=Join-Path $fixture $Relative;[void][IO.Directory]::CreateDirectory((Split-Path $path));[IO.File]::WriteAllText($path,$Content,$encoding)}
 function Invoke-FixtureGit([string[]]$Arguments){$output=& git.exe -c core.autocrlf=false -C $fixture @Arguments 2>&1;if($LASTEXITCODE -ne 0){throw ($output|Out-String)};return $output}
-function Run([string]$Name,[string]$Layer='All',[string]$ExpectedError=''){
+function Run([string]$Name,[string]$Layer='All',[string]$ExpectedError='',[int]$Parallelism=1){
  $out=Join-Path $temp $Name;$actual=''
- try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer $Layer}catch{$actual=$_.Exception.Message}
+ try{if($Parallelism -gt 1){Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer $Layer -Parallelism $Parallelism}else{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer $Layer}}catch{$actual=$_.Exception.Message}
  if($ExpectedError){Assert ($actual -like ('*'+$ExpectedError+'*')) ($Name+' 拒絕正確原因：'+$actual)}else{Assert (-not $actual) ($Name+' 真實執行成功：'+$actual)}
  $summary=Join-Path $out 'public/summary.json';if(Test-Path $summary){return (Get-Content -LiteralPath $summary -Encoding UTF8 -Raw|ConvertFrom-Json)}
 }
@@ -68,6 +68,87 @@ try{
  $env:GITHUB_REF_TYPE=$null
  Remove-Item -LiteralPath (Join-Path $fixture '.version')
  $r=Run 'unversioned' 'Unit';Assert ($r.Version -eq 'Unknown' -and $r.SourceState -eq 'Dirty') '缺版本不假設有效版本'
+
+ # 指定 Suite：只執行清單中明確列出的 suite，未知或重複名稱拒絕；完整清單檢查仍先執行。
+ Put '.version' 'v1.2.3'
+ Put 'test/powershell/unit/first_tests.ps1' $pass
+ Put 'test/powershell/unit/second_tests.ps1' ($pass+"`nexit 7")
+ $out=Join-Path $temp 'suite_one'
+ Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer All -Suite @('Unit.first')
+ $r=Get-Content -LiteralPath (Join-Path $out 'public/summary.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+ Assert ($r.Success -and $r.Checks.Count -eq 2 -and $r.Checks[1].Name -ceq 'Unit.first') '指定 Suite 只執行被列出的 suite，其他失敗 suite 不影響'
+ $out=Join-Path $temp 'suite_two'
+ Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer All -Suite @('Integration.layout','Unit.first')
+ $r=Get-Content -LiteralPath (Join-Path $out 'public/summary.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+ Assert ($r.Checks.Count -eq 3 -and $r.Checks[1].Name -ceq 'Unit.first' -and $r.Checks[2].Name -ceq 'Integration.layout') '指定多個 Suite 時仍依完整清單順序執行'
+ foreach($case in @(@{Name='unknown';Suite=@('Unit.nope');Error='未知'},@{Name='duplicate';Suite=@('Unit.first','Unit.first');Error='重複'},@{Name='blank';Suite=@('');Error='未知'},@{Name='wrong_case';Suite=@('unit.first');Error='未知'})){
+  $failed='';try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp ('suite_'+$case.Name)) -Layer All -Suite $case.Suite}catch{$failed=$_.Exception.Message}
+  Assert ($failed -like ('*'+$case.Error+'*')) ('指定 Suite 拒絕'+$case.Name+'：'+$failed)
+ }
+ $failed='';try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp 'suite_failing') -Layer All -Suite @('Unit.second')}catch{$failed=$_.Exception.Message}
+ Assert ($failed -like '*CI 測試未通過*') '被指定的失敗 suite 仍使整體失敗'
+ # 分片：完整清單檢查先於分片；分片互不重疊且聯集等於完整清單，語法檢查只在分片 0，沒有分到 suite 的分片不得回報成功。
+ Put 'test/powershell/unit/second_tests.ps1' $pass
+ Put 'test/powershell/unit/third_tests.ps1' $pass
+ $out=Join-Path $temp 'shard_all'
+ Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer All
+ $whole=@((Get-Content -LiteralPath (Join-Path $out 'public/summary.json') -Encoding UTF8 -Raw|ConvertFrom-Json).Checks|Where-Object {$_.Layer -ne 'Static'}|ForEach-Object {$_.Name}|Sort-Object)
+ $union=@();$syntax=0
+ foreach($index in 0..1){
+  $out=Join-Path $temp ('shard_'+$index)
+  Invoke-SetupCI -PackageRoot $fixture -ReportDirectory $out -Layer All -ShardIndex $index -ShardCount 2
+  $r=Get-Content -LiteralPath (Join-Path $out 'public/summary.json') -Encoding UTF8 -Raw|ConvertFrom-Json
+  $union+=@($r.Checks|Where-Object {$_.Layer -ne 'Static'}|ForEach-Object {$_.Name})
+  $syntax+=@($r.Checks|Where-Object {$_.Layer -eq 'Static'}).Count
+ }
+ Assert ((($union|Sort-Object) -join ',') -ceq ($whole -join ',') -and $union.Count -eq $whole.Count) '分片互不重疊且聯集等於完整清單'
+ Assert ($syntax -eq 1) '語法檢查只在分片 0 執行一次'
+ foreach($case in @(@{Name='index_range';Index=2;Count=2;Error='分片索引'},@{Name='negative_index';Index=-1;Count=2;Error='分片索引'},@{Name='zero_count';Index=0;Count=0;Error='分片'})){
+  $failed='';try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp ('shard_'+$case.Name)) -Layer All -ShardIndex $case.Index -ShardCount $case.Count}catch{$failed=$_.Exception.Message}
+  Assert ($failed -like ('*'+$case.Error+'*')) ('分片拒絕不合法的範圍：'+$case.Name)
+ }
+ $failed='';try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp 'shard_empty') -Layer All -Suite @('Unit.first') -ShardIndex 3 -ShardCount 4}catch{$failed=$_.Exception.Message}
+ Assert ($failed -like '*沒有符合*') '沒有分到任何 suite 的分片失敗，不回報成功'
+ Put 'test/powershell/unit/second_tests.ps1' ($pass+"`nexit 7")
+ Remove-Item -LiteralPath (Join-Path $fixture 'test/powershell/unit/third_tests.ps1')
+ Remove-Item -LiteralPath (Join-Path $fixture 'test/powershell/unit/second_tests.ps1')
+ # 平行執行：兩個 suite 以會合檔互相等待，只有同時執行才會通過；預設仍為序列，結果順序與序列相同。
+ $rendezvous=Join-Path $temp 'rendezvous'
+ $wait='New-Item -ItemType File -Path (Join-Path $env:CI_RENDEZVOUS ([guid]::NewGuid().ToString(''N''))) | Out-Null'+"`n"+'$deadline=(Get-Date).AddSeconds(10)'+"`n"+'while((@(Get-ChildItem $env:CI_RENDEZVOUS).Count -lt 2) -and ((Get-Date) -lt $deadline)){Start-Sleep -Milliseconds 100}'+"`n"+'Write-Output (''@@ASSERT@@''+(@{Name=''peer suite started'';Passed=(@(Get-ChildItem $env:CI_RENDEZVOUS).Count -ge 2)}|ConvertTo-Json -Compress))'
+ Put 'test/powershell/unit/first_tests.ps1' $wait
+ Put 'test/powershell/unit/second_tests.ps1' $wait
+ $env:CI_RENDEZVOUS=$rendezvous
+ [void][IO.Directory]::CreateDirectory($rendezvous)
+ $null=Run 'serial_default' 'Unit' 'CI 測試未通過'
+ Remove-Item -LiteralPath $rendezvous -Recurse -Force;[void][IO.Directory]::CreateDirectory($rendezvous)
+ $r=Run 'parallel' 'Unit' '' 2
+ Assert ($r.Success -and $r.Checks.Count -eq 3) '平行執行時完整清單各執行一次'
+ Assert ($r.Checks[1].Name -ceq 'Unit.first' -and $r.Checks[2].Name -ceq 'Unit.second') '平行執行的報告順序與清單順序一致'
+ Assert ($r.Totals.AssertionsExecuted -eq 2) '平行執行保留每個 suite 的真斷言'
+ Put 'test/powershell/unit/second_tests.ps1' ($pass+"`nexit 7")
+ Remove-Item -LiteralPath $rendezvous -Recurse -Force;[void][IO.Directory]::CreateDirectory($rendezvous)
+ Put 'test/powershell/unit/first_tests.ps1' $pass
+ $r=Run 'parallel_failure' 'Unit' 'CI 測試未通過' 2
+ Assert (-not $r.Success -and $r.Checks[1].Passed -and $r.Checks[2].ExitCode -eq 7) '平行執行時單一 suite 失敗仍使整體失敗並保留退出碼'
+ # 平行子程序必須沿用父程序的主控台編碼；背景工作會失去主控台而退回預設碼頁，使中文輸出判讀失敗。
+ $priorEncoding=[Console]::OutputEncoding;$encodingChanged=$false
+ try{[Console]::OutputEncoding=[Text.Encoding]::GetEncoding(437);$encodingChanged=$true}catch{}
+ try{
+  if($encodingChanged){
+   $encodingSuite='$expected=[int]$env:CI_EXPECT_CODEPAGE'+"`n"+'Write-Output (''@@ASSERT@@''+(@{Name=''child console code page matches parent'';Passed=([Console]::OutputEncoding.CodePage -eq $expected)}|ConvertTo-Json -Compress))'
+   Put 'test/powershell/unit/first_tests.ps1' $encodingSuite
+   Put 'test/powershell/unit/second_tests.ps1' $encodingSuite
+   $env:CI_EXPECT_CODEPAGE='437'
+   $r=Run 'parallel_encoding' 'Unit' '' 2
+   Assert ($r.Success -and $r.Checks.Count -eq 3) '平行 suite 沿用父程序的主控台編碼，不退回預設碼頁'
+  }
+ }finally{[Console]::OutputEncoding=$priorEncoding;$env:CI_EXPECT_CODEPAGE=$null}
+ foreach($invalid in @(0,5)){
+  $rejected=$false;try{Invoke-SetupCI -PackageRoot $fixture -ReportDirectory (Join-Path $temp ('bad_'+$invalid)) -Layer Unit -Parallelism $invalid}catch{$rejected=$true}
+  Assert $rejected ('拒絕超出範圍的平行數 '+$invalid)
+ }
+ $containerEntry=[IO.File]::ReadAllText((Join-Path $root 'script/docker/container_test.ps1'))
+ Assert ($containerEntry.Contains('run_ci.ps1 -Layer All -ReportDirectory C:/reports -Parallelism 2')) '容器完整測試明確使用兩個平行 suite 工作'
  # The CLI contract is executed using an isolated copy with a harmless named delegate.
  $cli=Join-Path $temp 'cli_來源_😀/script/test';[void][IO.Directory]::CreateDirectory($cli)
  Copy-Item -LiteralPath (Join-Path $root 'script/test/run_ci.ps1') -Destination $cli
@@ -94,6 +175,7 @@ try{
  Assert (-not(Test-CICliDelegation ([pscustomobject]@{Root=$called.Root;Output=$cliOut;Layer='Unit'}) (Join-Path $temp 'cli_來源_😀') $cliOut)) 'Layer仍須精確Integration'
  Assert (-not(Test-CICliDelegation ([pscustomobject]@{Root=$called.Root;Output=($cliOut+'.wrong');Layer='Integration'}) (Join-Path $temp 'cli_來源_😀') $cliOut)) 'Output仍須精確原參數'
 }finally{
+ $env:CI_RENDEZVOUS=$null
  foreach($key in $keys){[Environment]::SetEnvironmentVariable($key,$saved[$key],'Process')}
  # Only this test-created absolute TEMP tree can be removed.
  if($temp.StartsWith([IO.Path]::GetFullPath($env:TEMP),[StringComparison]::OrdinalIgnoreCase)){Remove-Item -LiteralPath $temp -Recurse -Force}

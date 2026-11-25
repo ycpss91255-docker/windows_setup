@@ -13,7 +13,7 @@ function Get-SetupGuiIdentity {[pscustomobject]@{CommonDataRoot=$temp;UserSID=$s
 function Assert-SetupGuiAncestors {param($CommonDataRoot) if($CommonDataRoot -ne $temp){throw 'wrong fixture parent'}}
 function New-SetupGuiProtectedDirectory {param($Path,$UserSid) if(-not $Path.StartsWith($temp)){throw 'outside TEMP'};[void][IO.Directory]::CreateDirectory($Path)}
 function Assert-SetupGuiProtectedPath {param($Path,[switch]$Directory,$UserSid) if(-not $Path.StartsWith($temp) -or -not(Microsoft.PowerShell.Management\Test-Path -LiteralPath $Path)){throw 'outside protected fixture'}}
-function Get-CimInstance {param($ClassName,$Filter,$ErrorAction) if($ClassName -ne 'Win32_Process' -or $Filter -ne "Name='explorer.exe'"){throw 'unexpected process query'};[pscustomobject]@{SessionId=$script:desktopSession}}
+function Get-CimInstance {param($ClassName,$Filter,$ErrorAction) if($ClassName -eq 'Win32_Process' -and $Filter -eq "Name='powershell.exe'"){return @()};if($ClassName -ne 'Win32_Process' -or $Filter -ne "Name='explorer.exe'"){throw 'unexpected process query'};[pscustomobject]@{SessionId=$script:desktopSession}}
 function Invoke-CimMethod {param($InputObject,$MethodName,$ErrorAction) [pscustomobject]@{ReturnValue=0;Sid=$script:sid}}
 function New-ScheduledTaskAction {param($Execute,$Argument) if($Execute -cne $ps){throw 'non-OS PowerShell task executable'};[pscustomobject]@{Execute=$Execute;Argument=$Argument;Arguments=$Argument}}
 function New-ScheduledTaskPrincipal {param($UserId,$LogonType,$RunLevel) if($UserId -cne $script:sid -or $LogonType -cne 'Interactive' -or $RunLevel -cne 'Highest'){throw 'wrong task principal'};[pscustomobject]@{UserId=$UserId;LogonType=$LogonType;RunLevel=$RunLevel}}
@@ -28,7 +28,9 @@ function Start-ScheduledTask {param($TaskName,$ErrorAction)
 }
 function Test-Path {param($Path,$LiteralPath,$PathType) if($Path -like 'HK*'){return $true};Microsoft.PowerShell.Management\Test-Path @PSBoundParameters}
 function New-ItemProperty {param($Path,$Name,$Value,$PropertyType,[switch]$Force) if($Path -notlike 'HK*'){throw 'unexpected registry write'};$script:values[$Name]=$Value;$script:writes++}
-function Get-ItemProperty {param($Path,$ErrorAction) if($Path -notlike 'HK*'){throw 'unexpected registry read'};[pscustomobject]$script:values}
+$script:stuck=[byte[]](0x30,0,0,0,0xFE,0xFF,0xFF,0xFF,2,0,0,0,3,0,0,0)
+function Get-ItemProperty {param($Path,$Name,$ErrorAction) if($Path -notlike 'HK*'){throw 'unexpected registry read'};if($Path -like '*StuckRects3'){return [pscustomobject]@{Settings=[byte[]]$script:stuck.Clone()}};[pscustomobject]$script:values}
+function Set-ItemProperty {param($Path,$Name,$Value,$Type,$ErrorAction) if($Path -notlike '*StuckRects3' -or $Name -ne 'Settings'){throw 'unexpected registry write'};$script:stuck=[byte[]]$Value}
 function Remove-ItemProperty {param($Path,$Name,$ErrorAction) if($Path -ne 'HKCU:\Software\Policies\Microsoft\Windows\Explorer'){throw 'unexpected policy removal'};$script:values.Remove($Name);$script:writes++}
 function Export-SetupTaskbarBackup {param($Path) if(-not $Path.StartsWith($temp)){throw 'outside TEMP backup'};$script:backups++}
 function Start-Sleep {param($Seconds) $script:delays+=@($Seconds)}

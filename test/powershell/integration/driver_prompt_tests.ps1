@@ -4,12 +4,13 @@ $root=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../..'))
 $fixture=Join-Path $env:TEMP ('windows_setup_driver_prompt_'+[guid]::NewGuid().ToString('N'))
 $core=Join-Path $fixture 'windows_setup/core'
 New-Item -ItemType Directory -Path $core -Force|Out-Null
-Copy-Item (Join-Path $root 'core/start_windows.ps1'),(Join-Path $root 'core/hardware.ps1') -Destination $core
+Copy-Item (Join-Path $root 'core/start_windows.ps1'),(Join-Path $root 'core/hardware.ps1'),(Join-Path $root 'core/network_preflight_library.ps1') -Destination $core
 Copy-Item -LiteralPath (Join-Path $root 'drivers') -Destination (Split-Path $core -Parent) -Recurse
 [IO.File]::WriteAllText((Join-Path $core 'configure_setup.ps1'),'param($DriverPackagePath,$ConfirmedBoard,$ConfirmationComputer);$fixtureState.SelectedDriver=$DriverPackagePath',[Text.UTF8Encoding]::new($true))
 $fixtureState=@{Board='';PromptCount=0;Answers=$null;SelectedDriver=''};$count=0
 function Assert([bool]$Condition,[string]$Message){Write-Host ('@@ASSERT@@'+(@{Name=$Message;Passed=$Condition}|ConvertTo-Json -Compress));if(-not $Condition){throw ('FAIL: '+$Message)};$script:count++}
 function Get-CimInstance {param($ClassName,$ErrorAction);[pscustomobject]@{Product=$fixtureState.Board}}
+function Get-NetConnectionProfile {param($ErrorAction);[pscustomobject]@{IPv4Connectivity='Disconnected';IPv6Connectivity='NoTraffic'}}
 function Read-Host {param($Prompt);$fixtureState.PromptCount++;if(-not $fixtureState.Answers.Count){throw '不應詢問此機型的 NUC 驅動包'};$answer=$fixtureState.Answers.Dequeue();return $answer}
 $fixtureState.Board='Other Board';$fixtureState.PromptCount=0;$fixtureState.Answers=New-Object 'Collections.Generic.Queue[string]'
 & (Join-Path $core 'start_windows.ps1')
@@ -49,7 +50,7 @@ $fixtureState.Board=''
 & (Join-Path $core 'start_windows.ps1') -NonInteractive -DriverPackagePath $payload -ConfirmedBoard NUC8i7HVB -ConfirmationComputer $env:COMPUTERNAME
 Assert ($fixtureState.Forwarded.Path -eq $payload -and $fixtureState.Forwarded.Board -eq 'NUC8i7HVB' -and $fixtureState.Forwarded.Computer -eq $env:COMPUTERNAME) '真windows入口把非互動確認送到configure'
 # Retry refreshes the hardware rather than retaining the original unknown result.
-$fixtureState.Board='';$fixtureState.Answers.Enqueue('r');$fixtureState.Answers.Enqueue('')
+$fixtureState.Board='';$fixtureState.Answers.Enqueue('r');$fixtureState.Answers.Enqueue('n')
 $fixtureState.RefreshOnRead=$true
 function Read-Host {param($Prompt);$fixtureState.PromptCount++;if(-not $fixtureState.Answers.Count){throw 'Unexpected prompt'};$answer=$fixtureState.Answers.Dequeue();if($fixtureState.RefreshOnRead -and $answer -eq 'r'){$fixtureState.Board='NUC8i7HNB'};return $answer}
 $request=Select-SetupDriverRequest -PackageRoot (Split-Path $core -Parent) -Interactive $true
