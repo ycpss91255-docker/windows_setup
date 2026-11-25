@@ -83,6 +83,40 @@ public static class ManagedNativeTests {
    }
   }
  }
+ static void MdnsCallbackWithoutAddressesCases(){
+  // Replay of the instance captured from a real registration callback (clean Windows 11 build 26300, status 0):
+  // name/host/port are echoed, IPv4/IPv6 pointers are NULL, interface index 0. De-identified fixture values.
+  var ad=new WindowsSetup.MdnsPublisher.Advertisement{HostName="fixture.local",ServiceName="fixture._ssh._tcp.local",InterfaceIndex=7,IPv4="192.0.2.9",IPv6="fe80::9",Port=22};
+  foreach(string mode in new[]{"null_addresses","other_ipv4","other_ipv6"}){
+   IntPtr name=Marshal.StringToHGlobalUni(ad.ServiceName),host=Marshal.StringToHGlobalUni(ad.HostName),a4=IntPtr.Zero,a6=IntPtr.Zero,callbackCopy=IntPtr.Zero;
+   int deregistrations=0;WindowsSetup.MdnsPublisher.Completion saved=null;
+   try{
+    if(mode=="other_ipv4"){a4=Marshal.AllocHGlobal(4);Marshal.Copy(new byte[]{192,0,2,99},0,a4,4);}
+    if(mode=="other_ipv6"){a6=Marshal.AllocHGlobal(16);var b=new byte[16];b[0]=0xfe;b[1]=0x80;b[15]=0x63;Marshal.Copy(b,0,a6,16);}
+    var raw=new WindowsSetup.MdnsPublisher.Instance{Name=name,Host=host,IPv4=a4,IPv6=a6,Port=22,InterfaceIndex=0};
+    callbackCopy=Marshal.AllocHGlobal(Marshal.SizeOf(typeof(WindowsSetup.MdnsPublisher.Instance)));Marshal.StructureToPtr(raw,callbackCopy,false);
+    var api=new WindowsSetup.MdnsPublisher.NativeApi();
+    api.Construct=delegate(WindowsSetup.MdnsPublisher.Advertisement row){return (IntPtr)11;};
+    api.Read=delegate(IntPtr instance){if(instance==(IntPtr)11)return ad;return WindowsSetup.MdnsPublisher.ReadInstance(instance);};
+    api.Free=delegate(IntPtr instance){};
+    api.Request=delegate(uint operation,IntPtr request,IntPtr cancel){
+     var r=(WindowsSetup.MdnsPublisher.Request)Marshal.PtrToStructure(request,typeof(WindowsSetup.MdnsPublisher.Request));
+     saved=(WindowsSetup.MdnsPublisher.Completion)Marshal.GetDelegateForFunctionPointer(r.Callback,typeof(WindowsSetup.MdnsPublisher.Completion));
+     if(operation==0)saved(0,IntPtr.Zero,callbackCopy);else{deregistrations++;saved(0,IntPtr.Zero,(IntPtr)13);}
+     return 9506;
+    };
+    api.Cancel=delegate(IntPtr cancel){return 0;};
+    WindowsSetup.MdnsPublisher.Registration lease=null;string failure=null;
+    try{lease=WindowsSetup.MdnsPublisher.Begin(ad,api,100);}catch(InvalidOperationException error){failure=error.Message;}
+    if(mode=="null_addresses"){
+     Assert(failure==null && lease!=null && lease.Registered,"native success callback without echoed addresses still registers the constructed instance (failure="+failure+")");
+     lease.Dispose();Assert(deregistrations==1 && !lease.Registered,"registration from a callback without addresses is deregistered on dispose");
+    }else{
+     Assert(failure!=null && lease==null && deregistrations==1,"native success callback echoing a different address is rejected and deregistered: "+mode);
+    }
+   }finally{Marshal.FreeHGlobal(callbackCopy);Marshal.FreeHGlobal(name);Marshal.FreeHGlobal(host);if(a4!=IntPtr.Zero)Marshal.FreeHGlobal(a4);if(a6!=IntPtr.Zero)Marshal.FreeHGlobal(a6);}
+  }
+ }
  static void ExplorerCases(){
   uint settings=4;int reads=0,writes=0,broadcasts=0,freed=0;
   var api=new NucExplorerLiveV2.NativeApi();
@@ -270,7 +304,7 @@ public static class ManagedNativeTests {
    Assert(Marshal.ReadInt32(packet,0)==-3 && Marshal.ReadInt32(packet,4)==32,"display packet type and size are written");
    Assert(Marshal.ReadInt32(packet,8)==19 && Marshal.ReadInt32(packet,12)==23 && Marshal.ReadInt32(packet,16)==29,"display packet carries exact adapter identity");
   }finally{Marshal.FreeHGlobal(packet);Marshal.FreeHGlobal(path);}
-  MdnsAllocationOnlyAbiCases();MdnsCases();TaskbarAutoHideCases();ExplorerCases();ThemeCases();HotkeyCases();DisplayCases();WimCases();DesktopCases();
+  MdnsAllocationOnlyAbiCases();MdnsCases();MdnsCallbackWithoutAddressesCases();TaskbarAutoHideCases();ExplorerCases();ThemeCases();HotkeyCases();DisplayCases();WimCases();DesktopCases();
   new WindowsSetup.UpdateCallback().Invoke(new object(),new object());Assert(true,"WUA callback accepts Automation arguments without retaining or processing them");
   Console.WriteLine("ALL PASS: "+assertions+" managed source assertions; only dnsapi allocation/read/free invoked, no registration or OS settings");
  }

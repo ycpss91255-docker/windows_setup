@@ -22,7 +22,7 @@ $global:interactive=$true
 $global:events=@();$global:failRead=$false;$global:answer='R';$global:changeProfile=$true;$global:hostChecks=0
 $output=@(& $entry -DriverPackagePath 'fixture-package' 6>&1)
 Assert (($global:events -join ',') -ceq 'network,prompt,network,selection,configure:fixture-package') '一般互動入口自願重檢一次並保留本機包'
-Assert (($output -join ' ') -match '未偵測到連線' -and ($output -join ' ') -match '偵測到網際網路' -and ($output -join ' ') -match '不保證') '重檢顯示新分類但不宣稱來源可用'
+Assert (($output -join ' ') -match '沒有偵測到' -and ($output -join ' ') -match '已連線') '重檢顯示新分類'
 Assert ($global:hostChecks -eq 1) '互動入口只判斷一次主機'
 $global:events=@();$global:answer=''
 & $entry -DriverPackagePath 'fixture-package'

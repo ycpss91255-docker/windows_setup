@@ -16,7 +16,9 @@ if($previous -and $previous.Computer -eq $env:COMPUTERNAME -and $previous.UserSI
  $previous.Success=($verification.Passed -and $errors.Count -eq 0)
  $previous|ConvertTo-Json -Depth 6|Set-Content $resultPath -Encoding UTF8
 }
-@{Computer=$env:COMPUTERNAME;CheckedAt=(Get-Date).ToString('o');Success=($verification.Passed -and $errors.Count -eq 0);Errors=$errors;SkippedChecks=@($verification.Checks|Where-Object Status -eq Skipped);HardwareProfile=$hardware;FailedChecks=@($verification.Checks|Where-Object {$_.Status -ne 'Skipped' -and -not $_.Passed})}|ConvertTo-Json -Depth 6|Set-Content (Resolve-NucPath 'Acceptance-Result.json') -Encoding UTF8
+$taskbarChecks=@($verification.Checks|Where-Object {$_.Name -cin @('Edge-only 釘選配置','工作列待處理項目讀回')})
+$taskbarEvidence=@{VisualStatus='Unknown';PolicyChecks=$taskbarChecks}
+@{TaskbarEvidence=$taskbarEvidence;Computer=$env:COMPUTERNAME;CheckedAt=(Get-Date).ToString('o');Success=($verification.Passed -and $errors.Count -eq 0);Errors=$errors;SkippedChecks=@($verification.Checks|Where-Object Status -eq Skipped);HardwareProfile=$hardware;FailedChecks=@($verification.Checks|Where-Object {$_.Status -ne 'Skipped' -and -not $_.Passed})}|ConvertTo-Json -Depth 6|Set-Content (Resolve-NucPath 'Acceptance-Result.json') -Encoding UTF8
 if($errors.Count -or -not $verification.Passed){throw '驗收尚未全部通過。請查看 Acceptance-Result.json；若要求重新開機，手動重開後再執行此入口。'}
 Write-Host '設定及清理驗收通過。請目視確認自動登入、工作列僅釘選 Edge ；NUC 適用時再確認無 AMD 位置提示。' -ForegroundColor Green
 }

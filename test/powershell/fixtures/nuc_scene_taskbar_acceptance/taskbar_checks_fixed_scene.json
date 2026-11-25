@@ -1,0 +1,14 @@
+﻿[
+  {
+    "Name": "Edge-only 釘選配置",
+    "Status": "Passed",
+    "Passed": true,
+    "Detail": "受保護 XML 配置及相關設定讀回；工作列實際畫面未知，須分別觀察。"
+  },
+  {
+    "Name": "工作列待處理項目讀回",
+    "Status": "Passed",
+    "Passed": true,
+    "Detail": "Status=Confirmed；讀回狀態不證明曾登入或畫面已套用；畫面未知。"
+  }
+]
