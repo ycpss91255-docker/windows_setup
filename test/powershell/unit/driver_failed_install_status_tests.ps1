@@ -32,6 +32,11 @@ $script:SetupDriverReadbackWaited=0;$script:sleeps=0;$script:rescans=0;$script:e
 $r=Invoke-SetupDriverTarget -Target $target -Root 'C:\fixture' -Build 26200 -Architecture amd64 -LogPath 'C:\fixture\synthetic.log'
 Assert ($script:sleeps -eq 0 -and $script:rescans -eq 0 -and $script:SetupDriverReadbackWaited -eq 0) 'native 安裝失敗時不掃描也不等待讀回額度'
 Assert ([string]$r.Results[0].Reason -match '退出碼 5' -and $r.Installed -eq $false) 'native 安裝失敗時原因寫出退出碼且不標示已安裝'
+# 安裝其實已生效（讀回 Updated）但退出碼非成功：仍標 InstallFailed，原因保留讀回資訊，避免讓人以為沒裝上
+$script:SetupDriverReadbackWaited=0;$script:exitCode=1;$script:readbackStatus='Updated'
+$r=Invoke-SetupDriverTarget -Target $target -Root 'C:\fixture' -Build 26200 -Architecture amd64 -LogPath 'C:\fixture\synthetic.log'
+Assert ($r.Results[0].Status -eq 'InstallFailed' -and [string]$r.Results[0].Reason -match '退出碼 1' -and [string]$r.Results[0].Reason -match '讀回：Updated' -and [string]$r.Results[0].Reason -match 'fixture readback' -and $r.Failures.Count -gt 0) '退出碼非成功但讀回已符合時標 InstallFailed 並保留讀回狀態與原因'
+$script:readbackStatus='Unverified'
 # 安裝成功但讀回仍未核實：才掃描並在共用額度內等待，不得標為 InstallFailed
 $script:SetupDriverReadbackWaited=0;$script:sleeps=0;$script:rescans=0;$script:exitCode=0;$script:readbackStatus='Unverified'
 $r=Invoke-SetupDriverTarget -Target $target -Root 'C:\fixture' -Build 26200 -Architecture amd64 -LogPath 'C:\fixture\synthetic.log'
