@@ -1,0 +1,161 @@
+{
+  "Source": "live_main.json",
+  "Devices": [
+    {
+      "InstanceId": "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\\3&00000000&0&40",
+      "DriverInfPath": {
+        "Type": "Empty",
+        "HasDataMember": false
+      },
+      "QueriedProperties": {
+        "ProblemCode": {
+          "Type": "UInt32",
+          "HasDataMember": true
+        },
+        "DriverInfPath": {
+          "Type": "Empty",
+          "HasDataMember": false
+        },
+        "HardwareIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        },
+        "CompatibleIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        }
+      },
+      "MainInventoryError": "DriverInfPath: 原生屬性未回傳資料物件; "
+    },
+    {
+      "InstanceId": "ACPI\\INT3515\\0",
+      "DriverInfPath": {
+        "Type": "Empty",
+        "HasDataMember": false
+      },
+      "QueriedProperties": {
+        "ProblemCode": {
+          "Type": "UInt32",
+          "HasDataMember": true
+        },
+        "DriverInfPath": {
+          "Type": "Empty",
+          "HasDataMember": false
+        },
+        "HardwareIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        },
+        "CompatibleIds": {
+          "Type": "Empty",
+          "HasDataMember": false
+        }
+      },
+      "MainInventoryError": "DriverInfPath: 原生屬性未回傳資料物件; "
+    },
+    {
+      "InstanceId": "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\\3&00000000&0&F0",
+      "DriverInfPath": {
+        "Type": "Empty",
+        "HasDataMember": false
+      },
+      "QueriedProperties": {
+        "ProblemCode": {
+          "Type": "UInt32",
+          "HasDataMember": true
+        },
+        "DriverInfPath": {
+          "Type": "Empty",
+          "HasDataMember": false
+        },
+        "HardwareIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        },
+        "CompatibleIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        }
+      },
+      "MainInventoryError": "DriverInfPath: 原生屬性未回傳資料物件; "
+    },
+    {
+      "InstanceId": "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA",
+      "DriverInfPath": {
+        "Type": "Empty",
+        "HasDataMember": false
+      },
+      "QueriedProperties": {
+        "ProblemCode": {
+          "Type": "UInt32",
+          "HasDataMember": true
+        },
+        "DriverInfPath": {
+          "Type": "Empty",
+          "HasDataMember": false
+        },
+        "HardwareIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        },
+        "CompatibleIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        }
+      },
+      "MainInventoryError": null
+    },
+    {
+      "InstanceId": "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC",
+      "DriverInfPath": {
+        "Type": "Empty",
+        "HasDataMember": false
+      },
+      "QueriedProperties": {
+        "ProblemCode": {
+          "Type": "UInt32",
+          "HasDataMember": true
+        },
+        "DriverInfPath": {
+          "Type": "Empty",
+          "HasDataMember": false
+        },
+        "HardwareIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        },
+        "CompatibleIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        }
+      },
+      "MainInventoryError": null
+    },
+    {
+      "InstanceId": "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&00000000&0&A2",
+      "DriverInfPath": {
+        "Type": "Empty",
+        "HasDataMember": false
+      },
+      "QueriedProperties": {
+        "ProblemCode": {
+          "Type": "UInt32",
+          "HasDataMember": true
+        },
+        "DriverInfPath": {
+          "Type": "Empty",
+          "HasDataMember": false
+        },
+        "HardwareIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        },
+        "CompatibleIds": {
+          "Type": "StringList",
+          "HasDataMember": true
+        }
+      },
+      "MainInventoryError": "DriverInfPath: 原生屬性未回傳資料物件; "
+    }
+  ]
+}
