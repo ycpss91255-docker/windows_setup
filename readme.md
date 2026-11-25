@@ -46,7 +46,7 @@ for %d in (C D E F G H I J K L M N O P Q R S T U V W X Y Z) do @if exist "%d:\wi
 
 ### 接著套用設定
 
-1. 登入正式帳號後，雙擊完整工具包的 `windows.cmd`。依提示允許權限、輸入目前帳號密碼；不裝驅動時直接 Enter 略過選包。
+1. 登入正式帳號後，雙擊完整工具包的 `windows.cmd`。依提示允許權限、輸入目前帳號密碼；不裝驅動時，在選包提示輸入 N 或按 Enter 略過（只有型號完全對上時 Enter 才是安裝，見〈準備獨立驅動包〉）。
 2. 等整輪結束、查看結果後再手動重開機。從 USB 開啟 `windows_setup\core`，雙擊 `verify_after_restart.cmd` 續跑與驗收。
 3. 處理畫面列出的失敗，再雙擊 `verify_only.cmd` 檢查，最後依[目視確認](#6-最後目視確認)核對桌面、工具列及顯示。
 
@@ -73,11 +73,11 @@ Windows 流程也會移除清單中的預載應用程式並變更系統設定；
 
 ## 執行前提
 
-- 預設自動選擇硬體設定檔：Intel NUC8i7HVB／NUC8i7HNB 使用 NUC8 設定檔；驅動包由你選擇，直接 Enter 預設略過驅動安裝，AMD 模組依機型執行；其他主機板使用 Generic，略過這兩個硬體模組，其餘 Windows 設定照常執行。
+- 預設自動選擇硬體設定檔：Intel NUC8i7HVB／NUC8i7HNB 使用 NUC8 設定檔；驅動包由你選擇；只有系統自動偵測到的型號與驅動包完全對上時，Enter 才會安裝，其餘情況 Enter 一律略過驅動安裝，AMD 模組依機型執行；其他主機板使用 Generic，略過這兩個硬體模組，其餘 Windows 設定照常執行。
 - 64 位元 Windows 11 22H2 或更新，專業／企業／教育版；Windows 流程須在正式目標本機管理員桌面執行。
 - 完整工具包必須可寫入，不能放在將被清理的桌面；使用者名稱與磁碟代號動態取得。
 - 正式桌面需有 Windows Terminal（`wt.exe`）與 App Installer／WinGet（`winget.exe`）；缺少時前置檢查會中止，先補齊再重跑。
-- Windows Update 與未快取的 OpenSSH 元件需要網路。UAC、密碼及提示的重新開機需使用者操作。
+- Windows Update 與未快取的 OpenSSH 元件需要網路。UAC、密碼及提示的重新開機需使用者操作。`windows.cmd` 開頭的網路檢查只是提醒，與 SSH 設定無關：偵測到網際網路時直接繼續；否則輸入 R 可重新檢查，按 Enter 不等網路繼續。若 Windows Update 出現 0x8024402C，請核對 DNS 與代理設定及組織網路要求後重試，不要自行停用安全設定；SSH 或更新階段失敗時，連線後可分別執行 `modules\ssh\apply_ssh_settings.cmd` 或 `modules\updates\install_windows_updates.cmd` 重試該模組。
 - 桌面清理會刪除一般桌面檔案、資料夾與捷徑；先取走要保留的內容。桌面排列範本以繁體中文、1920×1080、100% 縮放為準。
 
 ## 概覽與適用範圍
@@ -208,7 +208,7 @@ Windows 更新等流程結束後依提示手動重新開機，使用 `windows.cm
 
 1. 登入要套用設定的本機管理員帳號，確認記得現有密碼；先取走桌面要保留的檔案，接上網路並保持電源穩定。
 2. 準備完整工具包：可以直接開啟 USB 的 `windows_setup`，或開啟自行完整複製到本機可寫入、非桌面位置的副本。依上方「已進入稽核或正式桌面」的步驟找到資料夾，再從位址欄開啟 CMD。
-3. 直接執行 `windows.cmd`，允許目前帳號提權，依提示輸入現有密碼供自動登入使用。需要 NUC 驅動才選擇獨立包，否則按 Enter 略過。等待整輪 19 個模組完成，不要中途關機。第 4 階段會安裝／啟用 OpenSSH Server、設定區域網路防火牆及目前使用者的 SSH／hosts 框架；缺網路或元件時會記錄失敗，連網後再重跑 Windows 或獨立 SSH 模組。
+3. 直接執行 `windows.cmd`，允許目前帳號提權，依提示輸入現有密碼供自動登入使用。需要 NUC 驅動才選擇獨立包；型號沒有完全對上時按 Enter 會略過。等待整輪 19 個模組完成，不要中途關機。第 4 階段會安裝／啟用 OpenSSH Server、設定區域網路防火牆及目前使用者的 SSH／hosts 框架；缺網路或元件時會記錄失敗，連網後再重跑 Windows 或獨立 SSH 模組。
 4. 整輪結束後手動重新開機，以同一帳號登入，再開啟同一份完整工具包；USB 請重新確認本次磁碟代號。
 5. 在工具包目錄執行 `.\windows.cmd -AfterRestart`。若仍要求重開，等本輪結束後手動重開，再從同一份工具包續跑。
 6. 處理所有失敗後執行 `.\windows.cmd -VerifyOnly`，再逐項完成下方「最後目視確認」。有錯誤時查看 `reports` 及畫面，不將舊結果當成本輪成功。
@@ -248,7 +248,7 @@ windows_setup\
 └─ doc\changelog\            版本摘要與紀錄規範
 ```
 
-驅動包獨立於主程式。執行 `windows.cmd` 先顯示偵測主機板：一般電腦自動略過 NUC 驅動；支援 NUC 才提示選包。找到相鄰 `windows_driver_packages/nuc8` 時，輸入 Y 才選用，P 可指定其他位置，Enter 略過。找不到包或包校驗失敗時，可輸入正確目錄或 Enter 略過；也可明確傳入：
+驅動包獨立於主程式。執行 `windows.cmd` 先顯示偵測主機板：一般電腦自動略過 NUC 驅動；支援 NUC 才提示選包。找到相鄰 `windows_driver_packages/nuc8` 時，會先唯讀核對身分（不計算大檔雜湊）：只有系統自動偵測到唯一型號、該型號完整列在驅動包與工具設定檔的支援清單（精確比對，不接受部分字串）、且架構與設定檔雜湊相符時，提示才寫「完全相符」，此時 Enter 或 Y 安裝、N 略過、P 指定其他位置；選用後仍會完整驗證 SHA256，失敗就不安裝。型號手動確認、無法偵測、有多塊板、型號不在清單或包內身分檔缺少／損壞時，Enter 一律略過，並用一句話說明哪裡沒對上；手動確認型號仍可輸入 Y 明確選用。略過時會顯示「本次不安裝驅動」；之後要補裝，重新執行 `windows.cmd` 並選用驅動包（`-AfterRestart` 續跑不會重新詢問）。無法辨識的輸入不會當作同意，會重新詢問。找不到相鄰包時 Enter 仍是略過。找不到包或包校驗失敗時，可輸入正確目錄或 Enter 略過；也可明確傳入：
 
 ```powershell
 $driverPath = Read-Host '貼上目前獨立驅動包 nuc8 的完整路徑（不用加引號）'
@@ -595,7 +595,7 @@ Hosts／SSH 獨立入口為 `modules\ssh\apply_hosts_sync.cmd`、`sync_hosts.cmd
 
 ### 準備獨立驅動包
 
-各版本不一定附帶驅動包；包括 NUC 使用者都可在 `windows.cmd` 的選包提示按 Enter 略過。若所用版本的 **Release → Assets** 提供適合本機的可選 **`windows_driver_nuc8_<version>.zip`**（version 包含 v），可下載與主程式相同版本的包。將它解壓到 **`USB 根目錄\windows_driver_packages\nuc8`**，該資料夾內應直接看得到 `install.cmd`、`core`、`modules`、`drivers`、`package.json`、`manifest.json`、`license` 與十二個 ZIP；不要多包一層 ZIP 檔名資料夾。若要安裝此包，執行 `windows.cmd` 時依機型提示選擇這個資料夾。主程式仍依上節由 Source code ZIP 與官方 Autologon 準備，兩個包放在同一 USB 的相鄰資料夾。
+各版本不一定附帶驅動包；包括 NUC 使用者都可在 `windows.cmd` 的選包提示輸入 N 略過（型號沒有完全對上時 Enter 也是略過）。若所用版本的 **Release → Assets** 提供適合本機的可選 **`windows_driver_nuc8_<version>.zip`**（version 包含 v），可下載與主程式相同版本的包。將它解壓到 **`USB 根目錄\windows_driver_packages\nuc8`**，該資料夾內應直接看得到 `install.cmd`、`core`、`modules`、`drivers`、`package.json`、`manifest.json`、`license` 與十二個 ZIP；不要多包一層 ZIP 檔名資料夾。若要安裝此包，執行 `windows.cmd` 時依機型提示選擇這個資料夾。主程式仍依上節由 Source code ZIP 與官方 Autologon 準備，兩個包放在同一 USB 的相鄰資料夾。
 
 維護者重新建包與核對方式見 [建立獨立驅動包](doc/maintainer_guide.md#建立獨立驅動包)。
 

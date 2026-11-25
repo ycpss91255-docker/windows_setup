@@ -124,7 +124,7 @@ function Get-SetupDriverDeviceInventory {
   $signatureKnown=($null -ne $driver.IsSigned)
   if($device.Status -eq 'Error' -and [string]::IsNullOrEmpty([string]$driver.DriverProviderName) -and [string]::IsNullOrEmpty([string]$driver.DriverVersion)){
    try{$property=Get-PnpDeviceProperty -InstanceId $device.InstanceId -KeyName 'DEVPKEY_Device_ProblemCode' -ErrorAction Stop;if($null -eq $property -or -not $property.PSObject.Properties['Data']){throw '原生屬性未回傳資料物件'};$problemCode=$property.Data}catch{$metadataError+='ProblemCode: '+$_.Exception.Message+'; '}
-   try{$property=Get-PnpDeviceProperty -InstanceId $device.InstanceId -KeyName 'DEVPKEY_Device_DriverInfPath' -ErrorAction Stop;if($null -eq $property -or -not $property.PSObject.Properties['Data']){throw '原生屬性未回傳資料物件'};$driverInfPath=$property.Data}catch{$metadataError+='DriverInfPath: '+$_.Exception.Message+'; '}
+   try{$property=Get-PnpDeviceProperty -InstanceId $device.InstanceId -KeyName 'DEVPKEY_Device_DriverInfPath' -ErrorAction Stop;if($null -eq $property){throw '原生屬性未回傳資料物件'};if($property.PSObject.Properties['Data']){$driverInfPath=$property.Data}elseif([string]$property.Type -eq 'Empty'){$driverInfPath=''}else{throw '原生屬性未回傳資料物件'}}catch{$metadataError+='DriverInfPath: '+$_.Exception.Message+'; '}
   }
   $ids=@($ids|Where-Object {$_}|Select-Object -Unique)
   [pscustomobject]@{InstanceId=$device.InstanceId;Name=$device.FriendlyName;Class=$device.Class;HardwareIds=$ids;HardwareIdsReadError=$readError;Status=$device.Status;Present=$true;ProblemCode=$problemCode;DriverInfPath=$driverInfPath;DriverInfName=[string]$driver.InfName;DriverMetadataReadError=$metadataError;DriverSignatureKnown=$signatureKnown;DriverSigner=[string]$driver.Signer;DriverProvider=[string]$driver.DriverProviderName;DriverVersion=[string]$driver.DriverVersion;DriverSigned=[bool]$driver.IsSigned}
@@ -207,24 +207,135 @@ function Invoke-SetupDriverPnpRescan {
  $output=& (Get-SetupDriverPnpTool) /scan-devices 2>&1
  [pscustomobject]@{ExitCode=$LASTEXITCODE;Output=@($output)}
 }
+function Get-SetupDriverLiveDriverProperty {
+ param([Parameter(Mandatory=$true)][string]$InstanceId)
+ try{
+  $version=(Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_DriverVersion' -ErrorAction Stop).Data
+  $provider=(Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_DriverProvider' -ErrorAction Stop).Data
+  if([string]::IsNullOrWhiteSpace([string]$version) -or [string]::IsNullOrWhiteSpace([string]$provider)){return $null}
+  $infPath=$null
+  try{$infPath=[string](Get-PnpDeviceProperty -InstanceId $InstanceId -KeyName 'DEVPKEY_Device_DriverInfPath' -ErrorAction Stop).Data}catch{$infPath=$null}
+  return [pscustomobject]@{DriverVersion=[string]$version;DriverProvider=[string]$provider;InfPath=$infPath}
+ }catch{return $null}
+}
+function Get-SetupDriverEnumDriversXmlText {
+ $output=& (Get-SetupDriverPnpTool) /enum-drivers /devices /format xml 2>&1
+ if($LASTEXITCODE -ne 0){throw ('原生驅動盤點失敗：'+$LASTEXITCODE)}
+ return ($output -join "`n")
+}
+function Get-SetupDriverPublishedSigner {
+ param([Parameter(Mandatory=$true)][string]$PublishedName)
+ try{
+  $settings=New-Object Xml.XmlReaderSettings;$settings.DtdProcessing=[Xml.DtdProcessing]::Prohibit;$settings.XmlResolver=$null
+  $reader=[Xml.XmlReader]::Create([IO.StringReader]::new([string](Get-SetupDriverEnumDriversXmlText)),$settings)
+  try{$document=New-Object Xml.XmlDocument;$document.XmlResolver=$null;$document.Load($reader)}finally{$reader.Dispose()}
+  $nodes=@($document.DocumentElement.SelectNodes('*')|Where-Object {$_.GetAttribute('DriverName') -ieq $PublishedName})
+  if($nodes.Count -ne 1){return $null}
+  $signer=@($nodes[0].SelectNodes('SignerName'))
+  if($signer.Count -ne 1){return $null}
+  return [string]$signer[0].InnerText
+ }catch{return $null}
+}
+function Get-SetupDriverLiveDevices {
+ param([Parameter(Mandatory=$true)]$Target,[string[]]$InstanceId=@(),[switch]$UnsignedUnknown)
+ @(Get-SetupDriverDeviceInventory -Targets @($Target)|ForEach-Object{
+  $device=$_;$live=$null
+  $wanted=($device.InstanceId -in $InstanceId) -or ($UnsignedUnknown -and $device.PSObject.Properties['DriverSignatureKnown'] -and -not $device.DriverSignatureKnown)
+  if($wanted){$live=Get-SetupDriverLiveDriverProperty -InstanceId ([string]$device.InstanceId)}
+  if($live){
+   $device=$device.PSObject.Copy();$device.DriverVersion=[string]$live.DriverVersion;$device.DriverProvider=[string]$live.DriverProvider
+   $bound=$true
+   # CIM 的簽章欄位在新列出現前為空；此時改以 pnputil 的簽署者名稱判定，且只接受既有 CAT 規則的發行者。
+   if($device.PSObject.Properties['DriverSignatureKnown'] -and -not $device.DriverSignatureKnown){
+    $bound=$false
+    if($live.InfPath){
+     $signer=Get-SetupDriverPublishedSigner -PublishedName ([string]$live.InfPath)
+     $device.DriverSigned=($signer -ieq 'Microsoft Windows Hardware Compatibility Publisher')
+     $bound=-not [string]::IsNullOrEmpty([string]$signer)
+     # Windows 內建驅動（INF 不是 oemNN.inf）不在 pnputil /enum-drivers 清單內；供應商為 Microsoft 時視為已由系統簽章，
+     # 讓計畫走既有的「原廠目標取代通用驅動」安裝路徑，安裝後仍以 pnputil 簽署者嚴格讀回。
+     if(-not $bound -and [string]$live.InfPath -notmatch '^oem\d+\.inf$' -and [string]$live.DriverProvider -ceq 'Microsoft'){$device.DriverSigned=$true;$bound=$true}
+    }
+   }
+   Add-Member -InputObject $device -NotePropertyName LiveBound -NotePropertyValue $bound -Force
+  }
+  $device
+ })
+}
+function Get-SetupDriverSettledReadback {
+ param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][object[]]$Plans,[bool]$Poll=$true,[int]$TimeoutSeconds=150,[int]$IntervalSeconds=5)
+ $required=@($Plans|Where-Object Status -eq 'UpdateRequired')
+ $read={
+  $devices=@(Get-SetupDriverLiveDevices -Target $Target -InstanceId @($required|ForEach-Object InstanceId))
+  @($required|ForEach-Object{Get-SetupDriverReadback -Plan $_ -Devices $devices})
+ }
+ $readbacks=@(& $read);$waited=0
+ if($Poll -and @($readbacks|Where-Object Status -eq 'Unverified').Count){
+  $null=Invoke-SetupDriverPnpRescan
+  # 等待額度由同一程序內所有目標共用；NUC 實測 Win32_PnPSignedDriver 新列需 60 秒以上才出現。
+  if($null -eq $script:SetupDriverReadbackWaited){$script:SetupDriverReadbackWaited=0}
+  while(@($readbacks|Where-Object Status -eq 'Unverified').Count -and $script:SetupDriverReadbackWaited -lt $TimeoutSeconds){Start-Sleep -Seconds $IntervalSeconds;$waited+=$IntervalSeconds;$script:SetupDriverReadbackWaited+=$IntervalSeconds;$readbacks=@(& $read)}
+ }
+ foreach($readback in $readbacks){if($waited -gt 0 -and $readback.Status -eq 'Unverified'){$readback.Reason=([string]$readback.Reason+'；安裝後已等待 '+$waited+' 秒仍未綁定')}}
+ return $readbacks
+}
+function Get-SetupDriverSettledPlan {
+ # 同一套件剛安裝過驅動後，子元件由父驅動帶入而自動綁定：計畫階段先以 DEVPKEY 與 pnputil 簽署者取代尚未出現的 CIM 列，
+ # 仍無法確認者才在共用額度內重新掃描並重新計畫；簽署者不符既有規則者不等待、不放寬。
+ param([Parameter(Mandatory=$true)]$Target,[int]$Build,[string]$Architecture,[switch]$RequiredPresent,[switch]$Settle,[int]$TimeoutSeconds=150,[int]$IntervalSeconds=5)
+ $read={
+  $devices=@(Get-SetupDriverLiveDevices -Target $Target -UnsignedUnknown:$Settle)
+  [pscustomobject]@{Devices=$devices;Plans=@(Get-SetupDriverTargetPlan -Target $Target -Devices $devices -Build $Build -Architecture $Architecture)}
+ }
+ $pending={
+  param($State)
+  @($State.Plans|Where-Object {
+   if($_.Status -eq 'Absent'){return [bool]$RequiredPresent}
+   if($_.Status -ne 'Unverified' -or -not $_.InstanceId){return $false}
+   $id=[string]$_.InstanceId
+   $device=@($State.Devices|Where-Object {[string]$_.InstanceId -ceq $id})|Select-Object -First 1
+   if(-not $device -or -not $device.PSObject.Properties['DriverSignatureKnown'] -or $device.DriverSignatureKnown){return $false}
+   return -not ($device.PSObject.Properties['LiveBound'] -and $device.LiveBound)
+  })
+ }
+ $state=& $read;$waited=0;$exhausted=$false
+ if($Settle -and @(& $pending $state).Count){
+  $null=Invoke-SetupDriverPnpRescan
+  if($null -eq $script:SetupDriverReadbackWaited){$script:SetupDriverReadbackWaited=0}
+  if($script:SetupDriverReadbackWaited -ge $TimeoutSeconds){$exhausted=$true}
+  while(@(& $pending $state).Count -and $script:SetupDriverReadbackWaited -lt $TimeoutSeconds){Start-Sleep -Seconds $IntervalSeconds;$waited+=$IntervalSeconds;$script:SetupDriverReadbackWaited+=$IntervalSeconds;$state=& $read}
+ }
+ $stillPending=@(& $pending $state)
+ foreach($plan in @($state.Plans)){
+  $waiting=($Settle -and ($stillPending|Where-Object {[object]::ReferenceEquals($_,$plan)}))
+  if($RequiredPresent -and $plan.Status -eq 'Absent'){$plan.Status='Unverified';$plan.Reason='必需子元件尚未枚舉，需續跑核實'}
+  if($waiting){
+   if($waited -gt 0){$plan.Reason=([string]$plan.Reason+'；安裝後已等待 '+$waited+' 秒仍未綁定')}
+   elseif($exhausted){$plan.Reason=([string]$plan.Reason+'；共用等待額度已用盡，未再等待')}
+  }
+ }
+ return @($state.Plans)
+}
 function Invoke-SetupDriverTarget {
- param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][string]$Root,[int]$Build,[string]$Architecture,[string]$LogPath,[switch]$RequiredPresent)
+ param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][string]$Root,[int]$Build,[string]$Architecture,[string]$LogPath,[switch]$RequiredPresent,[switch]$SettleAfterInstall)
  $null=Assert-SetupDriverTargetIntegrity -Target $Target -Root $Root
- $plans=@(Get-SetupDriverTargetPlan -Target $Target -Devices @(Get-SetupDriverDeviceInventory -Targets @($Target)) -Build $Build -Architecture $Architecture)
+ $namingOnly=[bool]($Target.PSObject.Properties['NamingOnly'] -and $Target.NamingOnly -eq $true)
+ $plans=@(Get-SetupDriverSettledPlan -Target $Target -Build $Build -Architecture $Architecture -RequiredPresent:($RequiredPresent -and -not $namingOnly) -Settle:($SettleAfterInstall -and -not $namingOnly))
  if($Target.PSObject.Properties['NamingOnly'] -and $Target.NamingOnly -eq $true){
   foreach($plan in $plans){if($plan.Status -notin @('Absent','NotApplicable')){$plan.Status='NotApplicable';$plan.Reason='宣告式命名INF不安裝；由最終核對確認同硬體ID的綁定目標'}}
   return [pscustomobject]@{Results=@($plans);RebootRequired=$false;Failures=@()}
  }
- if($RequiredPresent){foreach($plan in $plans){if($plan.Status -eq 'Absent'){$plan.Status='Unverified';$plan.Reason='必需子元件尚未枚舉，需續跑核實'}}}
- $failures=@();$reboot=$false;$results=@()
+ $failures=@();$reboot=$false;$results=@();$installed=$false
  if(@($plans|Where-Object Status -eq 'UpdateRequired').Count){
   $native=Invoke-SetupDriverInfInstall -InfPath (Join-Path $Root $Target.InfPath) -LogPath $LogPath
   if($native.ExitCode -eq 3010){$reboot=$true}
   elseif($native.ExitCode -notin @(0,259)){$failures+=($Target.InfPath+': '+$native.ExitCode)}
-  $after=@(Get-SetupDriverDeviceInventory -Targets @($Target))
+  $installed=($native.ExitCode -in @(0,259,3010))
+  $readbacks=@(Get-SetupDriverSettledReadback -Target $Target -Plans $plans -Poll ($native.ExitCode -in @(0,259,3010)))
+  $index=0
   foreach($plan in $plans){
    if($plan.Status -eq 'UpdateRequired'){
-    $result=Get-SetupDriverReadback -Plan $plan -Devices $after
+    $result=$readbacks[$index];$index++
     if($native.ExitCode -notin @(0,259,3010)){$result.Status='InstallFailed';$result.Reason='原生安裝失敗，退出碼 '+$native.ExitCode}
     $results+=$result
     if($result.Status -eq 'Unverified'){$failures+=($Target.InfPath+': 安裝後版本尚未核實')}
@@ -233,7 +344,7 @@ function Invoke-SetupDriverTarget {
   }
  }else{$results=$plans}
  foreach($result in $results){if($result.Status -eq 'Unverified' -and -not $failures){$failures+=($Target.InfPath+': '+$result.Reason)}}
- [pscustomobject]@{Results=@($results);RebootRequired=$reboot;Failures=@($failures)}
+ [pscustomobject]@{Results=@($results);RebootRequired=$reboot;Failures=@($failures);Installed=$installed}
 }
 function Invoke-SetupDriverExtensionTarget {
  param([Parameter(Mandatory=$true)]$Target,[Parameter(Mandatory=$true)][string]$Root,[int]$Build,[string]$LogPath)
@@ -344,7 +455,7 @@ function Invoke-SetupOfficialDriverPackage {
  try{
  Expand-DriverArchive -Archive $Archive -Destination $stage
  Assert-SetupDriverPayloadFiles -Entry $Entry -Root $stage
- $results=@();$failures=@();$reboot=$false
+ $results=@();$failures=@();$reboot=$false;$packageInstalled=$false
  foreach($target in @($Entry.Drivers)+@($Entry.Extensions)) {if($target){$null=Assert-SetupDriverTargetIntegrity -Target $target -Root $stage}}
  foreach($target in @($Entry.Drivers|Where-Object {-not $_.ParentTarget})){
   $children=@($Entry.Drivers|Where-Object {$_.ParentTarget -and $_.ParentTarget -ceq $target.Id})
@@ -357,11 +468,11 @@ function Invoke-SetupOfficialDriverPackage {
    if($native.ExitCode -eq 3010){$reboot=$true}elseif($native.ExitCode -notin @(0,259)){$failures+=($child.InfPath+': 子元件預先加入失敗 '+$native.ExitCode);$dependencyFailed=$true}
   }}
   if($dependencyFailed){$results+=[pscustomobject]@{InfPath=$target.InfPath;Status='Unverified';Reason='必需元件預先加入失敗，未更新父裝置';TargetVersion=$target.DriverVersion};continue}
-  $outcome=Invoke-SetupDriverTarget -Target $target -Root $stage -Build $Build -Architecture 'amd64' -LogPath $LogPath
-  $results+=@($outcome.Results);$failures+=@($outcome.Failures);$reboot=$reboot -or $outcome.RebootRequired
+  $outcome=Invoke-SetupDriverTarget -Target $target -Root $stage -Build $Build -Architecture 'amd64' -LogPath $LogPath -SettleAfterInstall:$packageInstalled
+  $results+=@($outcome.Results);$failures+=@($outcome.Failures);$reboot=$reboot -or $outcome.RebootRequired;$packageInstalled=$packageInstalled -or [bool]$outcome.Installed
   if($children.Count -and $parentAvailable){$scan=Invoke-SetupDriverPnpRescan;if($scan.ExitCode -ne 0){$failures+=('子元件重新枚舉失敗：'+$scan.ExitCode)}}
   foreach($child in $children){
-   if($parentAvailable){$childOutcome=Invoke-SetupDriverTarget -Target $child -Root $stage -Build $Build -Architecture amd64 -LogPath $LogPath -RequiredPresent;$results+=@($childOutcome.Results);$failures+=@($childOutcome.Failures);$reboot=$reboot -or $childOutcome.RebootRequired}
+   if($parentAvailable){$childOutcome=Invoke-SetupDriverTarget -Target $child -Root $stage -Build $Build -Architecture amd64 -LogPath $LogPath -RequiredPresent -SettleAfterInstall:$packageInstalled;$results+=@($childOutcome.Results);$failures+=@($childOutcome.Failures);$reboot=$reboot -or $childOutcome.RebootRequired;$packageInstalled=$packageInstalled -or [bool]$childOutcome.Installed}
    else{$results+=@(Get-SetupDriverTargetPlan -Target $child -Devices @() -Build $Build -Architecture amd64)}
   }
  }

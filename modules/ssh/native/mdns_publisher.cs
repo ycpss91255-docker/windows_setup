@@ -36,7 +36,10 @@ namespace WindowsSetup {
    return ip;
   }
   static bool SameAddress(string a,string b,AddressFamily family){var x=Address(a,family);var y=Address(b,family);if(x==null || y==null)return x==null && y==null;byte[] xb=x.GetAddressBytes(),yb=y.GetAddressBytes();for(int i=0;i<xb.Length;i++)if(xb[i]!=yb[i])return false;return true;}
-  static bool Matches(Advertisement actual,Advertisement expected){return actual!=null && SameName(actual.HostName,expected.HostName) && SameName(actual.ServiceName,expected.ServiceName) && actual.Port==expected.Port && SameAddress(actual.IPv4,expected.IPv4,AddressFamily.InterNetwork) && SameAddress(actual.IPv6,expected.IPv6,AddressFamily.InterNetworkV6) && (actual.InterfaceIndex==0 || actual.InterfaceIndex==expected.InterfaceIndex);}
+  // Observed on Windows 11 build 26300: a successful registration callback echoes name, host and port but leaves the IPv4/IPv6 pointers NULL (the deregistration callback does echo them).
+  // A missing address is therefore not a mismatch; an address that is present must still equal the request.
+  static bool SameOptionalAddress(string actual,string expected,AddressFamily family){return String.IsNullOrEmpty(actual) || SameAddress(actual,expected,family);}
+  static bool MatchesCallback(Advertisement actual,Advertisement expected){return actual!=null && SameName(actual.HostName,expected.HostName) && SameName(actual.ServiceName,expected.ServiceName) && actual.Port==expected.Port && SameOptionalAddress(actual.IPv4,expected.IPv4,AddressFamily.InterNetwork) && SameOptionalAddress(actual.IPv6,expected.IPv6,AddressFamily.InterNetworkV6) && (actual.InterfaceIndex==0 || actual.InterfaceIndex==expected.InterfaceIndex);}
   static void Validate(Advertisement ad){
    if(ad==null || ad.InterfaceIndex==0 || ad.Port!=22 || ad.HostName==null || !ad.HostName.EndsWith(".local",StringComparison.OrdinalIgnoreCase))throw new InvalidOperationException("Invalid fixed publication schema.");
    string label=ad.HostName.Substring(0,ad.HostName.Length-6);
@@ -94,7 +97,7 @@ namespace WindowsSetup {
      lock(gate){
       status=result;
       if(operation==0){
-       if(result==0){registered=true;if(copy==IntPtr.Zero || !Matches(api.Read(copy),ad)){status=13;error="Native registration callback schema differs or has no instance.";}else registered=true;}
+       if(result==0){registered=true;if(copy==IntPtr.Zero){status=13;error="Native registration callback has no instance.";}else if(!MatchesCallback(api.Read(copy),ad)){status=13;error="Native registration callback instance differs from the request.";}}
        else{registered=false;error="Native registration callback failed: "+result;}
       }else{if(result==0)registered=false;else error="Native deregistration callback failed: "+result;}
      }
