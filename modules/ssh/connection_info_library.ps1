@@ -11,12 +11,14 @@ function Get-SetupSshConnectionInfo {
  try{$mdns=Get-SetupMdnsStatus -ComputerName $ComputerName;Format-SetupMdnsConnectionInfo -Status $mdns -UserName $UserName}catch{'名稱觀測無法完成：'+$_.Exception.Message+'；可先用上列 IPv4 連線。'}
 }
 
-# Preserve failure after printing the direct connection guidance.
+# Hosts sync does not depend on mDNS: run both, print the guidance, then preserve every failure.
 function Invoke-SetupSshMdnsAndInfo {
  param([scriptblock]$Mdns,[scriptblock]$Hosts,[scriptblock]$Info,[scriptblock]$Write)
- $failure=$null
+ $failure=$null;$hostsFailure=$null
  try{& $Mdns|Out-Null}catch{$failure=$_}
- if(-not $failure){& $Hosts|Out-Null}
+ try{& $Hosts|Out-Null}catch{$hostsFailure=$_}
  & $Info|Where-Object {-not $failure -or $_ -match '^IPv4：|^目前沒有可用 IPv4|^目前無法讀取 IPv4'}|ForEach-Object {& $Write $_|Out-Null}
+ if($failure -and $hostsFailure){throw ([AggregateException]::new(('mDNS：'+$failure.Exception.Message+'；依網路自動匯入框架：'+$hostsFailure.Exception.Message),[Exception[]]@($failure.Exception,$hostsFailure.Exception)))}
  if($failure){throw $failure}
+ if($hostsFailure){throw $hostsFailure}
 }
