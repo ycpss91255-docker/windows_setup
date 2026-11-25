@@ -11,6 +11,7 @@ if($AfterRestart -or $VerifyOnly){
  . (Join-Path $PSScriptRoot 'hardware.ps1')
  $interactive=(-not $NonInteractive) -and (Test-SetupInteractiveHost)
  Show-SetupNetworkPreflight -Interactive:$interactive
- $request=Select-SetupDriverRequest -PackageRoot (Split-Path -Parent $PSScriptRoot) -DriverPackagePath $DriverPackagePath -PathSpecified:$PSBoundParameters.ContainsKey('DriverPackagePath') -ConfirmedBoard $ConfirmedBoard -ConfirmationComputer $ConfirmationComputer -Interactive:$interactive
- & (Join-Path $PSScriptRoot $entry) -DriverPackagePath $request.DriverPackagePath -ConfirmedBoard $request.ConfirmedBoard -ConfirmationComputer $request.ConfirmationComputer -NonInteractive:$NonInteractive
+ try{$request=Select-SetupDriverRequest -PackageRoot (Split-Path -Parent $PSScriptRoot) -DriverPackagePath $DriverPackagePath -PathSpecified:$PSBoundParameters.ContainsKey('DriverPackagePath') -ConfirmedBoard $ConfirmedBoard -ConfirmationComputer $ConfirmationComputer -Interactive:$interactive}
+ catch{Write-SetupAbortedDriverChoice -PackageRoot (Split-Path -Parent $PSScriptRoot) -ErrorRecord $_;throw}
+ & (Join-Path $PSScriptRoot $entry) -DriverPackagePath $request.DriverPackagePath -ConfirmedBoard $request.ConfirmedBoard -ConfirmationComputer $request.ConfirmationComputer -SelectionRecord ([string]$request.SelectionRecord) -NonInteractive:$NonInteractive
 }

@@ -27,7 +27,7 @@ function Invoke-SetupAfterRestartRetryDispatch {
  if($File -eq 'install_drivers.ps1'){& (Resolve-NucPath $File) -NonInteractive -DriverPackagePath $DriverPackagePath @Confirmation}elseif($File -eq 'apply_start_menu_settings.ps1'){& (Resolve-NucPath $File) -VerifyOnly|Out-Null}else{& (Resolve-NucPath $File)}
 }
 function Invoke-SetupAfterRestart {
- param($Hardware,[string]$DriverPackagePath,[hashtable]$Confirmation=@{},[object[]]$SkippedModules=@())
+ param($Hardware,[string]$DriverPackagePath,[hashtable]$Confirmation=@{},[object[]]$SkippedModules=@(),$DriverChoice)
  $ErrorActionPreference='Stop'
 $errors=@();$remaining=@()
 $resultPath=Resolve-NucPath 'Setup-Result.json'
@@ -47,6 +47,8 @@ if(Test-Path $resultPath){
   }
  }
 }
+Write-Host '續跑沿用前次選包，未重新詢問；前次紀錄如下。'
+Write-Host $(if($DriverChoice){$DriverChoice.Text}else{'[驅動選擇] 結果：未知（沒有可信的選包結果）；驅動包：未知；偵測型號：未知；包支援型號：未知；手動確認型號：未知'})
 Write-Host '重新掃描更新；完成後再次清理預載程式並驗證。' -ForegroundColor Cyan
 try{ & (Resolve-NucPath 'install_windows_updates.ps1') }catch{$errors+=('install_windows_updates.ps1：'+$_.Exception.Message);$remaining+='install_windows_updates.ps1';Write-Warning $errors[-1]}
 $driverReady=$true
