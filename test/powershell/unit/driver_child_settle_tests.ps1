@@ -91,6 +91,12 @@ Assert ((Total) -eq 0) '內建驅動不需要等待 150 秒'
 # 內建 INF 的豁免只限 Microsoft 供應商：其他供應商的非 oem INF 仍須有簽署者，否則 Unverified
 $r=Invoke-Child -Child $c -Config @{liveAt=0;enumAt=0;LiveVersion='1.0.0.0';LiveProvider='Contoso';LiveInf='contoso.inf';Signer=''} -Settle
 Assert (@($r.Results|Where-Object Status -eq 'Unverified').Count -eq 1 -and $script:installs -eq 0) '非 Microsoft 供應商且查不到簽署者時不得視為已簽署'
+# 釘住提供者護欄：非 oem 名、提供者等於目標提供者、版本相同但查不到簽署者 → 仍 Unverified（不得因「非 oem」本身放行）
+$r=Invoke-Child -Child $c -Config @{liveAt=0;enumAt=0;LiveVersion=[string]$c.TargetVersion;LiveProvider=[string]$c.Provider;LiveInf='contoso.inf';Signer=''} -Settle
+Assert (@($r.Results|Where-Object Status -eq 'Unverified').Count -eq 1 -and $script:installs -eq 0 -and @($r.Results|Where-Object Status -eq 'Current').Count -eq 0) '非 oem INF、提供者等於目標提供者、版本相同但查不到簽署者時仍為 Unverified'
+# 提供者比對區分大小寫：Windows 寫入的是 Microsoft；microsoft 不得視為內建驅動放行
+$r=Invoke-Child -Child $c -Config @{liveAt=0;enumAt=0;LiveVersion='10.0.26100.1';LiveProvider='microsoft';LiveInf='c_swcomponent.inf';Signer=''} -Settle
+Assert (@($r.Results|Where-Object Status -eq 'Unverified').Count -eq 1 -and $script:installs -eq 0) '提供者大小寫不符 Microsoft 時不視為內建驅動'
 # 內建驅動的豁免不影響 oem 套件：Microsoft 供應商但 oem INF，簽署者不符仍 Unverified
 $r=Invoke-Child -Child $c -Config @{liveAt=0;enumAt=0;LiveVersion='10.0.26100.1';LiveProvider='Microsoft';LiveInf='oem77.inf';Signer='Contoso Test Publisher'} -Settle
 Assert (@($r.Results|Where-Object Status -eq 'Unverified').Count -eq 1 -and $script:installs -eq 0) 'oem INF 簽署者不符時不因供應商為 Microsoft 而放行'
