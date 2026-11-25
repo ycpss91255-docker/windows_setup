@@ -1,0 +1,62 @@
+[
+  {
+    "DeviceID": "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31\\3&00000000&0&FC",
+    "DeviceName": "SM 匯流排控制器",
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null,
+    "InfName": null,
+    "Signer": null,
+    "HardWareID": "PCI\\VEN_8086&DEV_A123&SUBSYS_20738086&REV_31"
+  },
+  {
+    "DeviceID": "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31\\3&00000000&0&FA",
+    "DeviceName": "PCI 記憶體控制器",
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null,
+    "InfName": null,
+    "Signer": null,
+    "HardWareID": "PCI\\VEN_8086&DEV_A121&SUBSYS_20738086&REV_31"
+  },
+  {
+    "DeviceID": "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31\\3&00000000&0&F0",
+    "DeviceName": "PCI 資料擷取以及訊號處理控制器",
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null,
+    "InfName": null,
+    "Signer": null,
+    "HardWareID": "PCI\\VEN_8086&DEV_A127&SUBSYS_20738086&REV_31"
+  },
+  {
+    "DeviceID": "ACPI\\INT3515\\0",
+    "DeviceName": null,
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null,
+    "InfName": null,
+    "Signer": null,
+    "HardWareID": null
+  },
+  {
+    "DeviceID": "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31\\3&00000000&0&A2",
+    "DeviceName": "PCI 資料擷取以及訊號處理控制器",
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null,
+    "InfName": null,
+    "Signer": null,
+    "HardWareID": "PCI\\VEN_8086&DEV_A131&SUBSYS_20738086&REV_31"
+  },
+  {
+    "DeviceID": "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00\\3&00000000&0&40",
+    "DeviceName": "基本系統裝置",
+    "DriverVersion": null,
+    "DriverProviderName": null,
+    "IsSigned": null,
+    "InfName": null,
+    "Signer": null,
+    "HardWareID": "PCI\\VEN_8086&DEV_1911&SUBSYS_20738086&REV_00"
+  }
+]

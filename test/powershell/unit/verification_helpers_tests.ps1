@@ -81,6 +81,8 @@ try{
  $generic=Get-SetupHardwareProfile -BoardProduct 'Other PC' -UICulture en-US
  Invoke-SetupVerification -Hardware $generic -VerificationRunId ([guid]::NewGuid().ToString())|Out-Null
  $result=Get-Content (Resolve-NucPath 'Verification-Result.json') -Raw|ConvertFrom-Json
+ $uiClaim=@($result.Checks|Where-Object Name -eq '釘選登入後套用')
+ Assert ($uiClaim.Count -eq 0) '無畫面證據不得聲稱釘選已套用'
  Assert ($result.Passed -and $result.SkippedCount -eq 3) '通用英文電腦明確略過NUC驅動AMD與中文座標'
  Assert (@($result.Checks|Where-Object {$_.Status -eq 'Skipped' -and $null -eq $_.Passed}).Count -eq 3) '略過不可冒充Passed'
  foreach($autologonMode in @('AutologonRestored','AutologonRestoreInvalid')){
