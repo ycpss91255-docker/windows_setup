@@ -28,7 +28,12 @@ function Get-SetupMdnsFingerprint {
 function Get-SetupMdnsPublisherFacts {
  $allowed=$true;$group=$null;$local=$null
  foreach($row in @(@{Path='HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\DNSClient';Group=$true},@{Path='HKLM:\SYSTEM\CurrentControlSet\Services\Dnscache\Parameters';Group=$false})){
-  if(Test-Path -LiteralPath $row.Path -ErrorAction Stop){$key=Get-Item -LiteralPath $row.Path -ErrorAction Stop;if('EnableMDNS' -in $key.GetValueNames()){$value=$key.GetValue('EnableMDNS');if($key.GetValueKind('EnableMDNS') -ne 'DWord' -or $value -notin @(0,1)){throw 'EnableMDNS原則型別或值未知，未覆寫。'};if($row.Group){$group=$value}else{$local=$value}}}
+  if(-not (Test-Path -LiteralPath $row.Path -ErrorAction Stop)){continue}
+  $key=Get-Item -LiteralPath $row.Path -ErrorAction Stop
+  if('EnableMDNS' -notin $key.GetValueNames()){continue}
+  $value=$key.GetValue('EnableMDNS')
+  if($key.GetValueKind('EnableMDNS') -ne 'DWord' -or $value -notin @(0,1)){throw 'EnableMDNS原則型別或值未知，未覆寫。'}
+  if($row.Group){$group=$value}else{$local=$value}
  }
  if($group -ne 1 -and $null -ne $local -and $local -eq 0){$allowed=$false}
  $dns=Get-CimInstance Win32_Service -Filter "Name='Dnscache'" -ErrorAction Stop;$ssh=Get-CimInstance Win32_Service -Filter "Name='sshd'" -ErrorAction Stop
