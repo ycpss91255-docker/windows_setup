@@ -66,6 +66,8 @@ $script:registrationCalls=0;$script:workerFacts=$twoFacts;$script:captured=$null
 try{Invoke-SetupMdnsPublisherWorker -RunId $script:workerRun -CodeRoot $script:workerRoot}catch{$failed=$true;$workerMessage=$_.Exception.Message}
 Assert ($failed -and $workerMessage -match 'callback-status=123' -and $workerMessage -match 'cleanup-timeout' -and $workerMessage -notmatch 'PRIVATE') 'worker finally preserves primary and cleanup diagnostics'
 
+Assert ($script:captured.Error -cmatch 'callback-status=123.*; final-cleanup=cleanup-timeout\z' -and $workerMessage -cmatch '; final-cleanup=cleanup-timeout\z') 'worker failure and final cleanup failure are merged with a final-cleanup label'
+
 $e=[InvalidOperationException]::new('原生mDNS撤銷未完成。');$e.Data['MdnsCleanupCategories']=[string[]]@('cleanup-timeout','PRIVATE C:\secret')
 Assert ((Get-SetupMdnsSafeFailure $e) -ceq 'unknown') 'structured cleanup refuses non-whitelisted content'
 $e.Data['MdnsCleanupCategories']=[string[]]@('cleanup-timeout','callback-status=4294967296')
