@@ -17,4 +17,4 @@ if(-not (Test-SetupEntryAdministrator)){
 & (Resolve-NucPath 'test_setup_prerequisites.ps1') -DriverPackagePath $DriverPackagePath @confirmation
 if(($hardware.DriverProfileId -or $hardware.IsNuc8) -and $DriverPackagePath){$hardware|Add-Member -NotePropertyName DriverSelection -NotePropertyValue (New-SetupDriverSelection -PackageRoot $script:NucPackageRoot -DriverPackagePath $DriverPackagePath) -Force}
 . (Resolve-NucPath 'after_restart_library.ps1')
-Invoke-SetupAfterRestart -Hardware $hardware -DriverPackagePath $DriverPackagePath -Confirmation $confirmation -SkippedModules $skippedModules
+Invoke-SetupAfterRestart -Hardware $hardware -DriverPackagePath $DriverPackagePath -Confirmation $confirmation -SkippedModules $skippedModules -DriverChoice (Get-SetupSavedDriverChoice -ResultPath (Resolve-NucPath 'Setup-Result.json') -Hardware $hardware)

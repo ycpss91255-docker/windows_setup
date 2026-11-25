@@ -147,17 +147,17 @@ function Test-SetupDriverPackageIdentity {
 function Test-SetupDriverExactMatch {
  # Enter may install only when every identity fact lines up; any doubt returns a plain-language reason.
  param([Parameter(Mandatory=$true)]$Hardware,[Parameter(Mandatory=$true)][string]$DriverPackagePath)
- $no={param($why)[pscustomobject]@{Matched=$false;Reason=$why}}
+ $no={param($why,$code='BoardMismatch')[pscustomobject]@{Matched=$false;Reason=$why;Code=$code}}
  if($Hardware.ConfirmedBoard){return (& $no '型號是手動確認的，不是系統自動偵測到的。')}
  if($Hardware.DetectionStatus -ne 'Detected'){return (& $no '系統沒有自動偵測到唯一的主機板型號。')}
  $board=[string]$Hardware.DriverBoard
  $profile=$Hardware.DriverProfileData
  if(-not $board -or -not $profile -or $Hardware.BoardProduct.Trim() -cne $board){return (& $no '偵測到的型號沒有對應的驅動設定檔。')}
  if($profile.SupportedBoards -cnotcontains $board){return (& $no ('偵測到的型號 '+$board+' 不在本工具支援清單內。'))}
- try{$identity=Get-Content -LiteralPath (Join-Path $DriverPackagePath 'package.json') -Raw -Encoding UTF8 -ErrorAction Stop|ConvertFrom-Json}catch{return (& $no '驅動包的 package.json 缺少或讀不到。')}
+ try{$identity=Get-Content -LiteralPath (Join-Path $DriverPackagePath 'package.json') -Raw -Encoding UTF8 -ErrorAction Stop|ConvertFrom-Json}catch{return (& $no '驅動包的 package.json 缺少或讀不到。' 'IdentityFailed')}
  if($identity.SupportedBoards -cnotcontains $board){return (& $no ('偵測到的型號 '+$board+' 不在驅動包支援的型號清單內。'))}
- try{$null=Test-SetupDriverPackageIdentity -Hardware $Hardware -DriverPackagePath $DriverPackagePath}catch{return (& $no ('驅動包身分檢查沒通過：'+$_.Exception.Message))}
- [pscustomobject]@{Matched=$true;Reason=''}
+ try{$null=Test-SetupDriverPackageIdentity -Hardware $Hardware -DriverPackagePath $DriverPackagePath}catch{return (& $no ('驅動包身分檢查沒通過：'+$_.Exception.Message) 'IdentityFailed')}
+ [pscustomobject]@{Matched=$true;Reason='';Code='Matched'}
 }
 function Test-SetupDriverPayload {
  param([Parameter(Mandatory=$true)]$Hardware,[string]$DriverPackagePath,[switch]$AllowLegacyManifest)
@@ -235,24 +235,121 @@ function Get-SetupSavedHardwareConfirmation {
 function Test-SetupInteractiveHost {
  try{return [Environment]::UserInteractive -and $Host.Name -eq 'ConsoleHost' -and -not [Console]::IsInputRedirected}catch{return $false}
 }
+function New-SetupDriverChoiceFacts {
+ @{Choice='NotPrompted';Package='NotChecked';Detected='?';Supported='?';Manual=$false;InputMissing=$false}
+}
+function Get-SetupDriverChoiceBoard {
+ # Model text only: letters, digits and a few signs, so a path, quote or line break can never reach the record.
+ param($Hardware)
+ if($Hardware.DetectionStatus -eq 'Ambiguous'){return '*'}
+ $board=([string]$Hardware.BoardProduct).Trim()
+ if($Hardware.DetectionStatus -eq 'Detected' -and $board -cmatch '\A[A-Za-z0-9][A-Za-z0-9 ._()+-]{0,47}\z'){return $board}
+ return '?'
+}
+function Get-SetupDriverChoicePackageBoards {
+ param([string]$DriverPackagePath)
+ try{
+  if(-not(Test-Path -LiteralPath $DriverPackagePath -PathType Container)){return '-'}
+  $boards=@((Get-Content -LiteralPath (Join-Path $DriverPackagePath 'package.json') -Raw -Encoding UTF8 -ErrorAction Stop|ConvertFrom-Json).SupportedBoards)
+ }catch{return '?'}
+ if($boards.Count -lt 1 -or $boards.Count -gt 8 -or @($boards|Where-Object {$_ -isnot [string] -or $_ -cnotmatch '\A[A-Za-z0-9][A-Za-z0-9 ._()+-]{0,47}\z'}).Count){return '?'}
+ return ($boards -join ',')
+}
+function Get-SetupDriverChoiceFailure {
+ param($Hardware,[string]$DriverPackagePath)
+ $supported=Get-SetupDriverChoicePackageBoards -DriverPackagePath $DriverPackagePath
+ if($supported -ceq '-'){return 'NotFound'}
+ if($supported -cne '?' -and ($supported -split ',') -cnotcontains [string]$Hardware.DriverBoard){return 'BoardMismatch'}
+ try{$null=Test-SetupDriverPackageIdentity -Hardware $Hardware -DriverPackagePath $DriverPackagePath}catch{return 'IdentityFailed'}
+ return 'PayloadFailed'
+}
+function ConvertTo-SetupDriverChoiceRecord {
+ param([hashtable]$Facts)
+ 'v1;choice='+$Facts.Choice+';package='+$Facts.Package+';detected='+$Facts.Detected+';supported='+$Facts.Supported+';manual='+$(if($Facts.Manual){'1'}else{'0'})
+}
+function ConvertFrom-SetupDriverChoiceRecord {
+ # The record crosses the elevation command line and a user-writable result file: accept only the exact shape.
+ param($Record)
+ if($Record -isnot [string]){return $null}
+ $board='[A-Za-z0-9][A-Za-z0-9 ._()+-]{0,47}'
+ if($Record -cnotmatch ('\Av1;choice=(?<choice>Selected|SkippedEnter|SkippedN|SkippedGeneric|InputFailed|NotPrompted);package=(?<package>Verified|Matched|NotFound|BoardMismatch|IdentityFailed|PayloadFailed|NotApplicable|NotChecked);detected=(?<detected>\?|\*|'+$board+');supported=(?<supported>\?|-|'+$board+'(?:,'+$board+'){0,7});manual=(?<manual>[01])\z')){return $null}
+ if(($Matches.choice -ceq 'Selected') -ne ($Matches.package -ceq 'Verified')){return $null}
+ [pscustomobject]@{Record=$Record;Choice=$Matches.choice;Package=$Matches.package;Detected=$Matches.detected;Supported=$Matches.supported;Manual=($Matches.manual -ceq '1')}
+}
+function Resolve-SetupDriverChoice {
+ # Describes the choice only; installation always follows the real package path, never this record.
+ param($Record,$Hardware)
+ $parsed=ConvertFrom-SetupDriverChoiceRecord -Record $Record
+ if($parsed -and $Hardware){
+  $selected=$parsed.Choice -ceq 'Selected'
+  $current=Get-SetupDriverChoiceBoard -Hardware $Hardware
+  if($selected -ne [bool]$Hardware.DriverPackagePath -or ($selected -and $parsed.Manual -ne [bool]$Hardware.ConfirmedBoard) -or ($current -cne '?' -and $parsed.Detected -cne '?' -and $current -cne $parsed.Detected)){$parsed=$null}
+ }
+ if(-not $parsed){return [pscustomobject]@{Record='未知';Text='[驅動選擇] 結果：未知（沒有可信的選包結果）；驅動包：未知；偵測型號：未知；包支援型號：未知；手動確認型號：未知'}}
+ $choices=@{Selected='選用';SkippedEnter='Enter 略過';SkippedN='輸入 N 略過';SkippedGeneric='選通用設定';InputFailed='讀取輸入失敗';NotPrompted='未詢問'}
+ $packages=@{Verified='檢查通過';Matched='型號與身分相符';NotFound='找不到包';BoardMismatch='型號未對上';IdentityFailed='身分檢查失敗';PayloadFailed='內容檢查失敗';NotApplicable='沒有對應的驅動設定檔';NotChecked='未檢查'}
+ $detected=if($parsed.Detected -ceq '?'){'未知'}elseif($parsed.Detected -ceq '*'){'多塊主機板'}else{$parsed.Detected}
+ $supported=if($parsed.Supported -ceq '?'){'未知'}elseif($parsed.Supported -ceq '-'){'無'}else{$parsed.Supported.Replace(',','、')}
+ [pscustomobject]@{Record=$parsed.Record;Text=('[驅動選擇] 結果：'+$choices[$parsed.Choice]+'；驅動包：'+$packages[$parsed.Package]+'；偵測型號：'+$detected+'；包支援型號：'+$supported+'；手動確認型號：'+$(if($parsed.Manual){'是'}else{'否'}))}
+}
+function Get-SetupSavedDriverChoice {
+ param([string]$ResultPath,$Hardware)
+ $record=$null
+ try{
+  $saved=Get-Content -LiteralPath $ResultPath -Raw -Encoding UTF8 -ErrorAction Stop|ConvertFrom-Json
+  if($saved.Computer -ceq $env:COMPUTERNAME -and $saved.UserSID -ceq [Security.Principal.WindowsIdentity]::GetCurrent().User.Value){$record=$saved.DriverChoice}
+ }catch{$record=$null}
+ Resolve-SetupDriverChoice -Record $record -Hardware $Hardware
+}
+function Read-SetupDriverAnswer {
+ # A failed read keeps stopping the run; the exception only carries the classification, never the message or input.
+ param([string]$Prompt,[hashtable]$Facts,[switch]$Required)
+ try{$answer=Read-Host $Prompt}catch{$Facts.Choice='InputFailed';$_.Exception.Data['SetupDriverChoice']=ConvertTo-SetupDriverChoiceRecord -Facts $Facts;throw}
+ $Facts.InputMissing=($null -eq $answer)
+ if($Required -and $Facts.InputMissing){
+  # End of input is not an Enter: this prompt may install on Enter, so stop as before but say why.
+  $Facts.Choice='InputFailed';$failure=New-Object InvalidOperationException '沒有讀到輸入，已停止選包，沒有選用驅動包。'
+  $failure.Data['SetupDriverChoice']=ConvertTo-SetupDriverChoiceRecord -Facts $Facts
+  throw $failure
+ }
+ return $answer
+}
+function Get-SetupDriverSkipChoice {
+ param([hashtable]$Facts)
+ if($Facts.InputMissing){'InputFailed'}else{'SkippedEnter'}
+}
+function Write-SetupAbortedDriverChoice {
+ # The run stopped before elevation and before any transcript, so leave the classification in its own Setup log.
+ param([string]$PackageRoot,$ErrorRecord)
+ try{
+  $record=$null
+  for($failure=$ErrorRecord.Exception;$failure -and -not $record;$failure=$failure.InnerException){$record=$failure.Data['SetupDriverChoice']}
+  $reports=Join-Path $PackageRoot 'reports'
+  if(-not(Test-Path -LiteralPath $reports)){$null=New-Item -ItemType Directory -Path $reports -ErrorAction Stop}
+  $lines=@((Resolve-SetupDriverChoice -Record $record).Text,'選包階段中止，整輪設定沒有開始。')
+  Add-Content -LiteralPath (Join-Path $reports ('Setup-'+(Get-Date -Format yyyyMMdd-HHmmss)+'.log')) -Value $lines -Encoding UTF8 -ErrorAction Stop
+ }catch{Write-Warning '選包階段中止，但無法保存驅動選擇紀錄。'}
+}
 function Select-SetupDriverRequest {
  param([Parameter(Mandatory=$true)][string]$PackageRoot,[string]$DriverPackagePath,[switch]$PathSpecified,
   [string]$ConfirmedBoard,[string]$ConfirmationComputer,[bool]$Interactive=$false)
+ $facts=New-SetupDriverChoiceFacts
  $hardware=Get-SetupHardwareProfile -DriverPackagePath $DriverPackagePath -ConfirmedBoard $ConfirmedBoard -ConfirmationComputer $ConfirmationComputer
  Write-Host ('偵測主機板：'+$hardware.BoardProduct+'；狀態：'+$hardware.DetectionStatus)
  if($hardware.DetectionError){Write-Warning $hardware.DetectionError}
  while($hardware.DetectionStatus -eq 'Unknown' -and -not $ConfirmedBoard -and $Interactive){
-  $choice=Read-Host '無法辨識型號：R 重新偵測；G 或 Enter 通用略過；1 NUC8i7HVK（板號 HVB）；2 NUC8i7HNK（板號 HNB）'
+  $choice=Read-SetupDriverAnswer -Facts $facts -Prompt '無法辨識型號：R 重新偵測；G 或 Enter 通用略過；1 NUC8i7HVK（板號 HVB）；2 NUC8i7HNK（板號 HNB）'
   if($choice -eq 'r'){$hardware=Get-SetupHardwareProfile;Write-Host ('重新偵測：'+$hardware.BoardProduct+'；'+$hardware.DetectionStatus);continue}
   if($choice -in @('1','2')){
    $selected=if($choice -eq '1'){'NUC8i7HVB'}else{'NUC8i7HNB'}
-   $confirm=Read-Host ('請核對實際機型；輸入完整板號 '+$selected+' 確認，其他輸入取消')
+   $confirm=Read-SetupDriverAnswer -Facts $facts -Prompt ('請核對實際機型；輸入完整板號 '+$selected+' 確認，其他輸入取消')
    if($confirm -ieq $selected){$ConfirmedBoard=$selected;$ConfirmationComputer=$env:COMPUTERNAME;$hardware=Get-SetupHardwareProfile -ConfirmedBoard $ConfirmedBoard -ConfirmationComputer $ConfirmationComputer;break}
    continue
   }
-  if(-not $choice -or $choice -eq 'g'){break}
+  if(-not $choice -or $choice -eq 'g'){$facts.Choice=if($choice){'SkippedGeneric'}else{Get-SetupDriverSkipChoice -Facts $facts};break}
  }
- if(-not $hardware.DriverProfileId -and -not $hardware.IsNuc8){Write-Host '通用設定：目前沒有對應的驅動設定檔。';return [pscustomobject]@{Hardware=$hardware;DriverPackagePath='';ConfirmedBoard='';ConfirmationComputer=''}}
+ $facts.Detected=Get-SetupDriverChoiceBoard -Hardware $hardware;$facts.Manual=[bool]$ConfirmedBoard
+ if(-not $hardware.DriverProfileId -and -not $hardware.IsNuc8){Write-Host '通用設定：目前沒有對應的驅動設定檔。';$facts.Package='NotApplicable';return [pscustomobject]@{Hardware=$hardware;DriverPackagePath='';ConfirmedBoard='';ConfirmationComputer='';SelectionRecord=(ConvertTo-SetupDriverChoiceRecord -Facts $facts)}}
  $notifySkip=$false;$adjacentOffered=$false
  if(-not $PathSpecified){
   $DriverPackagePath=''
@@ -261,16 +358,17 @@ function Select-SetupDriverRequest {
    if(Test-Path -LiteralPath $candidate -PathType Container){
     $adjacentOffered=$true
     $match=Test-SetupDriverExactMatch -Hardware $hardware -DriverPackagePath $candidate
+    $facts.Package=$match.Code;$facts.Supported=Get-SetupDriverChoicePackageBoards -DriverPackagePath $candidate
     while($true){
-     if($match.Matched){$choice=Read-Host ('找到獨立包 '+$candidate+'；偵測到的型號 '+$hardware.DriverBoard+' 與驅動包支援的型號完全相符。Enter 或 Y 安裝，N 略過，P 指定其他位置')}
-     else{$choice=Read-Host ('找到獨立包 '+$candidate+'；但無法確認完全對上：'+$match.Reason+' 為安全起見 Enter 略過；Y 明確選用（仍會嚴格檢查），P 指定其他位置')}
+     if($match.Matched){$choice=Read-SetupDriverAnswer -Required -Facts $facts -Prompt ('找到獨立包 '+$candidate+'；偵測到的型號 '+$hardware.DriverBoard+' 與驅動包支援的型號完全相符。Enter 或 Y 安裝，N 略過，P 指定其他位置')}
+     else{$choice=Read-SetupDriverAnswer -Required -Facts $facts -Prompt ('找到獨立包 '+$candidate+'；但無法確認完全對上：'+$match.Reason+' 為安全起見 Enter 略過；Y 明確選用（仍會嚴格檢查），P 指定其他位置')}
      $choice=([string]$choice).Trim()
-     if($choice -eq 'p'){$DriverPackagePath=Read-Host '獨立驅動包完整路徑，Enter 略過';$notifySkip=-not $DriverPackagePath;break}
+     if($choice -eq 'p'){$DriverPackagePath=Read-SetupDriverAnswer -Facts $facts -Prompt '獨立驅動包完整路徑，Enter 略過';$notifySkip=-not $DriverPackagePath;$facts.Choice=Get-SetupDriverSkipChoice -Facts $facts;break}
      if($choice -eq 'y' -or ($match.Matched -and $choice -eq '')){$DriverPackagePath=$candidate;break}
-     if($choice -eq 'n' -or (-not $match.Matched -and $choice -eq '')){$notifySkip=$true;break}
+     if($choice -eq 'n' -or (-not $match.Matched -and $choice -eq '')){$facts.Choice=if($choice){'SkippedN'}else{Get-SetupDriverSkipChoice -Facts $facts};$notifySkip=$true;break}
      Write-Warning '無法辨識的輸入，請輸入 Enter、Y、N 或 P。'
     }
-   }else{$DriverPackagePath=Read-Host '找不到相鄰獨立包，輸入包完整路徑或 Enter 略過'}
+   }else{$facts.Package='NotFound';$facts.Supported='-';$DriverPackagePath=Read-SetupDriverAnswer -Facts $facts -Prompt '找不到相鄰獨立包，輸入包完整路徑或 Enter 略過';$facts.Choice=Get-SetupDriverSkipChoice -Facts $facts}
   }
  }
  while($DriverPackagePath){
@@ -279,14 +377,16 @@ function Select-SetupDriverRequest {
    $null=Test-SetupDriverPayload -Hardware $hardware -DriverPackagePath $DriverPackagePath
    break
   }catch{
-   if(-not $Interactive){throw}
+   $facts.Package=Get-SetupDriverChoiceFailure -Hardware $hardware -DriverPackagePath $DriverPackagePath;$facts.Supported=Get-SetupDriverChoicePackageBoards -DriverPackagePath $DriverPackagePath
+   if(-not $Interactive){$_.Exception.Data['SetupDriverChoice']=ConvertTo-SetupDriverChoiceRecord -Facts $facts;throw}
    Write-Warning ('驅動包未通過檢查：'+$_.Exception.Message)
-   $DriverPackagePath=Read-Host '重新輸入獨立包完整路徑，或 Enter 略過'
+   $DriverPackagePath=Read-SetupDriverAnswer -Facts $facts -Prompt '重新輸入獨立包完整路徑，或 Enter 略過';$facts.Choice=Get-SetupDriverSkipChoice -Facts $facts
    if(-not $DriverPackagePath -and $adjacentOffered){$notifySkip=$true}
   }
  }
  if(-not $DriverPackagePath -and $notifySkip){Write-Host '本次不安裝驅動。之後要補裝：重新執行 windows.cmd 並選用驅動包；-AfterRestart 續跑不會重新詢問。' -ForegroundColor Yellow}
+ if($DriverPackagePath){$facts.Choice='Selected';$facts.Package='Verified';$facts.Supported=Get-SetupDriverChoicePackageBoards -DriverPackagePath $DriverPackagePath}
  # A skipped choice must not enable a manual hardware profile without a driver package.
  if(-not $DriverPackagePath){$ConfirmedBoard='';$ConfirmationComputer='';$hardware=Get-SetupHardwareProfile}
- [pscustomobject]@{Hardware=$hardware;DriverPackagePath=$DriverPackagePath;ConfirmedBoard=$ConfirmedBoard;ConfirmationComputer=$ConfirmationComputer}
+ [pscustomobject]@{Hardware=$hardware;DriverPackagePath=$DriverPackagePath;ConfirmedBoard=$ConfirmedBoard;ConfirmationComputer=$ConfirmationComputer;SelectionRecord=(ConvertTo-SetupDriverChoiceRecord -Facts $facts)}
 }
