@@ -48,9 +48,36 @@ function New-SetupMdnsNativeRegistration {
 }
 function Close-SetupMdnsRegistrations {
  param($State)
- $errors=@();foreach($lease in $State.Leases){try{$lease.Dispose()}catch{$errors+=$_.Exception.Message}}
- if($errors.Count){throw ('原生mDNS撤銷未完成：'+($errors -join '; '))}
+ $errors=@();foreach($lease in $State.Leases){try{$lease.Dispose()}catch{$errors+=(Get-SetupMdnsSafeFailure $_.Exception)}}
+ if($errors.Count){$failure=[InvalidOperationException]::new('原生mDNS撤銷未完成。');$failure.Data['MdnsCleanupCategories']=[string[]]$errors;throw $failure}
  $State.Leases=@();$State.Fingerprint='';$State.Ready=$false
+}
+# Only fixed native diagnostics are exposed; exception text can contain private paths or network identifiers.
+function Get-SetupMdnsSafeFailure {
+ param([Exception]$Exception)
+ $current=$Exception;$seen=0
+ while($current -and $seen -lt 12){
+  $message=$current.Message
+  $categories=$current.Data['MdnsCleanupCategories']
+  if($current -is [InvalidOperationException] -and $message -ceq '原生mDNS撤銷未完成。' -and $categories -is [string[]] -and $categories.Count -gt 0 -and $categories.Count -le 128){
+   $safe=@();$valid=$true
+   foreach($category in $categories){
+    if($category -cin @('cleanup-timeout','registration-timeout','callback-schema','callback-read-failed','callback-free-failed','unknown')){$safe+=@($category)}
+    elseif($category -cmatch '\A(callback-status|request-status)=([0-9]{1,10})\z'){$number=[uint32]0;if([uint32]::TryParse($Matches[2],[ref]$number)){$safe+=@($Matches[1]+'='+$number)}else{$valid=$false;break}}
+    else{$valid=$false;break}
+   }
+   if($valid){return ($safe -join ',')}
+  }
+  if($message -ceq 'Native registration callback schema differs or has no instance.'){return 'callback-schema'}
+  if($message.StartsWith('Native callback read failed: ')){return 'callback-read-failed'}
+  if($message.StartsWith('Native callback free failed: ')){return 'callback-free-failed'}
+  if($message -cmatch '\ANative registration callback failed: ([0-9]{1,10})\z'){$number=[uint32]0;if([uint32]::TryParse($Matches[1],[ref]$number)){return ('callback-status='+$number)}}
+  if($message -cmatch '\ANative request did not return DNS_REQUEST_PENDING: ([0-9]{1,10})\z'){$number=[uint32]0;if([uint32]::TryParse($Matches[1],[ref]$number)){return ('request-status='+$number)}}
+  if($current -is [TimeoutException] -and $message -ceq 'Native mDNS registration callback timed out.'){return 'registration-timeout'}
+  if($current -is [TimeoutException] -and $message -ceq 'Native cancellation/deregistration is still pending; memory retained until its callback or process exit.'){return 'cleanup-timeout'}
+  $current=$current.InnerException;$seen++
+ }
+ return 'unknown'
 }
 function Invoke-SetupMdnsPublisherCycle {
  param($State,$Context,$Facts,[string]$CodeRoot,[string]$StatusPath)
@@ -68,10 +95,10 @@ function Invoke-SetupMdnsPublisherCycle {
   }
   $State.Status='Registered';Write-SetupMdnsPublisherState -Path $StatusPath -Context $Context -Facts $Facts -State $State
  }catch{
-  $State.Ready=$false;$State.Status='Failed';$State.Error=$_.Exception.Message
-  try{Close-SetupMdnsRegistrations $State}catch{$State.Error+='; '+$_.Exception.Message}
+  $State.Ready=$false;$State.Status='Failed';$State.Error=Get-SetupMdnsSafeFailure $_.Exception
+  try{Close-SetupMdnsRegistrations $State}catch{$State.Error+='; cleanup='+ (Get-SetupMdnsSafeFailure $_.Exception)}
   Write-SetupMdnsPublisherState -Path $StatusPath -Context $Context -Facts $Facts -State $State
-  throw
+  throw ('mDNS registration failed: '+$State.Error)
  }
 }function Get-SetupMdnsSourceNames {return @('modules/ssh/mdns_publisher_library.ps1','modules/ssh/mdns_worker.ps1','modules/ssh/native/mdns_publisher.cs','modules/updates/update_stage_library.ps1')}
 function Get-SetupMdnsMachineGuid {
@@ -175,8 +202,15 @@ function Invoke-SetupMdnsPublisherWorker {
    Invoke-SetupMdnsPublisherCycle -State $state -Context $ctx -Facts $facts -CodeRoot $CodeRoot -StatusPath $paths.Status
    Start-Sleep -Seconds 5
   }
- }catch{$state.Ready=$false;$state.Status='Failed';$state.Error=$_.Exception.Message;Write-SetupMdnsPublisherState -Path $paths.Status -Context $ctx -Facts $facts -State $state;throw}
- finally{Close-SetupMdnsRegistrations $state}
+ }catch{$state.Ready=$false;if($state.Status -cne 'Failed'){$state.Error=Get-SetupMdnsSafeFailure $_.Exception};$state.Status='Failed';Write-SetupMdnsPublisherState -Path $paths.Status -Context $ctx -Facts $facts -State $state}
+ finally{
+  try{Close-SetupMdnsRegistrations $state}catch{
+   $cleanup=Get-SetupMdnsSafeFailure $_.Exception
+   if($state.Status -ceq 'Failed'){$state.Error+='; final-cleanup='+$cleanup}else{$state.Error='final-cleanup='+$cleanup}
+   $state.Ready=$false;$state.Status='Failed';Write-SetupMdnsPublisherState -Path $paths.Status -Context $ctx -Facts $facts -State $state
+  }
+ }
+ if($state.Status -ceq 'Failed'){throw ('mDNS worker failed: '+$state.Error)}
 }
 function Get-SetupMdnsPublisherStatus {
  param([Parameter(Mandatory=$true)][string]$SourceRoot)

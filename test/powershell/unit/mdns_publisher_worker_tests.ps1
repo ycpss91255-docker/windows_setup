@@ -5,7 +5,7 @@ function Assert([bool]$Value,[string]$Name){Write-Host ('@@ASSERT@@'+(@{Name=$Na
 $library=Join-Path $root 'modules/ssh/mdns_publisher_library.ps1';if(Test-Path -LiteralPath $library){. $library}
 Assert ([bool](Get-Command Invoke-SetupMdnsPublisherCycle -ErrorAction SilentlyContinue)) '原生公告必須有保活與地址機名更新的真worker控制器'
 $script:begins=0;$script:closes=0;$script:failNative=$false;$script:lastStatus=$null
-function New-SetupMdnsNativeRegistration {param($CodeRoot,$Row) $script:begins++;if($script:failNative){throw 'fixture native timeout'};$lease=[pscustomobject]@{Registered=$true};$lease|Add-Member ScriptMethod Dispose {$script:closes++;$this.Registered=$false};$lease}
+function New-SetupMdnsNativeRegistration {param($CodeRoot,$Row) $script:begins++;if($script:failNative){throw [TimeoutException]::new('Native mDNS registration callback timed out.')};$lease=[pscustomobject]@{Registered=$true};$lease|Add-Member ScriptMethod Dispose {$script:closes++;$this.Registered=$false};$lease}
 function Write-SetupMdnsPublisherState {param($Path,$Context,$Facts,$State) $script:lastStatus=[pscustomobject]@{Status=$State.Status;Registered=$State.Ready;Name=$Facts.ComputerName;Count=$State.Leases.Count;Error=$State.Error}}
 $facts=[pscustomobject]@{ComputerName='FIRST-PC';Addresses=@([pscustomobject]@{InterfaceIndex=7;IPAddress='192.0.2.9'});PolicyAllowed=$true;DnsClientRunning=$true;SshdRunning=$true;DnsClientProcessId=42}
 $context=[pscustomobject]@{RunId=[guid]::NewGuid().ToString('D')}
