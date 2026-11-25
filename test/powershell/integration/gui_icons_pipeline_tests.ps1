@@ -17,6 +17,7 @@ function Get-SetupGuiDesktopSession {param($Scope) 4}
 function Assert-SetupGuiAncestors {param($CommonDataRoot) if($CommonDataRoot -ne $temp){throw 'wrong fixture parent'}}
 function New-SetupGuiProtectedDirectory {param($Path,$UserSid) if(-not $Path.StartsWith($temp)){throw 'outside TEMP'};[void][IO.Directory]::CreateDirectory($Path)}
 function Assert-SetupGuiProtectedPath {param($Path,[switch]$Directory,$UserSid) if(-not $Path.StartsWith($temp) -or -not(Test-Path -LiteralPath $Path)){throw 'outside protected fixture'}}
+function Get-CimInstance {param($ClassName,$Filter,$ErrorAction) if($ClassName -ne 'Win32_PnPEntity'){throw 'unexpected CIM query'};[pscustomobject]@{Present=$true}}
 function Invoke-SetupGuiLocalWorker {param($Stage,$Scope) Invoke-SetupGuiWorker -CodeRoot $Stage.CodeRoot -Role $Stage.Context.Role -RunId $Stage.Context.RunId|Out-Null}
 function Get-ItemProperty {param($Path,$ErrorAction) [pscustomobject]@{FFlags=3}}
 function Set-ItemProperty {param($Path,$Name,$Value) if($Name -ne 'FFlags' -or $Value -ne 2){throw 'unexpected write'}}

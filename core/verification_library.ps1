@@ -34,9 +34,9 @@ function Invoke-SetupVerification {
   [Parameter(Mandatory=$true)][ValidatePattern('^[a-fA-F0-9-]{36}$')][string]$VerificationRunId)
  $ErrorActionPreference='Stop'
 $checks=New-Object Collections.Generic.List[object]
-function Add-Check([string]$Name,[bool]$Passed,[string]$Detail){
- $checks.Add([pscustomobject]@{Name=$Name;Passed=$Passed;Status=$(if($Passed){'Passed'}else{'Failed'});Detail=$Detail})
- $label=if($Passed){'通過'}else{'未通過/待生效'}
+function Add-Check([string]$Name,[bool]$Passed,[string]$Detail,[switch]$Unverified){
+ $checks.Add([pscustomobject]@{Name=$Name;Passed=$Passed;Status=$(if($Passed){'Passed'}elseif($Unverified){'Unverified'}else{'Failed'});Detail=$Detail})
+ $label=if($Passed){'通過'}elseif($Unverified){'未驗證'}else{'未通過/待生效'}
  $color=if($Passed){'Green'}else{'Yellow'}
  Write-Host ('['+$label+'] '+$Name+'：'+$Detail) -ForegroundColor $color
 }
@@ -96,7 +96,7 @@ Add-SetupTaskbarVerificationChecks -PackageRoot $script:NucPackageRoot
 try{
  $fresh=Invoke-SetupGuiFreshVerification -PackageRoot $script:NucPackageRoot -Role Display
  Add-Check '實際解析度與縮放' ([bool]$fresh.Success) ('本輪即時結果：'+($fresh|ConvertTo-Json -Compress -Depth 5))
-}catch{Add-Check '實際解析度與縮放' $false $_.Exception.Message}
+}catch{Add-Check '實際解析度與縮放' $false $_.Exception.Message -Unverified:($_.Exception.Data['SetupGuiStatus'] -ceq 'Unverified')}
 $desktopKey='HKCU:\Software\Microsoft\Windows\CurrentVersion\explorer\HideDesktopIcons\NewStartPanel'
 $icons=Get-ItemProperty $desktopKey -ErrorAction SilentlyContinue
 $show=@('{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}','{20D04FE0-3AEA-1069-A2D8-08002B30309D}','{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}','{645FF040-5081-101B-9F08-00AA002F954E}')
@@ -114,7 +114,7 @@ if($layoutDecision.Applicable){
 try{
  $fresh=Invoke-SetupGuiFreshVerification -PackageRoot $script:NucPackageRoot -Role Icons
  Add-Check '四個圖示的實際排列座標' ([bool]$fresh.Success) ('本輪即時結果：'+($fresh|ConvertTo-Json -Compress -Depth 5))
-}catch{Add-Check '四個圖示的實際排列座標' $false $_.Exception.Message}
+}catch{Add-Check '四個圖示的實際排列座標' $false $_.Exception.Message -Unverified:($_.Exception.Data['SetupGuiStatus'] -ceq 'Unverified')}
 }elseif($layoutDecision.Status -ceq 'Unknown'){Add-Check '四個圖示的實際排列座標' $false $layoutDecision.Reason}else{$checks.Add((New-SetupSkippedCheck -Name '四個圖示的實際排列座標' -Reason $layoutDecision.Reason));Write-Host ('[略過] '+$layoutDecision.Reason)}
 try{
  $commonData=[Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)

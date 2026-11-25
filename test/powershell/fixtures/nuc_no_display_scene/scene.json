@@ -1,0 +1,11 @@
+{
+  "PnpMonitors": [],
+  "PhantomMonitors": [
+    { "Present": false, "Status": "Unknown" }
+  ],
+  "PrimaryWidth": 640,
+  "PrimaryHeight": 480,
+  "ScalePercent": 100,
+  "WorkerExitCode": 1,
+  "UnfixedMessage": "GUI worker排程退出碼不是0：1"
+}

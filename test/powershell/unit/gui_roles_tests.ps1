@@ -17,6 +17,7 @@ foreach($role in @('Display','Theme')){
 $bad='';try{Get-SetupGuiStageFiles 'Unapproved'|Out-Null}catch{$bad=$_.Exception.Message}
 Assert ($bad.Contains('尚未核准')) 'adding approved leaves does not permit arbitrary role script execution'
 $script:scope=[pscustomobject]@{CommonDataRoot=$temp;UserSID='S-1-5-21-1-2-3-1001';SessionId=4;Computer='fixture'}
+function Get-CimInstance {param($ClassName,$Filter,$ErrorAction) if($ClassName -ne 'Win32_PnPEntity'){throw 'unexpected CIM query'};[pscustomobject]@{Present=$true}}
 function Get-SetupGuiIdentity {$script:scope}
 function Assert-SetupGuiProtectedPath {param($Path,[switch]$Directory,$UserSid) if(-not $Path.StartsWith($temp) -or -not(Test-Path -LiteralPath $Path)){throw 'outside fixture protected paths'}}
 function Read-SetupGuiContext {param($CodeRoot,$CommonDataRoot,$Role,$RunId) if($CodeRoot -ne $script:paths.CodeRoot -or $CommonDataRoot -ne $temp -or $Role -cne $script:context.Role -or $RunId -cne $script:context.RunId){throw 'wrong scoped role lookup'};$script:context}
