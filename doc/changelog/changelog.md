@@ -35,6 +35,10 @@
 
 - 總驗收不再把受保護 XML 與設定讀回寫成「釘選登入後套用」通過；改為分別回報「Edge-only 釘選配置」與「工作列待處理項目讀回」，並說明實際畫面未知。重開後的 `Acceptance-Result.json` 新增 `TaskbarEvidence`，保留本輪這兩項讀回與 `VisualStatus=Unknown`；既有成功或失敗判定不變。畫面是否已整理仍須目視確認。
 
+### Added（新增）
+
+- 維護者可核對並由固定上游 Git 提交重現精簡的 Win11Debloat 來源樹。
+
 ## [v0.2.6] — 2026-11-21
 ### Changed（變更）
 
