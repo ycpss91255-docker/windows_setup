@@ -1,7 +1,8 @@
 ﻿#Requires -Version 5.1
 #Requires -RunAsAdministrator
-param([string]$UserName=$env:USERNAME,[string]$AutoLogonPassword)
+param([string]$UserName=$env:USERNAME,[string]$AutoLogonPassword,[switch]$Restore)
 $ErrorActionPreference='Stop'
+    if($Restore){. (Join-Path $PSScriptRoot 'autologon_library.ps1');Invoke-CurrentUserAutologonRestore|Out-Null;Write-Host '自動登入已停用並清除儲存的密碼；需下次重新開機才能確認不再自動登入。' -ForegroundColor Green;return}
     if($UserName -ine $env:USERNAME){throw '請以要自動登入的本機帳號執行。'}
     if (-not (Get-LocalUser -Name $UserName -ErrorAction SilentlyContinue)) { throw '找不到指定的本機帳號。' }
     if (-not $AutoLogonPassword) {

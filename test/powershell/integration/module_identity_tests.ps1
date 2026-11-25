@@ -46,7 +46,7 @@ $pathsMarker=Join-Path $boundaryFixture 'paths_loaded.txt'
 Assert ($rejected -and -not (Test-Path $capturePath) -and -not (Test-Path $dummyPath) -and -not (Test-Path $pathsMarker) -and -not (Test-Path $resolverMarker)) 'different elevation account is rejected before paths, launch or module'
 foreach($admin in @('false','true')){
  $adminFlag=($admin -eq 'true')
- foreach($invalid in @(@{Module='Unknown'},@{Module='Apply-UACSettings';ApplyPolicy=$true},@{Module='Apply-UACSettings';Restore=$true;VerifyOnly=$true},@{Module='Apply-PrivacySettings';Restore=$true},@{Module='Apply-PrivacySettings';SyncOnly=$true},@{Module='Apply-PrivacySettings';Mode='SSH'})){
+ foreach($invalid in @(@{Module='Unknown'},@{Module='Apply-UACSettings';ApplyPolicy=$true},@{Module='Apply-UACSettings';Restore=$true;VerifyOnly=$true},@{Module='Apply-AutologonSettings';Restore=$true;VerifyOnly=$true},@{Module='Apply-PrivacySettings';Restore=$true},@{Module='Apply-PrivacySettings';SyncOnly=$true},@{Module='Apply-PrivacySettings';Mode='SSH'})){
   [IO.File]::Delete($capturePath);[IO.File]::Delete($dummyPath);$rejected=$false
   try{Invoke-RunModuleFixture $fixture $invalid -Admin $adminFlag}catch{$rejected=$true}
   Assert ($rejected -and -not (Test-Path $capturePath) -and -not (Test-Path $dummyPath)) ('invalid arguments rejected before launcher or module '+$admin+': '+($invalid|ConvertTo-Json -Compress))
@@ -56,6 +56,8 @@ $allowed=@('Apply-UACSettings','Apply-PrivacySettings','Apply-HostsSync','Remove
 foreach($module in $allowed){$admin=$false;Invoke-RunModuleFixture $fixture @{Module=$module} -Admin $admin;$capture=Read-RunModuleCapturedCommand $fixture;Assert ($capture.Module -ceq $module -and $capture.ExpectedUserSID -ceq 'fixture-sid') ('allowed module reaches only fake elevation: '+$module)}
 $admin=$false;Invoke-RunModuleFixture $fixture @{Module='Apply-UACSettings';Restore=$true} -Admin $admin;$capture=Read-RunModuleCapturedCommand $fixture
 Assert $capture.Restore 'UAC restore survives elevation'
+Invoke-RunModuleFixture $fixture @{Module='Apply-AutologonSettings';Restore=$true} -Admin $admin;$capture=Read-RunModuleCapturedCommand $fixture
+Assert ($capture.Module -ceq 'Apply-AutologonSettings' -and $capture.Restore) 'Autologon restore survives elevation'
 Invoke-RunModuleFixture $fixture @{Module='Apply-StartMenuSettings';ApplyPolicy=$true;VerifyOnly=$true} -Admin $admin;$capture=Read-RunModuleCapturedCommand $fixture
 Assert ($capture.VerifyOnly -and -not $capture.ContainsKey('ApplyPolicy')) 'VerifyOnly suppresses ApplyPolicy during elevation'
 $admin=$true
@@ -69,6 +71,8 @@ Invoke-RunModuleFixture $fixture @{Module='Install-Drivers';DriverPackagePath=$q
 Assert ($direct.DriverPackagePath -ceq $expectedQuoted -and $direct.ConfirmedBoard -ceq "board'quoted" -and $direct.ConfirmationComputer -ceq "machine'quoted" -and $direct.NonInteractive.IsPresent -and $direct.VerifyOnly.IsPresent) 'direct dispatch preserves quoted path and hardware confirmation'
 Invoke-RunModuleFixture $fixture @{Module='Apply-UACSettings';Restore=$true} -Admin $admin;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
 Assert $direct.Restore.IsPresent 'direct UAC restore reaches fixed dummy'
+Invoke-RunModuleFixture $fixture @{Module='Apply-AutologonSettings';Restore=$true} -Admin $admin;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
+Assert $direct.Restore.IsPresent 'direct Autologon restore reaches fixed dummy'
 Invoke-RunModuleFixture $fixture @{Module='Apply-HostsSync';Mode='Hosts';SyncOnly=$true} -Admin $admin;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json
 Assert ($direct.Mode -ceq 'Hosts' -and $direct.SyncOnly.IsPresent) 'direct hosts sync retains mode and sync-only'
 Invoke-RunModuleFixture $fixture @{Module='Apply-HostsSync';Mode='SSH';VerifyOnly=$true;SyncOnly=$true} -Admin $admin;$direct=Get-Content $dummyPath -Raw|ConvertFrom-Json

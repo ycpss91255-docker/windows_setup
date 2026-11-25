@@ -1,0 +1,12 @@
+{
+    "Success":  true,
+    "Mode":  "Restore",
+    "UserSID":  "S-1-5-21-1000000001-1000000002-1000000003-1001",
+    "Computer":  "FIXTURE-PC",
+    "CheckedAt":  "2026-11-22T22:55:43.8288371+08:00",
+    "Error":  "",
+    "AutoAdminLogon":  "0",
+    "PlainPasswordPresent":  false,
+    "LsaSecretPresent":  false,
+    "Scope":  "停用此電腦自動登入並清除儲存的密碼；保留 DefaultUserName 與 DefaultDomainName；實際不再自動登入需重新開機確認。"
+}

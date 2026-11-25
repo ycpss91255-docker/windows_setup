@@ -75,7 +75,13 @@ foreach($setting in @('STANDBYIDLE','HIBERNATEIDLE')){
  Add-Check ('插電 '+$setting) ($value -eq 0) ('秒數：'+$value+'；0 表示永不')
 }
 $auto=Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
-Add-Check '自動登入設定' ($auto.AutoAdminLogon -eq '1' -and  $auto.DefaultUserName -eq $env:USERNAME) ('啟用值：'+$auto.AutoAdminLogon+'；帳號：'+$auto.DefaultUserName+'；實際自動登入仍需開機觀察')
+if($auto.AutoAdminLogon -eq '1' -and  $auto.DefaultUserName -eq $env:USERNAME){Add-Check '自動登入設定' $true ('啟用值：'+$auto.AutoAdminLogon+'；帳號：'+$auto.DefaultUserName+'；實際自動登入仍需開機觀察')}
+else{try{
+ # Only a successful restore on this computer, re-read now as fully disabled, may be skipped.
+ . (Resolve-NucPath 'autologon_library.ps1')
+ $autologonRestored=Get-SetupAutologonRestoreVerification -ReportPath (Join-Path $env:ProgramData 'NUC8-Setup\Autologon-Result.json')
+ $checks.Add((New-SetupSkippedCheck -Name '自動登入設定' -Reason $autologonRestored));Write-Host ('[略過] 自動登入設定：'+$autologonRestored)
+}catch{Add-Check '自動登入設定' $false ('啟用值：'+$auto.AutoAdminLogon+'；帳號：'+$auto.DefaultUserName+'；'+$_.Exception.Message)}}
 $driverDecision=Get-SetupModuleDecision -Module 'install_drivers.ps1' -Hardware $hardware
 if(-not $driverDecision.Applicable){$checks.Add((New-SetupSkippedCheck -Name '已選驅動官方目標' -Reason $driverDecision.Reason));Write-Host ('[略過] '+$driverDecision.Reason)}
 else{try{

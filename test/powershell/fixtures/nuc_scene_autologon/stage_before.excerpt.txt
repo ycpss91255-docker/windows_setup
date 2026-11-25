@@ -1,0 +1,14 @@
+===== Winlogon values (non-secret) =====
+AutoAdminLogon	Exists=True	Kind=String	Value=1
+DefaultUserName	Exists=True	Kind=String	Value=fixture_user
+DefaultDomainName	Exists=True	Kind=String	Value=FIXTURE-PC
+AutoLogonCount	Exists=False
+ForceAutoLogon	Exists=False
+AutoLogonChecked	Exists=False
+
+===== Winlogon DefaultPassword (existence only) =====
+DefaultPassword	Exists=False
+
+===== LSA DefaultPassword secret (existence only, child process -ExecutionPolicy Bypass) =====
+LsaSecretPresent=True
+child exit=0
