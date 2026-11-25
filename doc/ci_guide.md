@@ -151,3 +151,5 @@ CI 的 `docker-tests` 使用真正的 `windows-2022` runner 執行 Docker build/
 完整 PowerShell 量測由四個 Windows 工作平行執行，原生完整測試與 Go 測試另行同時執行；managed 原生程式量測也由獨立工作與分片同時執行，只上傳聚合所需的證據檔；聚合僅下載同次、同 attempt 的證據並照常核對來源雜湊，不再於串行尾段安裝 .NET 或重新量測；每片保留 runtime PowerShell 來源分母，聚合重新核對同一提交、執行 ID、attempt、原生測試及 wrapper 雜湊後才完成。重新量測時，在 Actions 選擇「重新執行所有工作」（Re-run all jobs），讓四片、原生 producer 與聚合使用新的同一次 attempt；只重跑失敗工作而混用舊片會被拒絕，不會沿用先前的計數補成通過。
 
 實機 Setup-Result.json、Setup-Progress.json、Acceptance-Result.json 與驗證結果是續跑或排錯資料，原有 Git 忽略規則保留；CI 不清理這些檔案。設定未完成時不要刪除 Setup-Result.json。
+
+維護者可使用 `go run ./script/test/actions_timing_tool --input <JSON> --repository owner/repo --run-id <數字> --attempt <數字> --head-sha <API-head-SHA>` 離線檢查 Actions 工作時間。輸入 JSON 包含 `run`（原 run API 物件）及 `pages` 陣列；每頁為 `{ "page_number": 1, "per_page": 100, "total_count": <API總數>, "jobs": [<API job 物件>] }`，頁碼從 1 連續，所有頁數與工作數必須符合 total_count。工具核對呼叫者另外指定的身分與資料內 run、job、attempt、可用的 job head，並拒絕重複與不合理時間；這只能檢查輸入內部一致性，不認證資料來自 GitHub，也不能獨立證明呼叫者提供了真實完整分頁。PR 的 API head SHA 與實際 checkout merge SHA 可能不同；可選 `--checkout-sha` 僅原樣標示為 caller 未驗證資料，不要求兩者相等。輸出 job 的 `pending_ms` 是建立到開始的區間，可能包含依賴等待，不能當成純 runner 排隊；step 不估排隊，缺時間或未執行為 null。關鍵路徑仍須另核對工作依賴及來源，不能直接相加。
