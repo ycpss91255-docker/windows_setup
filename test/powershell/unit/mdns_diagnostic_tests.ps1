@@ -23,10 +23,17 @@ foreach($case in $cases){
 . (Join-Path $PSScriptRoot '../../../modules/ssh/connection_info_library.ps1')
 $script:lines=@();$script:hostCalls=0;$failed=$false
 try{Invoke-SetupSshMdnsAndInfo -Mdns {throw 'fixture mDNS failure'} -Hosts {$script:hostCalls++} -Info {@('IPv4：192.0.2.1；ssh fixture','PRIVATE host error')} -Write {param($line) $script:lines+=@($line)}}catch{$failed=$true}
-Assert ($failed -and $script:hostCalls -eq 0 -and ($script:lines -join ' ') -match 'IPv4' -and ($script:lines -join ' ') -match 'ssh' -and ($script:lines -join ' ') -notmatch 'PRIVATE') 'SSH failure retains IPv4 guidance and failure'
+Assert ($failed -and $script:hostCalls -eq 1 -and ($script:lines -join ' ') -match 'IPv4' -and ($script:lines -join ' ') -match 'ssh' -and ($script:lines -join ' ') -notmatch 'PRIVATE') 'SSH failure retains IPv4 guidance and failure'
 $script:lines=@();$script:hostCalls=0
 Invoke-SetupSshMdnsAndInfo -Mdns {} -Hosts {$script:hostCalls++} -Info {@('fixture-info')} -Write {param($line) $script:lines+=@($line)}
 Assert ($script:hostCalls -eq 1 -and $script:lines[0] -ceq 'fixture-info') 'SSH successful path retains hosts and guidance'
+$script:lines=@();$failureMessage=''
+try{Invoke-SetupSshMdnsAndInfo -Mdns {} -Hosts {throw 'fixture hosts failure'} -Info {@('IPv4：192.0.2.1；ssh fixture','fixture-name-info')} -Write {param($line) $script:lines+=@($line)}}catch{$failureMessage=$_.Exception.Message}
+Assert ($failureMessage -ceq 'fixture hosts failure' -and $script:lines.Count -eq 2 -and $script:lines[1] -ceq 'fixture-name-info') 'hosts failure alone is reported unchanged after full guidance'
+$script:lines=@();$failureMessage=''
+try{Invoke-SetupSshMdnsAndInfo -Mdns {throw 'fixture mDNS failure'} -Hosts {throw 'fixture hosts failure'} -Info {@('IPv4：192.0.2.1；ssh fixture','fixture-name-info')} -Write {param($line) $script:lines+=@($line)}}catch{$failureMessage=$_.Exception.Message;$failureInner=@($_.Exception.InnerExceptions|ForEach-Object Message)}
+Assert ($failureMessage.IndexOf('fixture mDNS failure') -ge 0 -and $failureMessage.IndexOf('fixture hosts failure') -gt $failureMessage.IndexOf('fixture mDNS failure') -and ($failureInner -join '|') -ceq 'fixture mDNS failure|fixture hosts failure') 'mDNS and hosts failures are both preserved'
+Assert ($script:lines.Count -eq 1 -and $script:lines[0] -like 'IPv4*') 'both failures still limit guidance to direct IPv4'
 
 $script:workerRun=[guid]::NewGuid().ToString('D');$script:workerRoot='C:\fixture'
 function Get-SetupMdnsPaths {param($RunId) [pscustomobject]@{CodeRoot=$script:workerRoot;Status='fixture'}}
