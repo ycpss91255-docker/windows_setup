@@ -77,7 +77,7 @@ Windows 流程也會移除清單中的預載應用程式並變更系統設定；
 - 64 位元 Windows 11 22H2 或更新，專業／企業／教育版；Windows 流程須在正式目標本機管理員桌面執行。
 - 完整工具包必須可寫入，不能放在將被清理的桌面；使用者名稱與磁碟代號動態取得。
 - 正式桌面需有 Windows Terminal（`wt.exe`）與 App Installer／WinGet（`winget.exe`）；缺少時前置檢查會中止，先補齊再重跑。
-- Windows Update 與未快取的 OpenSSH 元件需要網路。UAC、密碼及提示的重新開機需使用者操作。
+- Windows Update 與未快取的 OpenSSH 元件需要網路。UAC、密碼及提示的重新開機需使用者操作。`windows.cmd` 開頭的網路檢查只是提醒，與 SSH 設定無關：偵測到網際網路時直接繼續；否則輸入 R 可重新檢查，按 Enter 不等網路繼續。若 Windows Update 出現 0x8024402C，請核對 DNS 與代理設定及組織網路要求後重試，不要自行停用安全設定；SSH 或更新階段失敗時，連線後可分別執行 `modules\ssh\apply_ssh_settings.cmd` 或 `modules\updates\install_windows_updates.cmd` 重試該模組。
 - 桌面清理會刪除一般桌面檔案、資料夾與捷徑；先取走要保留的內容。桌面排列範本以繁體中文、1920×1080、100% 縮放為準。
 
 ## 概覽與適用範圍
