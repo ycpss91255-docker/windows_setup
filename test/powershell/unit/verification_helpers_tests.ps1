@@ -24,6 +24,7 @@ function Invoke-SetupDriverVerification {param($DriverRoot,$VerificationRunId) [
 function Resolve-NucPath {param($Name) if($Name -eq 'debloat_apps.txt'){return $script:fixtureApps};if($Name -eq 'Verification-Result.json'){return Join-Path $env:ProgramData 'aggregate.json'};return Join-Path $script:fixtureScripts $Name}
 function Read-SetupUpdateResult {param($CommonDataRoot,$LegacyRoot,$UserSid,$Computer) Get-Content (Join-Path $env:ProgramData 'NUC8-Setup/WindowsUpdate/WindowsUpdate-Result.json') -Raw|ConvertFrom-Json}
 function Invoke-SetupGuiFreshVerification {param($PackageRoot,$Role)
+ if($global:AggregateFixtureMode -in @('NoDisplay','UntypedGui') -and $Role -in @('Display','Icons')){$gui=[InvalidOperationException]::new('未偵測到螢幕，無法驗收解析度與圖示');if($global:AggregateFixtureMode -eq 'NoDisplay'){$gui.Data['SetupGuiStatus']='Unverified'};throw $gui}
  if($Role -eq 'Taskbar'){return [pscustomobject]@{Success=($global:AggregateFixtureMode -ne 'Throw');Configured=($global:AggregateFixtureMode -ne 'Throw');BindingMatches=$true;RequiresNextSignIn=($global:AggregateFixtureMode -eq 'Throw');Status=$(if($global:AggregateFixtureMode -eq 'Throw'){'PendingSignIn'}else{'Confirmed'})}}
  if($Role -eq 'Start'){return (& (Resolve-NucPath 'apply_start_menu_settings.ps1') -VerifyOnly)}
  if($Role -notin @('Display','Theme','Icons')){throw 'unexpected fixture role'}
@@ -76,6 +77,15 @@ try{
   $desktopResult=Get-Content (Resolve-NucPath 'Verification-Result.json') -Raw|ConvertFrom-Json
   $desktopDriver=@($desktopResult.Checks|Where-Object Name -eq '已選驅動官方目標')
   Assert ($desktopDriver.Count -eq 1 -and $desktopDriver[0].Status -eq 'Passed') ('桌面專屬案例不應誤造驅動失敗 '+$desktopMode)
+ }
+ foreach($guiMode in @('NoDisplay','UntypedGui')){
+  $global:AggregateFixtureMode=$guiMode
+  Reject {Invoke-SetupVerification -Hardware $hardware -DriverPackagePath $fixture -VerificationRunId ([guid]::NewGuid().ToString())} ('未偵測到螢幕或 GUI 失敗時總驗收不通過 '+$guiMode)
+  $guiResult=Get-Content (Resolve-NucPath 'Verification-Result.json') -Raw|ConvertFrom-Json
+  $guiChecks=@($guiResult.Checks|Where-Object {$_.Name -in @('實際解析度與縮放','四個圖示的實際排列座標')})
+  $expectedStatus=if($guiMode -eq 'NoDisplay'){'Unverified'}else{'Failed'}
+  Assert ($guiChecks.Count -eq 2 -and @($guiChecks|Where-Object {$_.Status -cne $expectedStatus -or $_.Passed -isnot [bool] -or $_.Passed -or -not $_.Detail.Contains('未偵測到螢幕')}).Count -eq 0) ('螢幕與圖示檢查狀態如實 '+$guiMode)
+  Assert (-not $guiResult.Passed -and $guiResult.SkippedCount -eq 0 -and @($guiResult.Checks|Where-Object {$_.Status -cne 'Passed'}).Count -eq 2) ('未驗證不算通過也不算略過，其他檢查不受影響 '+$guiMode)
  }
  $global:AggregateFixtureMode='Pass'
  $generic=Get-SetupHardwareProfile -BoardProduct 'Other PC' -UICulture en-US

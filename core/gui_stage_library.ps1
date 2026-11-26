@@ -249,6 +249,7 @@ function Read-SetupGuiResult {
  }
  if($result.Schema -ne 1 -or $result.Role -cne $context.Role -or $result.RunId -cne $context.RunId -or $result.UserSID -cne $context.UserSID -or $result.Computer -cne $context.Computer -or $result.SessionId -ne $expectedSession -or $result.VerifyOnly -isnot [bool] -or $result.VerifyOnly -ne $context.VerifyOnly -or $result.Success -isnot [bool]){throw 'GUI worker結果身分或本輪ID不符。'}
  if($context.Role -ceq 'Icons' -and $result.Mode -cne $context.IconMode){throw 'GUI worker結果圖示模式不符。'}
+ if($context.Role -cin @('Display','Icons')){Assert-SetupGuiDisplayResult $result}
  if($context.Role -ceq 'Start'){Assert-SetupGuiStartResult $result}
  if($context.Role -cin @('Taskbar','TaskbarFinalize')){Assert-SetupGuiTaskbarResult -Result $result -VerifyOnly:$context.VerifyOnly -Finalize:($context.Role -ceq 'TaskbarFinalize')}
  return $result
@@ -315,6 +316,78 @@ function Stop-SetupGuiStaleWorkers {
   $worker.RunId
  }
 }
+function ConvertTo-SetupGuiSafeReason {
+ # worker 原因會寫入畫面與驗收紀錄：先移除路徑，再移除 SID、電子郵件、帳號與電腦名稱；寧可多遮也不洩漏。
+ param([AllowNull()][AllowEmptyString()][string]$Text)
+ $safe=([string]$Text -replace '\s+',' ').Trim()
+ $path='(?:\\\\|(?<![A-Za-z])[A-Za-z]:[\\/]|[\\/]Users[\\/])'
+ $safe=[regex]::Replace($safe,'(["''「])'+$path+'.*?(["''」])(?=[\s，。；：、,.;:)）]|$)','$1[路徑]$2','IgnoreCase')
+ $safe=[regex]::Replace($safe,$path+'.*$','[路徑]','IgnoreCase')
+ $safe=[regex]::Replace($safe,'S-1-\d+(?:-\d+)+','[SID]','IgnoreCase')
+ $safe=[regex]::Replace($safe,'[^\s@''"，。；：]+@[^\s@''"，。；：]+','[帳號]')
+ foreach($name in @([Environment]::UserName,[Environment]::MachineName,[Environment]::UserDomainName)){
+  if(-not [string]::IsNullOrWhiteSpace($name)){$safe=[regex]::Replace($safe,'(?<![A-Za-z0-9_])'+[regex]::Escape($name)+'(?![A-Za-z0-9_])','[帳號]','IgnoreCase')}
+ }
+ $safe=[regex]::Replace($safe,'(?<!HK[A-Z_]+:?\\[^，。；]*)(?<![\w\\:\]])(?!HK)(?:\[帳號\]|[A-Za-z0-9][\w.-]*)\\[^\s''"，。；：]+','[帳號]','IgnoreCase')
+ if($safe.Length -gt 500){$safe=$safe.Substring(0,500)+'…'}
+ return $safe
+}
+function New-SetupGuiResultException {
+ param([Parameter(Mandatory=$true)][string]$Role,$Result,[string]$Prefix)
+ $reason=ConvertTo-SetupGuiSafeReason $Result.Error
+ if($Role -cin @('Display','Icons') -and $Result.Status -ceq 'Unverified'){
+  $exception=[InvalidOperationException]::new($reason);$exception.Data['SetupGuiStatus']='Unverified';return $exception
+ }
+ if(-not $reason){$reason='worker 未寫入具體原因'}
+ if($Prefix){$reason=$Prefix+'；原因：'+$reason}
+ return [InvalidOperationException]::new($reason)
+}
+function New-SetupGuiExitException {
+ # 退出碼不是 0 一律失敗；這裡只決定能帶出哪些可信原因。
+ param($Stage,[string]$ExitCode)
+ $prefix='GUI worker排程退出碼不是0：'+$ExitCode
+ try{$result=Read-SetupGuiResult -Stage $Stage}catch{return [InvalidOperationException]::new($prefix+'；worker 結果無法驗證：'+(ConvertTo-SetupGuiSafeReason $_.Exception.Message))}
+ if($result.Success){return [InvalidOperationException]::new($prefix+'；worker 結果記為成功，與退出碼不符，原因未知')}
+ return New-SetupGuiResultException -Role $Stage.Context.Role -Result $result -Prefix $prefix
+}
+function Get-SetupGuiDesktopFacts {
+ Add-Type -AssemblyName System.Windows.Forms
+ [pscustomobject]@{MonitorCount=[int][System.Windows.Forms.SystemInformation]::MonitorCount}
+}
+function Get-SetupGuiCurrentResolution {
+ # 桌面尺寸在縮放不是 100% 時會被 DPI 換算；改讀顯示介面目前的模式。
+ $modes=@(foreach($adapter in @(Get-CimInstance -ClassName Win32_VideoController -ErrorAction Stop)){
+  if([int]$adapter.CurrentHorizontalResolution -gt 0 -and [int]$adapter.CurrentVerticalResolution -gt 0){[string]$adapter.CurrentHorizontalResolution+'×'+[string]$adapter.CurrentVerticalResolution}
+ })
+ return (@($modes|Select-Object -Unique) -join '、')
+}
+function Get-SetupGuiDisplayGate {
+ # 唯讀；有螢幕時不回傳任何內容，由葉節點照原規則判定。沒有螢幕與查詢失敗分開，兩者都是未驗證。
+ # Get-PnpDevice 會列出目前不在的裝置，且沒有符合項目時會丟錯，無法和查詢失敗區分，因此直接查 CIM。
+ $physical=$null;$category=''
+ try{
+  $devices=@(Get-CimInstance -ClassName Win32_PnPEntity -Filter "ClassGuid='{4d36e96e-e325-11ce-bfc1-08002be10318}'" -ErrorAction Stop)
+  if(@($devices|Where-Object {$_.Present -isnot [bool]}).Count){$category='裝置存在狀態格式不符'}
+  else{$physical=@($devices|Where-Object {$_.Present}).Count}
+ }catch{$category=$_.Exception.GetType().Name;if($_.Exception.PSObject.Properties['NativeErrorCode']){$category+='/'+[string]$_.Exception.NativeErrorCode}}
+ if($physical -gt 0){return}
+ # 只在不會進入葉節點時才載入 Windows Forms，避免影響葉節點的 DPI 狀態。
+ $facts=$null;try{$facts=Get-SetupGuiDesktopFacts}catch{}
+ $resolution='未知';$monitors='未知';$present='未知'
+ try{$current=Get-SetupGuiCurrentResolution;if($current){$resolution=$current}}catch{}
+ if($null -ne $facts -and $null -ne $facts.MonitorCount){$monitors=[string]$facts.MonitorCount}
+ if($null -ne $physical){$present=[string]$physical}
+ $state=if($null -eq $physical){'QueryFailed'}else{'NoDisplay'}
+ $message=if($state -ceq 'NoDisplay'){'未偵測到螢幕，無法驗收解析度與圖示'}else{'螢幕查詢失敗（'+$category+'），無法判斷是否有螢幕，未驗收解析度與圖示'}
+ $message+='；未變更解析度、圖示排列或範本。目前解析度 '+$resolution+'，實體螢幕 '+$present+'，Windows 螢幕數 '+$monitors+'。'
+ [pscustomobject][ordered]@{Success=$false;Status='Unverified';DisplayState=$state;PhysicalMonitorCount=$physical;MonitorCount=$facts.MonitorCount;CurrentResolution=$resolution;CheckedAt=(Get-Date).ToString('o');Error=$message}
+}
+function Assert-SetupGuiDisplayResult {
+ # 螢幕與圖示結果只有未驗證時帶 Status；未驗證必須是失敗結果，並有固定分類與原因。
+ param($Result)
+ if(-not $Result.PSObject.Properties['Status']){return}
+ if($Result.Status -cne 'Unverified' -or $Result.Success -or $Result.DisplayState -cnotin @('NoDisplay','QueryFailed') -or [string]::IsNullOrWhiteSpace($Result.Error)){throw 'GUI worker螢幕狀態結果格式不符。'}
+}
 function Invoke-SetupGuiScheduledWorker {
  param($Stage,$Scope)
  $context=$Stage.Context;$worker=Join-Path $Stage.CodeRoot 'core/gui_worker.ps1'
@@ -334,7 +407,7 @@ function Invoke-SetupGuiScheduledWorker {
    Start-Sleep -Seconds 2;$task=Get-ScheduledTask -TaskName $name -ErrorAction Stop
    if((Test-Path -LiteralPath $resultPath) -and $task -and $task.State -ne 'Running'){
     $info=Get-ScheduledTaskInfo -TaskName $name -ErrorAction Stop
-    if($null -eq $info -or $info.LastTaskResult -ne 0){throw ('GUI worker排程退出碼不是0：'+[string]$info.LastTaskResult)}
+    if($null -eq $info -or $info.LastTaskResult -ne 0){throw (New-SetupGuiExitException -Stage $Stage -ExitCode ([string]$info.LastTaskResult))}
     return
    }
   }while((Get-Date) -lt $deadline)
@@ -389,7 +462,7 @@ function Invoke-SetupGuiRole {
   if($Role -ceq 'Taskbar'){. (Join-Path $stage.CodeRoot 'modules/taskbar/taskbar_stage_library.ps1');. (Join-Path $stage.CodeRoot 'modules/taskbar/taskbar_settings_library.ps1')}
   if($scope.SessionId -eq 0){Invoke-SetupGuiScheduledWorker -Stage $stage -Scope $scope}else{Invoke-SetupGuiLocalWorker -Stage $stage -Scope $scope}
   $result=Read-SetupGuiResult -Stage $stage
-  if(-not $result.Success -and -not(Test-SetupGuiPendingResult -Role $Role -Result $result)){throw $result.Error}
+  if(-not $result.Success -and -not(Test-SetupGuiPendingResult -Role $Role -Result $result)){throw (New-SetupGuiResultException -Role $Role -Result $result)}
   if($Role -ceq 'Icons' -and $stage.Context.IconMode -ceq 'Save'){Write-SetupIconReference -PackageRoot $stage.Context.SourcePackageRoot -Reference $result.Reference}
   if($Role -ceq 'Taskbar' -and -not $VerifyOnly){Register-SetupTaskbarFinalize -Stage $stage -Scope $scope}
   if($Role -ceq 'Theme' -and $result.TaskbarPixelsVerified -cne $true){
@@ -433,22 +506,23 @@ function Invoke-SetupGuiWorker {
    . (Join-Path $CodeRoot 'modules/taskbar/taskbar_stage_library.ps1')
    if($Role -ceq 'TaskbarFinalize'){$applyLease=Open-SetupGuiExecutionLock -Paths (Get-SetupGuiRunPaths -CommonDataRoot $scope.CommonDataRoot -Role Taskbar -RunId $context.ApplyRunID)}
   }
+  $gate=if($Role -cin @('Display','Icons')){Get-SetupGuiDisplayGate}
   # Role and all executable file hashes were validated before importing this fixed library.
   $module=Join-Path $CodeRoot ('modules/'+$(switch -CaseSensitive ($Role){Icons{'desktop'} Start{'start_menu'} TaskbarFinalize{'taskbar'} default{$Role.ToLowerInvariant()}}))
   $library=switch -CaseSensitive ($Role){Explorer{'explorer_settings_library.ps1'} Display{'display_settings_library.ps1'} Theme{'theme_settings_library.ps1'} Desktop{'desktop_settings_library.ps1'} Icons{'icons_settings_library.ps1'} Start{'start_menu_settings_library.ps1'} Taskbar{'taskbar_settings_library.ps1'} TaskbarFinalize{'taskbar_settings_library.ps1'} default{throw 'GUI worker角色尚未核准。'}}
-  . (Join-Path $module $library)
-  $result=switch -CaseSensitive ($Role){Explorer{Invoke-SetupExplorerSettings -ModuleRoot $module -VerifyOnly:$context.VerifyOnly} Display{Invoke-SetupDisplaySettings -ModuleRoot $module -VerifyOnly:$context.VerifyOnly} Theme{Invoke-SetupThemeSettings -ModuleRoot $module -VerifyOnly:$context.VerifyOnly} Desktop{Invoke-SetupDesktopSettings -ModuleRoot $module -SourcePackageRoot $context.SourcePackageRoot -DesktopRoots @(Get-SetupDesktopRoots) -VerifyOnly:$context.VerifyOnly} Icons{Invoke-SetupIconsSettings -ModuleRoot $module -Mode $context.IconMode -Reference $context.IconReference} Start{Invoke-SetupStartMenuSettings -ModuleRoot $module -OutputRoot $paths.DataRoot -VerifyOnly:$context.VerifyOnly -ApplyPolicy:$context.ApplyPolicy -NonInteractive:$context.NonInteractive} Taskbar{$binding=if($context.VerifyOnly){Get-SetupTaskbarLayoutBinding -CommonDataRoot $scope.CommonDataRoot -Context $context}else{[pscustomobject]@{LayoutPath=(Join-Path $paths.DataRoot 'TaskbarLayout.xml');FinalizeCommand=''}};Invoke-SetupTaskbarSettings -OutputRoot $paths.DataRoot -LayoutPath $binding.LayoutPath -ExpectedFinalizeCommand $binding.FinalizeCommand -PendingFinalizeTask:($binding.PendingFinalizeTask -eq $true) -VerifyOnly:$context.VerifyOnly} TaskbarFinalize{Invoke-SetupTaskbarBoundFinalize -CommonDataRoot $scope.CommonDataRoot -Context $context}}
+  if($null -eq $gate){. (Join-Path $module $library)}
+  $result=if($null -ne $gate){if($Role -ceq 'Icons'){$gate|Add-Member -NotePropertyName Mode -NotePropertyValue $context.IconMode};$gate}else{switch -CaseSensitive ($Role){Explorer{Invoke-SetupExplorerSettings -ModuleRoot $module -VerifyOnly:$context.VerifyOnly} Display{Invoke-SetupDisplaySettings -ModuleRoot $module -VerifyOnly:$context.VerifyOnly} Theme{Invoke-SetupThemeSettings -ModuleRoot $module -VerifyOnly:$context.VerifyOnly} Desktop{Invoke-SetupDesktopSettings -ModuleRoot $module -SourcePackageRoot $context.SourcePackageRoot -DesktopRoots @(Get-SetupDesktopRoots) -VerifyOnly:$context.VerifyOnly} Icons{Invoke-SetupIconsSettings -ModuleRoot $module -Mode $context.IconMode -Reference $context.IconReference} Start{Invoke-SetupStartMenuSettings -ModuleRoot $module -OutputRoot $paths.DataRoot -VerifyOnly:$context.VerifyOnly -ApplyPolicy:$context.ApplyPolicy -NonInteractive:$context.NonInteractive} Taskbar{$binding=if($context.VerifyOnly){Get-SetupTaskbarLayoutBinding -CommonDataRoot $scope.CommonDataRoot -Context $context}else{[pscustomobject]@{LayoutPath=(Join-Path $paths.DataRoot 'TaskbarLayout.xml');FinalizeCommand=''}};Invoke-SetupTaskbarSettings -OutputRoot $paths.DataRoot -LayoutPath $binding.LayoutPath -ExpectedFinalizeCommand $binding.FinalizeCommand -PendingFinalizeTask:($binding.PendingFinalizeTask -eq $true) -VerifyOnly:$context.VerifyOnly} TaskbarFinalize{Invoke-SetupTaskbarBoundFinalize -CommonDataRoot $scope.CommonDataRoot -Context $context}}}
   if($result.Success -isnot [bool]){throw 'GUI worker葉節點未提供有效成功狀態。'}
   if($Role -ceq 'Start'){Assert-SetupGuiStartResult $result}
   if($Role -cin @('Taskbar','TaskbarFinalize')){Assert-SetupGuiTaskbarResult -Result $result -VerifyOnly:$context.VerifyOnly -Finalize:($Role -ceq 'TaskbarFinalize')}
   $details=[ordered]@{};foreach($property in $result.PSObject.Properties){$details[$property.Name]=$property.Value}
   Write-SetupGuiResult -DataRoot $paths.DataRoot -Context $context -Result $details @publication
   $published=$true
-  if(-not $result.Success -and -not(Test-SetupGuiPendingResult -Role $Role -Result $result)){throw $result.Error}
+  if(-not $result.Success -and -not(Test-SetupGuiPendingResult -Role $Role -Result $result)){throw (New-SetupGuiResultException -Role $Role -Result $result)}
   if($Role -ceq 'TaskbarFinalize'){Complete-SetupTaskbarFinalizeTask -RunId $context.RunId}
   return $result
  }catch{
-  if(-not $published){$failure=@{Success=$false;Error=$_.Exception.Message;FailedAt=(Get-Date).ToString('o')};if($Role -cin @('Start','Taskbar','TaskbarFinalize')){$failure.Status='Failed'};if($Role -ceq 'TaskbarFinalize'){$failure.TemporaryLayoutPolicyRemoved=$false};Write-SetupGuiResult -DataRoot $paths.DataRoot -Context $context -Result $failure @publication}
+  if(-not $published){$failure=@{Success=$false;Error=$_.Exception.Message;FailedAt=(Get-Date).ToString('o')};if($Role -cin @('Start','Taskbar','TaskbarFinalize')){$failure.Status='Failed'};if($Role -ceq 'Icons'){$failure.Mode=$context.IconMode};if($Role -ceq 'TaskbarFinalize'){$failure.TemporaryLayoutPolicyRemoved=$false};Write-SetupGuiResult -DataRoot $paths.DataRoot -Context $context -Result $failure @publication}
   throw
  }finally{if($applyLease){$applyLease.Dispose()};if($lease){$lease.Dispose()}}
 }

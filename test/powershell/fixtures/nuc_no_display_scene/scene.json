@@ -1,0 +1,174 @@
+{
+ "Scenes": [
+  {
+   "Name": "640x480",
+   "CimMonitors": null,
+   "PnpDevices": [
+    {
+     "Present": false,
+     "Status": "Unknown"
+    },
+    {
+     "Present": false,
+     "Status": "Unknown"
+    },
+    {
+     "Present": false,
+     "Status": "Unknown"
+    },
+    {
+     "Present": false,
+     "Status": "Unknown"
+    }
+   ],
+   "Video": [
+    "640x480"
+   ],
+   "PrimaryWidth": 640,
+   "PrimaryHeight": 480,
+   "MonitorCount": 1,
+   "ScalePercent": 100,
+   "DesktopIcons": null,
+   "WorkerExitCode": 1,
+   "UnfixedMessage": "GUI worker排程退出碼不是0：1",
+   "UnfixedDisplayResult": {
+    "Schema": 1,
+    "Role": "Display",
+    "SessionId": 1,
+    "VerifyOnly": true,
+    "Success": false,
+    "Width": 640,
+    "Height": 480,
+    "CurrentMonitorDPI": 96,
+    "CurrentScalePercent": 100,
+    "NativeScalePercent": [
+     100
+    ],
+    "CustomScalingEnabled": false,
+    "VerifiedAt": "2026-11-25T00:20:08.5599617+08:00",
+    "Error": "解析度或實際 DPI 尚未符合 1920×1080 / 100%，可能需要重新登入。"
+   },
+   "UnfixedIconsResult": {
+    "Schema": 1,
+    "Role": "Icons",
+    "SessionId": 1,
+    "VerifyOnly": true,
+    "Error": "桌面範圍與範本不同，請確認解析度、縮放及螢幕數量。",
+    "Success": false,
+    "FailedAt": "2026-11-25T00:20:15.9106829+08:00"
+   }
+  },
+  {
+   "Name": "1920x1080 縮放 150%",
+   "CimMonitors": 0,
+   "PnpDevices": [
+    {
+     "Present": false,
+     "Status": "Unknown"
+    },
+    {
+     "Present": false,
+     "Status": "Unknown"
+    },
+    {
+     "Present": false,
+     "Status": "Unknown"
+    },
+    {
+     "Present": false,
+     "Status": "Unknown"
+    },
+    {
+     "Present": false,
+     "Status": "Unknown"
+    }
+   ],
+   "Video": [
+    "1920x1080"
+   ],
+   "PrimaryWidth": 1280,
+   "PrimaryHeight": 720,
+   "MonitorCount": 1,
+   "ScalePercent": 150,
+   "DesktopIcons": [
+    {
+     "Name": "本機",
+     "X": 20,
+     "Y": 149
+    },
+    {
+     "Name": "網路",
+     "X": 132,
+     "Y": 149
+    },
+    {
+     "Name": "資源回收筒",
+     "X": 20,
+     "Y": 2
+    },
+    {
+     "Name": "控制台",
+     "X": 132,
+     "Y": 2
+    }
+   ],
+   "WorkerExitCode": 1,
+   "UnfixedMessage": "GUI worker排程退出碼不是0：1",
+   "UnfixedDisplayResult": {
+    "Schema": 1,
+    "Role": "Display",
+    "SessionId": 1,
+    "VerifyOnly": true,
+    "Success": false,
+    "Width": 1920,
+    "Height": 1080,
+    "CurrentMonitorDPI": 144,
+    "CurrentScalePercent": 150,
+    "NativeScalePercent": [
+     150
+    ],
+    "CustomScalingEnabled": false,
+    "VerifiedAt": "2026-11-26T00:29:49.4876425+08:00",
+    "Error": "解析度或實際 DPI 尚未符合 1920×1080 / 100%，可能需要重新登入。"
+   },
+   "UnfixedIconsResult": {
+    "Schema": 1,
+    "Role": "Icons",
+    "SessionId": 1,
+    "VerifyOnly": true,
+    "Success": false,
+    "Mode": "Verify",
+    "Differences": [
+     "位置不符：本機",
+     "位置不符：網路",
+     "位置不符：資源回收筒",
+     "位置不符：控制台"
+    ],
+    "Actual": [
+     {
+      "Name": "本機",
+      "X": 20,
+      "Y": 149
+     },
+     {
+      "Name": "網路",
+      "X": 132,
+      "Y": 149
+     },
+     {
+      "Name": "資源回收筒",
+      "X": 20,
+      "Y": 2
+     },
+     {
+      "Name": "控制台",
+      "X": 132,
+      "Y": 2
+     }
+    ],
+    "Error": "位置不符：本機；位置不符：網路；位置不符：資源回收筒；位置不符：控制台"
+   },
+   "FixedMessageBeforeResolutionFix": "未偵測到螢幕，無法驗收解析度與圖示；未變更解析度、圖示排列或範本。目前解析度 1280×720，實體螢幕 0，Windows 螢幕數 1。"
+  }
+ ]
+}
