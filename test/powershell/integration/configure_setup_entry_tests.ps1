@@ -24,6 +24,7 @@ $script:NucPackageRoot=Split-Path $PSScriptRoot -Parent
 function Add-FixtureEvent([string]$Name){Add-Content -LiteralPath (Join-Path $env:FIXTURE_LOG 'events.txt') -Value $Name -Encoding UTF8}
 function Initialize-NucReports {Add-FixtureEvent 'reports'}
 function Get-SetupHardwareProfile {param($DriverPackagePath,$ConfirmedBoard,$ConfirmationComputer) Add-FixtureEvent 'hardware';@{IsNuc8=$false;DriverProfileId=''}}
+function Resolve-SetupDriverChoice {param($Record,$Hardware) [pscustomobject]@{Record='fixture';Text='fixture'}}
 function Resolve-NucPath {param($Name) if($Name -notin @('test_setup_prerequisites.ps1','configuration_library.ps1')){throw 'unexpected resolver name'};Join-Path $PSScriptRoot $Name}
 function New-SetupDriverSelection {param($PackageRoot,$DriverPackagePath) throw 'unexpected driver selection'}
 '@,$utf)

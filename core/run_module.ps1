@@ -7,7 +7,7 @@ if($DriverPackagePath){$DriverPackagePath=$ExecutionContext.SessionState.Path.Ge
 . (Join-Path $PSScriptRoot 'paths.ps1')
 $allowed=@('Apply-UACSettings','Apply-PrivacySettings','Apply-HostsSync','Remove-OneDrive','Remove-SetupResidue','Apply-ExplorerSettings','Apply-TerminalHotkey','Apply-InputMethodSettings','Apply-StartMenuSettings','Apply-AMDPrivacySettings','Apply-CopilotSettings','Apply-AutologonSettings','Apply-PowerSettings','Apply-SSHSettings','Apply-MdnsSettings','Install-Drivers','Install-WindowsUpdates','Apply-Debloat','Apply-TaskbarSettings','Apply-DisplaySettings','Apply-DesktopSettings','Apply-ThemeSettings','Desktop-IconLayout','Apply-PagefileSettings')
 if($ApplyPolicy -and $Module -ne 'Apply-StartMenuSettings'){throw 'ApplyPolicy 僅適用開始選單。'}
-if($Restore -and ($Module -ne 'Apply-UACSettings' -or $VerifyOnly)){throw 'Restore僅適用UAC且不可與VerifyOnly同時使用。'}
+if($Restore -and ($Module -notin @('Apply-UACSettings','Apply-AutologonSettings') -or $VerifyOnly)){throw 'Restore僅適用UAC與自動登入，且不可與VerifyOnly同時使用。'}
 if($Module -notin $allowed){throw 'Unknown module'}
 if($Module -ne 'Apply-HostsSync' -and ($SyncOnly -or $Mode -ne 'All')){throw 'SyncOnly/Mode only apply to Apply-HostsSync.'}
 $isAdmin=Test-SetupEntryAdministrator

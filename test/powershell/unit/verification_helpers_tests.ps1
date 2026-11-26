@@ -14,6 +14,7 @@ Assert (@($entry.FindAll({param($node) $node -is [Management.Automation.Language
 $fixture=Join-Path ([IO.Path]::GetTempPath()) ('verify_aggregate_'+[guid]::NewGuid().ToString('N'));[void][IO.Directory]::CreateDirectory($fixture)
 $script:fixtureScripts=Join-Path $fixture 'scripts';[void][IO.Directory]::CreateDirectory($script:fixtureScripts)
 foreach($name in @('apply_uac_settings.ps1','apply_debloat.ps1','audit_nuc.ps1','initialize_ssh_client.ps1','apply_lan_ping_settings.ps1','apply_hosts_sync.ps1','apply_privacy_settings.ps1','apply_display_settings.ps1','apply_theme_settings.ps1','desktop_icon_layout.ps1','apply_pagefile_settings.ps1','apply_copilot_settings.ps1','apply_amd_privacy_settings.ps1','apply_start_menu_settings.ps1','apply_input_method_settings.ps1','apply_terminal_hotkey.ps1','remove_setup_residue.ps1','remove_one_drive.ps1','apply_explorer_settings.ps1','apply_power_settings.ps1')){Copy-Item -LiteralPath (Join-Path $root 'test/powershell/fixtures/verification_module.ps1') -Destination (Join-Path $script:fixtureScripts $name)}
+[IO.File]::WriteAllText((Join-Path $script:fixtureScripts 'autologon_library.ps1'),'function Get-SetupAutologonRestoreVerification {param($ReportPath) if($ReportPath -ne (Join-Path $env:ProgramData ''NUC8-Setup\Autologon-Result.json'')){throw ''unexpected autologon report''};if($global:AggregateFixtureMode -eq ''AutologonRestored''){return ''fixture autologon restored''};throw ''fixture autologon restore rejected''}',(New-Object Text.UTF8Encoding($true)))
 Copy-Item -LiteralPath (Join-Path $root 'test/powershell/fixtures/mdns_verification_module.ps1') -Destination (Join-Path $script:fixtureScripts 'apply_mdns_settings.ps1')
 $global:MdnsVerificationCalls=0;$global:MdnsVerificationFixture='Pass'
 $script:fixtureApps=Join-Path $fixture 'apps.txt';[IO.File]::WriteAllText($script:fixtureApps,'Fixture.App')
@@ -35,6 +36,7 @@ function powercfg.exe {'AC Power Setting Index: 0x00000000'}
 function Get-ItemProperty {param($Path,$ErrorAction)
  $values=@{AutoAdminLogon='1';DefaultUserName=$env:USERNAME;SearchOnTaskbarMode=0;AllowNewsAndInterests=0;ShowTaskViewButton=0;Hidden=1;ShowSuperHidden=0}
  foreach($id in @('{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}','{20D04FE0-3AEA-1069-A2D8-08002B30309D}','{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}','{645FF040-5081-101B-9F08-00AA002F954E}')){$values[$id]=0}
+ if($global:AggregateFixtureMode -like 'Autologon*'){$values.AutoAdminLogon='0'}
  if($global:AggregateFixtureMode -eq 'Throw'){$values.Hidden=0;$values.AutoAdminLogon='0';$values.NUC8FinalizeTaskbar='pending';$values['{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}']=1}
  [pscustomobject]$values
 }
@@ -93,6 +95,16 @@ try{
  Assert ($uiClaim.Count -eq 0) '無畫面證據不得聲稱釘選已套用'
  Assert ($result.Passed -and $result.SkippedCount -eq 3) '通用英文電腦明確略過NUC驅動AMD與中文座標'
  Assert (@($result.Checks|Where-Object {$_.Status -eq 'Skipped' -and $null -eq $_.Passed}).Count -eq 3) '略過不可冒充Passed'
+ foreach($autologonMode in @('AutologonRestored','AutologonRestoreInvalid')){
+  $global:AggregateFixtureMode=$autologonMode
+  if($autologonMode -eq 'AutologonRestored'){Invoke-SetupVerification -Hardware $generic -VerificationRunId ([guid]::NewGuid().ToString())|Out-Null}
+  else{Reject {Invoke-SetupVerification -Hardware $generic -VerificationRunId ([guid]::NewGuid().ToString())} '自動登入未啟用且沒有有效停用結果時拒絕總成功'}
+  $result=Get-Content (Resolve-NucPath 'Verification-Result.json') -Raw|ConvertFrom-Json
+  $check=@($result.Checks|Where-Object Name -eq '自動登入設定')
+  if($autologonMode -eq 'AutologonRestored'){Assert ($result.Passed -and $check.Count -eq 1 -and $check[0].Status -eq 'Skipped' -and $null -eq $check[0].Passed -and $check[0].Detail -ceq 'fixture autologon restored') '已依還原停用自動登入時標示略過而非失敗或通過'}
+  else{Assert ($check.Count -eq 1 -and $check[0].Status -eq 'Failed' -and $check[0].Detail.Contains('fixture autologon restore rejected') -and @($result.Checks|Where-Object {$_.Status -eq 'Failed' -and $_.Name -ne '自動登入設定'}).Count -eq 0) '無效停用結果如實記錄失敗原因'}
+ }
+ $global:AggregateFixtureMode='Pass'
  foreach($publisherMode in @('False','StringTrue','WrongName','WrongStatus','BadRunId','EmptyRunId','RemoteTrue','Duplicate','Missing','Throw')){
   $global:AggregateFixtureMode='Pass';$global:MdnsVerificationFixture=$publisherMode;$beforeCalls=$global:MdnsVerificationCalls
   Reject {Invoke-SetupVerification -Hardware $generic -VerificationRunId ([guid]::NewGuid().ToString())} ('fresh mDNS aggregate refuses '+$publisherMode)

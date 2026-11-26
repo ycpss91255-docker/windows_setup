@@ -1,0 +1,13 @@
+===== Winlogon values (non-secret) =====
+AutoAdminLogon	Exists=True	Kind=String	Value=0
+DefaultUserName	Exists=True	Kind=String	Value=fixture_user
+DefaultDomainName	Exists=True	Kind=String	Value=FIXTURE-PC
+AutoLogonCount	Exists=False
+ForceAutoLogon	Exists=False
+AutoLogonChecked	Exists=False
+DefaultPassword	Exists=False
+
+===== LSA secret existence + autologon verification decision (same function windows.cmd -VerifyOnly uses; read-only) =====
+LsaSecretPresent=False
+VerifyDecision=Skipped: 已依 -Restore 停用自動登入並清除儲存的密碼（2026-11-22T22:55:43.8288371+08:00）；如需再啟用請重跑自動登入模組。
+

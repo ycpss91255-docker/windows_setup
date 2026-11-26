@@ -1,11 +1,14 @@
 ﻿#Requires -Version 5.1
 function Invoke-SetupConfiguration {
- param($Hardware,[string]$UserName,[string]$AutoLogonPassword,[string]$DriverPackagePath,[string]$ConfirmedBoard,[string]$ConfirmationComputer,[switch]$NonInteractive)
+ param($Hardware,[string]$UserName,[string]$AutoLogonPassword,[string]$DriverPackagePath,[string]$ConfirmedBoard,[string]$ConfirmationComputer,$DriverChoice,[switch]$NonInteractive)
  $ErrorActionPreference='Stop';$skippedModules=@()
 $log=Resolve-NucPath ('Setup-'+(Get-Date -Format yyyyMMdd-HHmmss)+'.log')
 . (Resolve-NucPath 'start_pins_policy_library.ps1')
 Start-Transcript -Path $log | Out-Null
 try {
+    # The choice was made before elevation; a missing record is unknown, never a skip.
+    if(-not $DriverChoice){$DriverChoice=[pscustomobject]@{Record='未知';Text='[驅動選擇] 結果：未知（沒有可信的選包結果）；驅動包：未知；偵測型號：未知；包支援型號：未知；手動確認型號：未知'}}
+    Write-Host $DriverChoice.Text
     Write-Host '[1/19] 管理員免提示與開機自動登入' -ForegroundColor Cyan
     & (Resolve-NucPath 'apply_uac_settings.ps1')
     # Start the progress pane only after the SecureString credential prompt has returned.
@@ -57,7 +60,7 @@ try {
      }catch{$failedModules+='install_drivers.ps1';$stageErrors+=('最終驅動核對：'+$_.Exception.Message);Write-Warning $stageErrors[-1]}
     }
     $pendingModules=@(if($startResult -and -not $startResult.Success){[pscustomobject]@{Module='apply_start_menu_settings.ps1';Status=$startResult.Status}})
-    $summary=[ordered]@{Success=($stageErrors.Count -eq 0 -and $problems.Count -eq 0 -and $pendingModules.Count -eq 0);PendingModules=$pendingModules;Computer=$env:COMPUTERNAME;CompletedAt=(Get-Date).ToString('o');AutoLogonUser=$auto.DefaultUserName;AutoLogonEnabled=($auto.AutoAdminLogon -eq '1');RequiresNextSignIn=$true;ProblemDeviceCount=$problems.Count;StageErrors=$stageErrors;FailedModules=$failedModules;HardwareProfile=$hardware;SkippedModules=$skippedModules;UserSID=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;RebootRequired=((Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'))}
+    $summary=[ordered]@{Success=($stageErrors.Count -eq 0 -and $problems.Count -eq 0 -and $pendingModules.Count -eq 0);PendingModules=$pendingModules;Computer=$env:COMPUTERNAME;CompletedAt=(Get-Date).ToString('o');AutoLogonUser=$auto.DefaultUserName;AutoLogonEnabled=($auto.AutoAdminLogon -eq '1');RequiresNextSignIn=$true;ProblemDeviceCount=$problems.Count;StageErrors=$stageErrors;FailedModules=$failedModules;HardwareProfile=$hardware;DriverChoice=$DriverChoice.Record;SkippedModules=$skippedModules;UserSID=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;RebootRequired=((Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired'))}
     $summary|ConvertTo-Json -Depth 5|Set-Content (Resolve-NucPath 'Setup-Result.json') -Encoding UTF8
     try{
         $startResult=Complete-StartPinsPending -Result $startResult -StageErrors $stageErrors -ProblemCount $problems.Count -NonInteractive:$NonInteractive -Apply {param([switch]$ApplyPolicy) & (Resolve-NucPath 'apply_start_menu_settings.ps1') -ApplyPolicy:$ApplyPolicy}

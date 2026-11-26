@@ -54,6 +54,7 @@
   "desktop_safety.ps1": "modules/desktop/desktop_safety.ps1",
   "apply_autologon_settings.ps1": "modules/accounts/apply_autologon_settings.ps1",
   "apply_autologon_settings.cmd": "modules/accounts/apply_autologon_settings.cmd",
+  "autologon_library.ps1": "modules/accounts/autologon_library.ps1",
   "Autologon64.exe": "modules/accounts/Autologon64.exe",
   "apply_pagefile_settings.ps1": "modules/memory/apply_pagefile_settings.ps1",
   "apply_pagefile_settings.cmd": "modules/memory/apply_pagefile_settings.cmd",
