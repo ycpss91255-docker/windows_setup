@@ -70,6 +70,12 @@ function Invoke-CurrentUserAutologonRestore {
  $root=Join-Path $env:ProgramData 'NUC8-Setup'
  Invoke-SetupAutologonRestore -ReportPath (Join-Path $root 'Autologon-Result.json') -UserSid ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value)
 }
+function Write-CurrentUserAutologonApply {
+ param([Parameter(Mandatory=$true)][bool]$Success)
+ $path=Assert-SetupAutologonPlainPath (Join-Path $env:ProgramData 'NUC8-Setup\Autologon-Result.json')
+ $result=[ordered]@{Success=$Success;Mode='Apply';UserSID=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value;Computer=$env:COMPUTERNAME;CheckedAt=(Get-Date).ToString('o');Error=$(if($Success){''}else{'套用尚未完成或未通過讀回。'});Scope='此電腦自動登入套用結果；實際自動登入需重新開機確認。'}
+ [void][IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($path));[IO.File]::WriteAllText($path,($result|ConvertTo-Json),(New-Object Text.UTF8Encoding($true)))
+}
 function Get-SetupAutologonRestoreVerification {
  param([Parameter(Mandatory=$true)][string]$ReportPath,[string]$UserSid=([Security.Principal.WindowsIdentity]::GetCurrent().User.Value),[string]$Computer=$env:COMPUTERNAME)
  $ReportPath=Assert-SetupAutologonPlainPath $ReportPath
