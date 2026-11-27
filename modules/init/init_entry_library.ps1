@@ -31,12 +31,29 @@ function Get-SetupInitPreparationFacts {
   $nativeProfile=[Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile,[Environment+SpecialFolderOption]::DoNotVerify)
   $profileMatches=($registered -and $nativeProfile -and [IO.Path]::GetFullPath($registered).TrimEnd('\') -ieq [IO.Path]::GetFullPath($nativeProfile).TrimEnd('\'))
   $processes=@(Get-CimInstance Win32_Process -Filter "Name='msoobe.exe' OR Name='CloudExperienceHostBroker.exe' OR Name='CloudExperienceHostApp.exe' OR Name='oobenetworkconnectionflow.exe' OR Name='setup.exe' OR Name='setuphost.exe' OR Name='setupprep.exe' OR Name='sysprep.exe'" -ErrorAction Stop|Where-Object SessionId -eq $Identity.SessionId)
-  $oobe=@($processes|Where-Object {$_.Name -in @('msoobe.exe','CloudExperienceHostBroker.exe','CloudExperienceHostApp.exe','oobenetworkconnectionflow.exe')}).Count -gt 0
-  $setupBusy=@($processes|Where-Object {$_.Name -in @('setup.exe','setuphost.exe','setupprep.exe','sysprep.exe')}).Count -gt 0
+  $oobeNames=[string[]]@($processes|Where-Object {$_.Name -in @('msoobe.exe','CloudExperienceHostBroker.exe','CloudExperienceHostApp.exe','oobenetworkconnectionflow.exe')}|ForEach-Object {[string]$_.Name}|Sort-Object -Unique)
+  $setupNames=[string[]]@($processes|Where-Object {$_.Name -in @('setup.exe','setuphost.exe','setupprep.exe','sysprep.exe')}|ForEach-Object {[string]$_.Name}|Sort-Object -Unique)
+  $sysprepIds=[int[]]@($processes|Where-Object {$_.Name -eq 'sysprep.exe' -and $null -ne $_.ProcessId}|ForEach-Object {[int]$_.ProcessId}|Where-Object {$_ -gt 0})
+  $oobe=$oobeNames.Count -gt 0
+  $setupBusy=$setupNames.Count -gt 0
   $localBuiltin=$false
   if($Identity.Sid -match '-500$'){$user=Get-LocalUser -SID $Identity.UserSID -ErrorAction Stop;$localBuiltin=([string]$user.SID -eq $Identity.Sid)}
-  return @{ReadSucceeded=$true;Build=[int]$os.BuildNumber;ProductType=[int]$os.ProductType;IsWinPE=[bool](Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\MiniNT' -ErrorAction Stop);OobeApiSucceeded=$completion.Succeeded;OobeComplete=$completion.Complete;SetupInProgress=$setup.SystemSetupInProgress;OobeInProgress=$setup.OOBEInProgress;OobeProcessInSession=$oobe;SetupProcessInSession=$setupBusy;ProfileMatches=[bool]$profileMatches;LocalBuiltin=[bool]$localBuiltin}
+  return @{ReadSucceeded=$true;Build=[int]$os.BuildNumber;ProductType=[int]$os.ProductType;IsWinPE=[bool](Test-Path -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\MiniNT' -ErrorAction Stop);OobeApiSucceeded=$completion.Succeeded;OobeComplete=$completion.Complete;SetupInProgress=$setup.SystemSetupInProgress;OobeInProgress=$setup.OOBEInProgress;OobeProcessInSession=$oobe;SetupProcessInSession=$setupBusy;OobeProcessNames=$oobeNames;SetupProcessNames=$setupNames;SysprepProcessIds=$sysprepIds;ProfileMatches=[bool]$profileMatches;LocalBuiltin=[bool]$localBuiltin}
  }catch{return @{ReadSucceeded=$false}}
+}
+# Asks the Audit-mode Sysprep dialog window to close (same as Cancel); never force-kills a process that may be working.
+function Close-SetupInitSysprepDialog {
+ param([int[]]$ProcessIds)
+ if(-not $ProcessIds -or $ProcessIds.Count -eq 0){return $false}
+ foreach($id in $ProcessIds){
+  try{$process=[Diagnostics.Process]::GetProcessById($id)}catch{continue}
+  try{
+   if($process.ProcessName -ine 'sysprep' -or $process.MainWindowHandle -eq [IntPtr]::Zero){return $false}
+   if(-not $process.CloseMainWindow()){return $false}
+   if(-not $process.WaitForExit(15000)){return $false}
+  }catch{return $false}finally{$process.Dispose()}
+ }
+ return $true
 }
 function Test-SetupInitInteractiveHost {
  try {return [Environment]::UserInteractive -and $Host.Name -ceq 'ConsoleHost' -and -not [Console]::IsInputRedirected} catch {return $false}
@@ -60,6 +77,15 @@ $sid=$context.Sid
 if($ExpectedUserSID -and $ExpectedUserSID -ne $sid){throw '提權後帳號已改變，請使用原帳號的管理員權限。'}
 $admin=$context.IsAdministrator;$imageState=$context.ImageState;$desktopOwned=$context.DesktopOwned
 $route=Get-InitRoute -Sid $sid -ImageState $imageState -IsAdministrator $admin -DesktopOwned $desktopOwned -ModeFacts $context.ModeFacts
+if($route -eq 'RejectUnknownSetupState' -and (Test-InitSysprepDialogOnlyBlocker -Sid $sid -ImageState $imageState -IsAdministrator $admin -DesktopOwned $desktopOwned -ModeFacts $context.ModeFacts)){
+ if(-not (Close-SetupInitSysprepDialog -ProcessIds $context.ModeFacts.SysprepProcessIds)){throw '稽核模式自動開啟的 Sysprep（系統準備工具）對話框無法自動關閉，未變更設定。請在該視窗按「取消」關閉後，再重跑 init.cmd。'}
+ Write-Host '已關閉稽核模式自動開啟的 Sysprep（系統準備工具）對話框，重新確認狀態。'
+ $context=Get-SetupInitContext
+ $sid=$context.Sid
+ if($ExpectedUserSID -and $ExpectedUserSID -ne $sid){throw '提權後帳號已改變，請使用原帳號的管理員權限。'}
+ $admin=$context.IsAdministrator;$imageState=$context.ImageState;$desktopOwned=$context.DesktopOwned
+ $route=Get-InitRoute -Sid $sid -ImageState $imageState -IsAdministrator $admin -DesktopOwned $desktopOwned -ModeFacts $context.ModeFacts
+}
 Write-Host ('=== Init：Windows '+[Environment]::OSVersion.Version+'；階段 '+$route+' ===') -ForegroundColor Cyan
 if($route -eq 'ElevationRequired'){
  Write-Host '請允許目前帳號的管理員權限；不可輸入另一個管理員帳號。'
@@ -69,7 +95,7 @@ if($route -eq 'ElevationRequired'){
  return
 }
 if($route -eq 'RejectBuiltinAdministrator'){throw '目前是一般 Administrator 桌面，不是可確認的稽核模式。請登入正式的本機管理員帳號再執行 Init。'}
-if($route -eq 'RejectUnknownSetupState'){throw ('無法確認帳號準備條件或正式使用者桌面；狀態未知、矛盾或仍忙碌，未變更設定。ImageState='+$imageState)}
+if($route -eq 'RejectUnknownSetupState'){throw ('無法確認帳號準備條件或正式使用者桌面，未變更設定。不符條件：'+((Get-InitRouteRejectReasons -Sid $sid -ImageState $imageState -IsAdministrator $admin -DesktopOwned $desktopOwned -ModeFacts $context.ModeFacts) -join '；')+'。ImageState='+$imageState)}
 if(-not $context.Is64Bit -or $context.Architecture -ne 'AMD64'){throw '本入口僅支援 x64 Windows，請用 64 位元 Windows PowerShell。'}
 if($route -eq 'DesktopReady'){
  $user=Get-LocalUser -SID $context.UserSID -ErrorAction Stop
