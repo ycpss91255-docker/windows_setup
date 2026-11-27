@@ -45,6 +45,8 @@ function Remove-SetupResumeTree {
  param([Parameter(Mandatory=$true)][string]$Path)
  if(-not(Test-Path -LiteralPath $Path)){return}
  Assert-SetupGuiPlainPath $Path
+ # 只刪除已確認是本工具建立的受保護目錄；擁有者或 ACL 不符時保留原資料。
+ try{Assert-SetupGuiProtectedPath $Path -Directory}catch{throw ('不是本工具建立的受保護目錄，保留原資料未刪除：'+$Path+'（'+$_.Exception.Message+'）')}
  Remove-Item -LiteralPath $Path -Recurse -Force -ErrorAction Stop
 }
 function Publish-SetupResumeRuntime {

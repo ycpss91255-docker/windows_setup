@@ -22,7 +22,8 @@ try{
  $script:acl=@();$script:tasks=@{};$script:registerCount=0;$script:unregisterCount=0;$script:afterCalls=0;$script:rebootPending=$false
  function Assert-SetupGuiAncestors {param($CommonDataRoot) if(-not $CommonDataRoot.StartsWith($temp)){throw 'fixture outside TEMP'}}
  function New-SetupGuiProtectedDirectory {param($Path,$UserSid) if(-not $Path.StartsWith($temp)){throw 'fixture outside TEMP'};[void][IO.Directory]::CreateDirectory($Path);$script:acl+=@([pscustomobject]@{Path=$Path;UserSid=$UserSid})}
- function Assert-SetupGuiProtectedPath {param($Path,[switch]$Directory,$UserSid) if(-not $Path.StartsWith($temp) -or -not(Test-Path -LiteralPath $Path)){throw ('fixture path absent: '+$Path)}}
+ $script:untrusted=''
+ function Assert-SetupGuiProtectedPath {param($Path,[switch]$Directory,$UserSid) if(-not $Path.StartsWith($temp) -or -not(Test-Path -LiteralPath $Path)){throw ('fixture path absent: '+$Path)};if($script:untrusted -and ($Path -eq $script:untrusted -or $Path.StartsWith($script:untrusted+'\'))){throw 'GUI worker路徑擁有者不可信，保留原資料並拒絕接管。'}}
  function Get-ScheduledTask {param($TaskName,$ErrorAction) if($script:tasks.ContainsKey($TaskName)){$script:tasks[$TaskName]}}
  function Unregister-ScheduledTask {param($TaskName,[switch]$Confirm,$ErrorAction) $script:unregisterCount++;$script:tasks.Remove($TaskName)}
  function New-ScheduledTaskTrigger {param([switch]$AtLogOn,$User) [pscustomobject]@{AtLogOn=[bool]$AtLogOn;User=$User;Delay=''}}
@@ -92,6 +93,14 @@ try{
  Assert (-not $foreign.Registered -and $foreign.Error.Contains('拒絕覆寫') -and $script:tasks[$taskName].Description -ceq 'someone else') '同名但不是本工具的排程不覆寫'
  $script:tasks.Remove($taskName)
 
+ # resume 目錄不是本工具建立的受保護目錄：停止接管，保留原資料，不登記。
+ [void][IO.Directory]::CreateDirectory($paths.Root);$marker=Join-Path $paths.Root 'someone_else.txt';[IO.File]::WriteAllText($marker,'keep')
+ $script:untrusted=$paths.Root
+ $untrustedRun=Invoke-SetupResumeRegistration -PackageRoot $package -Hardware $hardware -StartedAt (Get-Date).AddMinutes(-5)
+ $script:untrusted=''
+ Assert (-not $untrustedRun.Registered -and $untrustedRun.Error.Contains('不可信') -and (Test-Path -LiteralPath $marker) -and -not $script:tasks.ContainsKey($taskName)) ('不可信的 resume 目錄停止接管並保留原資料；error='+$untrustedRun.Error)
+ Remove-Item -LiteralPath $paths.Root -Recurse -Force
+
  $badHardware=[pscustomobject]@{DriverProfileId='p1';DriverPackagePath=$driverPackage;DriverSelection=[pscustomobject]@{SchemaVersion=1;PackageSHA256=$selection.PackageSHA256;ManifestSHA256=('0'*64)}}
  $badDriver=Invoke-SetupResumeRegistration -PackageRoot $package -Hardware $badHardware -StartedAt (Get-Date).AddMinutes(-5)
  Assert (-not $badDriver.Registered -and $badDriver.Error.Contains('驅動包清單') -and -not $script:tasks.ContainsKey($taskName) -and -not(Test-Path -LiteralPath $paths.Root)) '驅動清單與本輪選擇不同時不登記'
@@ -141,6 +150,24 @@ try{
  $hash=Restore-ResumeFixture
  $wrong=Invoke-SetupResumeAfterRestart -ManifestSHA256 ('a'*64) -RuntimeRoot $paths.Runtime -AfterRestart {$script:afterCalls++}
  Assert ($wrong.Status -ceq 'IntegrityFailed' -and $script:afterCalls -eq 0 -and $wrong.Message.Contains('清單')) '清單雜湊與排程登記值不同時停止'
+
+ # 清單的同機、同帳號比對：清單雜湊相符但內容屬於另一臺電腦或另一個帳號時停止。
+ foreach($field in @('Computer','UserSID')){
+  $hash=Restore-ResumeFixture
+  $value=Get-Content -LiteralPath $paths.Manifest -Raw -Encoding UTF8|ConvertFrom-Json
+  $value.$field='fixture-foreign-'+$field
+  Write-SetupGuiAtomicJson -Path $paths.Manifest -Value $value
+  $foreignHash=Get-Hash $paths.Manifest
+  $identity=Invoke-SetupResumeAfterRestart -ManifestSHA256 $foreignHash -RuntimeRoot $paths.Runtime -AfterRestart {$script:afterCalls++}
+  Assert ($identity.Status -ceq 'IntegrityFailed' -and $script:afterCalls -eq 0 -and $identity.Message.Contains('同機、同帳號')) ('續跑清單不是同機、同帳號時停止：'+$field)
+ }
+
+ # 次數紀錄因目錄 ACL 不符而判定超過上限：移除登記，但不刪除未確認擁有權的目錄。
+ $hash=Restore-ResumeFixture
+ $script:untrusted=$paths.Root
+ $foreignRoot=Invoke-SetupResumeAfterRestart -ManifestSHA256 $hash -RuntimeRoot $paths.Runtime -AfterRestart {$script:afterCalls++}
+ $script:untrusted=''
+ Assert ($foreignRoot.Status -ceq 'AttemptLimit' -and $script:afterCalls -eq 0 -and -not $script:tasks.ContainsKey($taskName) -and (Test-Path -LiteralPath $paths.Runtime) -and $foreignRoot.Message.Contains('保留')) ('未確認擁有權的續跑目錄只移除登記並保留；message='+$foreignRoot.Message)
 
  $hash=Restore-ResumeFixture
  Remove-Item -LiteralPath (Join-Path $paths.Driver 'manifest.json') -Force
