@@ -66,6 +66,15 @@ function Get-InitRouteRejectReasons {
  if($reasons.Count -eq 0){$reasons.Add('狀態組合無法判斷')}
  return [string[]]$reasons.ToArray()
 }
+# True when same-session Setup/OOBE processes are the only blockers, e.g. still finishing early in an Audit boot.
+function Test-InitTransientSetupBlocker {
+ param([string]$Sid,[string]$ImageState,[bool]$IsAdministrator,[bool]$DesktopOwned,$ModeFacts)
+ if($Sid -notmatch '-500$' -or -not $IsAdministrator -or $ImageState -notin (Get-InitPreparableImageState)){return $false}
+ if($ModeFacts -isnot [Collections.IDictionary] -or $ModeFacts.ReadSucceeded -isnot [bool] -or -not $ModeFacts.ReadSucceeded){return $false}
+ if($ModeFacts.SetupProcessInSession -ne $true -and $ModeFacts.OobeProcessInSession -ne $true){return $false}
+ $probe=@{};foreach($key in $ModeFacts.Keys){$probe[$key]=$ModeFacts[$key]};$probe['SetupProcessInSession']=$false;$probe['OobeProcessInSession']=$false
+ return ((Get-InitRoute -Sid $Sid -ImageState $ImageState -IsAdministrator $IsAdministrator -DesktopOwned $DesktopOwned -ModeFacts $probe) -ceq 'PrepareOobe')
+}
 # True only when the sole blocker is the Sysprep dialog that Audit mode opens by itself.
 function Test-InitSysprepDialogOnlyBlocker {
  param([string]$Sid,[string]$ImageState,[bool]$IsAdministrator,[bool]$DesktopOwned,$ModeFacts)
