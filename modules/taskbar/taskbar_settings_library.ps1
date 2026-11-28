@@ -83,8 +83,8 @@ try{Set-SetupTaskbarRegistryValue -Path $advanced -Name TaskbarDa -Value 0 -Prop
 try{Set-SetupTaskbarRegistryValue -Path $advanced -Name ShowTaskViewButton -Value 0 -PropertyType DWord|Out-Null}catch{
  # 系統保護（例如 User Choice Protection）擋下個人值時改用官方機器原則 HideTaskViewButton（Taskbar.admx，class=Both）；其他錯誤照常失敗。
  if(-not(Test-SetupTaskbarAccessDenied $_.Exception)){throw}
- Write-Warning ('工作檢視按鈕個人開關受保護（'+$advanced+'\ShowTaskViewButton），將以機器原則隱藏：'+$_.Exception.Message)
  $machineExplorer='HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer'
+ Write-Warning ('工作檢視按鈕個人開關受保護（'+$advanced+'\ShowTaskViewButton），改以 HKLM 機器原則 '+$machineExplorer+'\HideTaskViewButton=1 隱藏；此原則對這臺電腦的所有使用者生效：'+$_.Exception.Message)
  Initialize-SetupTaskbarRegistryKey -Path $machineExplorer -ForValue HideTaskViewButton
  Set-SetupTaskbarRegistryValue -Path $machineExplorer -Name HideTaskViewButton -Value 1 -PropertyType DWord|Out-Null
 }

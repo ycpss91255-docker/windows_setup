@@ -19,11 +19,11 @@ $layout=Join-Path $temp 'TaskbarLayout.xml'
 function Reset-Scene {
  $script:reg=@{};foreach($k in $scene.Keys){$v=@{};foreach($p in $k.Values.PSObject.Properties){$v[$p.Name]=$p.Value};$script:reg[$k.Path]=$v}
  $script:deny=@{};foreach($d in $scene.ObservedDenials){$script:deny[$d.Path+'|'+$d.Name]=$d.Message}
- $script:denyKeys=@{};$script:attempts=@()
+ $script:denyKeys=@{};$script:attempts=@();$script:failOther=@{}
 }
 function Test-Path {param($Path,$LiteralPath,$PathType,$ErrorAction) $p=if($LiteralPath){$LiteralPath}else{$Path};if($p -like 'HK*'){return $script:reg.ContainsKey($p)};Microsoft.PowerShell.Management\Test-Path @PSBoundParameters}
 function New-Item {param($Path,[switch]$Force,$ErrorAction) if($Path -notlike 'HK*'){throw 'no real key creation'};if($script:denyKeys.ContainsKey($Path)){throw [UnauthorizedAccessException]::new($scene.UnattributedDenialMessage)};$script:reg[$Path]=@{}}
-function New-ItemProperty {param($Path,$Name,$Value,$PropertyType,[switch]$Force,$ErrorAction) if($Path -notlike 'HK*' -or -not $Force){throw 'unexpected registry write'};$script:attempts+=@($Path+'|'+$Name);if($script:deny.ContainsKey($Path+'|'+$Name)){throw [UnauthorizedAccessException]::new($script:deny[$Path+'|'+$Name])};if(-not $script:reg.ContainsKey($Path)){throw 'fixture key missing'};$script:reg[$Path][$Name]=$Value}
+function New-ItemProperty {param($Path,$Name,$Value,$PropertyType,[switch]$Force,$ErrorAction) if($Path -notlike 'HK*' -or -not $Force){throw 'unexpected registry write'};$script:attempts+=@($Path+'|'+$Name);if($script:deny.ContainsKey($Path+'|'+$Name)){throw [UnauthorizedAccessException]::new($script:deny[$Path+'|'+$Name])};if($script:failOther.ContainsKey($Path+'|'+$Name)){throw [IO.IOException]::new($script:failOther[$Path+'|'+$Name])};if(-not $script:reg.ContainsKey($Path)){throw 'fixture key missing'};$script:reg[$Path][$Name]=$Value}
 function Get-ItemProperty {param($Path,$LiteralPath,$Name,$ErrorAction) $p=if($LiteralPath){$LiteralPath}else{$Path};if($script:reg.ContainsKey($p)){return [pscustomobject]$script:reg[$p]};return $null}
 function Export-SetupTaskbarBackup {param($Path) if(-not $Path.StartsWith($temp)){throw 'backup outside TEMP'}}
 function Invoke-SetupTaskbarNativeAutoHide {param($ModuleRoot,[bool]$Apply) return [uint32]1}
@@ -62,6 +62,7 @@ try{
  $r=Invoke-SetupTaskbarSettings -OutputRoot $temp -LayoutPath $layout -WarningVariable warn -WarningAction SilentlyContinue
  Assert ($r.Success -and $script:reg[$machineExplorer].HideTaskViewButton -eq 1 -and $r.TaskViewPolicy -eq 1 -and $r.TaskViewButtonSource -ceq 'MachinePolicy' -and $r.ShowTaskViewButton -eq 1) '受保護的工作檢視按鈕改以機器原則隱藏，讀回後通過並回報來源'
  Assert (@($warn|Where-Object{"$_".Contains($advanced) -and "$_".Contains('ShowTaskViewButton')}).Count -eq 1) '工作檢視按鈕受保護警告指出機碼與值名稱'
+ Assert (@($warn|Where-Object{"$_".Contains($machineExplorer+'\HideTaskViewButton') -and "$_".Contains('所有使用者')}).Count -eq 1) '改用機器原則的警告說明 HKLM HideTaskViewButton 對這臺電腦所有使用者生效'
  $script:reg[$userPolicy].Remove('StartLayoutFile');$script:reg[$userPolicy].Remove('LockedStartLayout');$before=$script:attempts.Count
  $v=Invoke-SetupTaskbarSettings -OutputRoot $temp -LayoutPath $layout -VerifyOnly
  Assert ($v.Success -and $v.Status -ceq 'Confirmed' -and $v.TaskViewButtonSource -ceq 'MachinePolicy' -and $script:attempts.Count -eq $before) 'VerifyOnly 以同一讀回條件確認機器原則，且不寫入'
@@ -72,6 +73,14 @@ try{
  Reset-Scene;$script:reg[$advanced].ShowTaskViewButton=1;$script:deny["$advanced|ShowTaskViewButton"]=$scene.UnattributedDenialMessage;$script:deny["$machineExplorer|HideTaskViewButton"]=$scene.UnattributedDenialMessage
  $err=$null;try{Invoke-SetupTaskbarSettings -OutputRoot $temp -LayoutPath $layout -WarningAction SilentlyContinue|Out-Null}catch{$err=$_}
  Assert ($null -ne $err -and $err.Exception.Message.Contains($machineExplorer) -and $err.Exception.Message.Contains('HideTaskViewButton')) '替代機器原則也被拒時如實失敗並指出機碼與值名稱'
+ # 5b. 工作檢視按鈕寫入的錯誤不是未經授權（例如 I/O 錯誤）：照常失敗，不改用機器原則。
+ Reset-Scene;$script:reg[$advanced].ShowTaskViewButton=1;$script:failOther["$advanced|ShowTaskViewButton"]='fixture I/O failure'
+ $err=$null;try{Invoke-SetupTaskbarSettings -OutputRoot $temp -LayoutPath $layout -WarningAction SilentlyContinue|Out-Null}catch{$err=$_}
+ Assert ($null -ne $err -and $err.Exception.Message.Contains($advanced) -and $err.Exception.Message.Contains('ShowTaskViewButton') -and "$machineExplorer|HideTaskViewButton" -notin $script:attempts -and -not $script:reg.ContainsKey($machineExplorer)) '工作檢視按鈕非未經授權的錯誤照常失敗，不改寫 HideTaskViewButton 機器原則'
+ # 5c. 原值型別不符（REG_SZ "0"）不算已是目標值：必須以 DWord 改寫並讀回。
+ Reset-Scene;$script:reg[$advanced].ShowTaskViewButton='0'
+ $r=Invoke-SetupTaskbarSettings -OutputRoot $temp -LayoutPath $layout -WarningAction SilentlyContinue
+ Assert ("$advanced|ShowTaskViewButton" -in $script:attempts -and $script:reg[$advanced].ShowTaskViewButton -is [int] -and $script:reg[$advanced].ShowTaskViewButton -eq 0 -and $r.Success) '原值為 REG_SZ "0" 時不視為已是目標值，改寫為 DWord 0'
  # 6. 缺少的機碼建立被拒：訊息指出機碼與準備寫入的值名稱。
  Reset-Scene;$script:reg.Remove($widgets);$script:denyKeys[$widgets]=$true
  $err=$null;try{Invoke-SetupTaskbarSettings -OutputRoot $temp -LayoutPath $layout -WarningAction SilentlyContinue|Out-Null}catch{$err=$_}
